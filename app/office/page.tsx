@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState } from "react";
+
+import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 
 type CompanionResult = {
   action: "draft" | "clarify" | "answer";
@@ -59,7 +60,6 @@ declare global {
 }
 
 export default function OfficePage() {
-  const router = useRouter();
   const textInputRef = useRef<HTMLInputElement>(null);
 
   const [request, setRequest] = useState("");
@@ -244,26 +244,7 @@ ${request.trim()}
   }
 
   return (
-    <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
-      <picture>
-        <source media="(max-width: 639px)" srcSet="/office.mobile.png" />
-
-        <img
-          src="/office.desktop.png"
-          alt="Smiling Monad Office"
-          className="absolute inset-0 h-full w-full select-none object-cover object-center"
-          draggable={false}
-        />
-      </picture>
-
-      <button
-        type="button"
-        onClick={() => router.push("/")}
-        className="absolute left-3 top-3 z-30 rounded-full bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md focus:outline-none focus:ring-4 focus:ring-white/80 sm:left-5 sm:top-5 sm:px-5 sm:py-3"
-      >
-        Back
-      </button>
-
+    <OfficeEnvironment>
       {!result && (
         <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
           <form
@@ -434,6 +415,6 @@ ${request.trim()}
           </footer>
         </section>
       )}
-    </main>
+    </OfficeEnvironment>
   );
 }
