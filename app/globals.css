@@ -1,0 +1,319 @@
+@import "tailwindcss";
+
+/* =========================================================
+   THE SMILING MONAD — DESIGN FOUNDATION
+   Calm, warm, human and quietly intelligent
+   ========================================================= */
+
+:root {
+  /* Core colours */
+  --sm-ink: #211d19;
+  --sm-ink-soft: #514a43;
+  --sm-muted: #786f66;
+  --sm-faint: #9b9289;
+
+  --sm-canvas: #eee8df;
+  --sm-canvas-light: #f7f3ed;
+  --sm-paper: #fffdf9;
+  --sm-paper-soft: rgba(255, 253, 249, 0.82);
+  --sm-glass: rgba(255, 255, 255, 0.76);
+
+  --sm-sand: #dfc19b;
+  --sm-sand-light: #ead8c0;
+  --sm-timber: #a98360;
+  --sm-charcoal: #191715;
+
+  --sm-success: #19b973;
+  --sm-warning: #e7a43c;
+  --sm-danger: #d85d56;
+  --sm-info: #5e91d9;
+
+  /* Borders */
+  --sm-border: rgba(48, 38, 29, 0.08);
+  --sm-border-strong: rgba(48, 38, 29, 0.14);
+  --sm-border-light: rgba(255, 255, 255, 0.72);
+
+  /* Radius */
+  --sm-radius-small: 0.85rem;
+  --sm-radius-medium: 1.25rem;
+  --sm-radius-large: 1.75rem;
+  --sm-radius-panel: 2rem;
+
+  /* Shadows */
+  --sm-shadow-soft:
+    0 8px 24px rgba(58, 43, 31, 0.08),
+    0 2px 7px rgba(58, 43, 31, 0.04);
+
+  --sm-shadow-panel:
+    0 18px 55px rgba(58, 43, 31, 0.13),
+    0 4px 14px rgba(58, 43, 31, 0.05);
+
+  --sm-shadow-floating:
+    0 24px 70px rgba(47, 35, 25, 0.18),
+    0 7px 20px rgba(47, 35, 25, 0.07);
+
+  /* Motion */
+  --sm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --sm-fast: 160ms;
+  --sm-normal: 260ms;
+
+  --background: var(--sm-canvas);
+  --foreground: var(--sm-ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--sm-canvas);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0) 32%
+    ),
+    linear-gradient(
+      145deg,
+      #f5f0e8 0%,
+      #ebe3d8 48%,
+      #ded2c4 100%
+    );
+  color: var(--sm-ink);
+  font-family:
+    var(--font-geist-sans),
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(223, 193, 155, 0.55);
+  color: var(--sm-ink);
+}
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline: 3px solid rgba(94, 145, 217, 0.4);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================================
+   REUSABLE SMILING MONAD SURFACES
+   ========================================================= */
+
+.sm-glass {
+  border: 1px solid var(--sm-border-light);
+  background: var(--sm-glass);
+  box-shadow: var(--sm-shadow-panel);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.sm-panel {
+  border: 1px solid var(--sm-border-light);
+  border-radius: var(--sm-radius-panel);
+  background: var(--sm-paper-soft);
+  box-shadow: var(--sm-shadow-panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.sm-card {
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-medium);
+  background: var(--sm-paper);
+  box-shadow: var(--sm-shadow-soft);
+  transition:
+    transform var(--sm-normal) var(--sm-ease),
+    box-shadow var(--sm-normal) var(--sm-ease),
+    border-color var(--sm-normal) var(--sm-ease);
+}
+
+.sm-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--sm-border-strong);
+  box-shadow: var(--sm-shadow-panel);
+}
+
+.sm-button-primary {
+  border: 0;
+  border-radius: 999px;
+  background: var(--sm-charcoal);
+  color: white;
+  box-shadow: var(--sm-shadow-soft);
+  transition:
+    transform var(--sm-fast) var(--sm-ease),
+    background var(--sm-fast) ease,
+    box-shadow var(--sm-fast) ease;
+}
+
+.sm-button-primary:hover {
+  transform: translateY(-1px);
+  background: #050505;
+  box-shadow: var(--sm-shadow-panel);
+}
+
+.sm-button-secondary {
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-small);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--sm-ink-soft);
+  box-shadow: 0 3px 12px rgba(58, 43, 31, 0.05);
+  transition:
+    transform var(--sm-fast) var(--sm-ease),
+    background var(--sm-fast) ease,
+    border-color var(--sm-fast) ease;
+}
+
+.sm-button-secondary:hover {
+  transform: translateY(-1px);
+  border-color: var(--sm-border-strong);
+  background: white;
+}
+
+/* =========================================================
+   COMPANION PRESENCE
+   ========================================================= */
+
+.sm-online-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--sm-success);
+  box-shadow: 0 0 0 4px rgba(25, 185, 115, 0.11);
+}
+
+.sm-online-dot::after {
+  position: absolute;
+  inset: -4px;
+  content: "";
+  border: 1px solid rgba(25, 185, 115, 0.38);
+  border-radius: inherit;
+  animation: sm-presence-pulse 2.8s ease-out infinite;
+}
+
+@keyframes sm-presence-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.75);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+/* =========================================================
+   SUBTLE PAGE ARRIVAL
+   ========================================================= */
+
+.sm-enter {
+  animation: sm-enter 520ms var(--sm-ease) both;
+}
+
+@keyframes sm-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================================
+   SCROLLBARS
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(78, 67, 57, 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(78, 67, 57, 0.24);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(78, 67, 57, 0.38);
+  background-clip: padding-box;
+}
