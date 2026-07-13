@@ -1,15 +1,277 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+type CompanionResult = {
+  action: "draft" | "clarify" | "answer";
+  application:
+    | "shift-report"
+    | "correspondence"
+    | "notes"
+    | "planning"
+    | "general";
+  title: string;
+  question: string;
+  content: string;
+  error?: string;
+};
+
+type SavedMemory = {
+  request: string;
+  application: string;
+  title: string;
+  approvedContent: string;
+};
+
 export default function OfficePage() {
+  const router = useRouter();
+
+  const [request, setRequest] = useState("");
+  const [originalRequest, setOriginalRequest] = useState("");
+  const [result, setResult] = useState<CompanionResult | null>(null);
+  const [working, setWorking] = useState(false);
+  const [approvedContent, setApprovedContent] = useState("");
+
+  async function askCompanion(message?: string) {
+    const currentRequest = (message ?? request).trim();
+
+    if (!currentRequest || working) return;
+
+    setWorking(true);
+
+    if (!originalRequest) {
+      setOriginalRequest(currentRequest);
+    }
+
+    try {
+      const memory =
+        window.localStorage.getItem("smiling-monad-memory") || "[]";
+
+      const response = await fetch("/api/gateway", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          request: currentRequest,
+          memory,
+        }),
+      });
+
+      const data = (await response.json()) as CompanionResult;
+
+      if (!response.ok) {
+        throw new Error(data.error || "The Companion could not respond.");
+      }
+
+      setResult(data);
+      setApprovedContent(data.content || "");
+      setRequest("");
+    } catch (error) {
+      setResult({
+        action: "answer",
+        application: "general",
+        title: "Something went wrong",
+        question: "",
+        content:
+          error instanceof Error
+            ? error.message
+            : "The Companion could not respond.",
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function answerQuestion() {
+    if (!result?.question || !request.trim()) return;
+
+    const combinedRequest = `
+Original request:
+${originalRequest}
+
+The Companion asked:
+${result.question}
+
+User's answer:
+${request.trim()}
+`;
+
+    askCompanion(combinedRequest);
+  }
+
+  async function approve() {
+    if (!result || !approvedContent.trim()) return;
+
+    const existingMemory = JSON.parse(
+      window.localStorage.getItem("smiling-monad-memory") || "[]"
+    ) as SavedMemory[];
+
+    const updatedMemory: SavedMemory[] = [
+      ...existingMemory,
+      {
+        request: originalRequest,
+        application: result.application,
+        title: result.title,
+        approvedContent: approvedContent.trim(),
+      },
+    ].slice(-10);
+
+    window.localStorage.setItem(
+      "smiling-monad-memory",
+      JSON.stringify(updatedMemory)
+    );
+
+    await fetch("/api/profiles", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        memory: updatedMemory,
+      }),
+    });
+
+    setResult(null);
+    setRequest("");
+    setOriginalRequest("");
+    setApprovedContent("");
+  }
+
+  function closeWork() {
+    setResult(null);
+    setRequest("");
+    setOriginalRequest("");
+    setApprovedContent("");
+  }
+
   return (
-    <main
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        fontSize: "32px",
-      }}
-    >
-      Office is working.
+    <main className="relative h-[100dvh] w-screen overflow-hidden bg-[#d9c3a6]">
+      <img
+        src="/officeimage.png"
+        alt="Smiling Monad Office"
+        className="absolute inset-0 h-full w-full select-none object-cover object-center"
+        draggable={false}
+      />
+
+      <button
+        onClick={() => router.push("/")}
+        className="absolute left-3 top-3 z-30 rounded-full bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md sm:left-5 sm:top-5 sm:px-5 sm:py-3"
+      >
+        Back
+      </button>
+
+      {!result && (
+        <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-1.5rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
+          <div className="flex w-full overflow-hidden rounded-2xl bg-white/95 shadow-2xl backdrop-blur-md sm:w-auto">
+            <input
+              value={request}
+              onChange={(event) => setRequest(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  askCompanion();
+                }
+              }}
+              placeholder="What would you like to do?"
+              className="min-w-0 flex-1 px-4 py-4 text-base outline-none sm:w-[430px] sm:flex-none sm:px-6 sm:py-5 sm:text-lg"
+            />
+
+            <button
+              onClick={() => askCompanion()}
+              disabled={working}
+              className="shrink-0 bg-[#6d513a] px-5 text-white disabled:opacity-60 sm:px-8"
+            >
+              {working ? "Working..." : "Go"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <section className="absolute inset-2 z-30 flex flex-col overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/96 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%] lg:rounded-[2rem]">
+          <header className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+            <div className="min-w-0">
+              <p className="text-xs capitalize text-[#74695f] sm:text-sm">
+                {result.application.replace("-", " ")}
+              </p>
+
+              <h1 className="mt-1 truncate text-xl font-semibold text-[#211d19] sm:text-2xl">
+                {result.title || "Smiling Monad Companion"}
+              </h1>
+            </div>
+
+            <button
+              onClick={closeWork}
+              className="shrink-0 rounded-full bg-black/5 px-3 py-2 text-sm sm:px-4"
+            >
+              Close
+            </button>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            {result.action === "clarify" ? (
+              <div className="mx-auto max-w-2xl">
+                <p className="text-lg font-medium text-[#211d19] sm:text-xl">
+                  {result.question}
+                </p>
+
+                <div className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white sm:mt-8">
+                  <input
+                    value={request}
+                    onChange={(event) => setRequest(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        answerQuestion();
+                      }
+                    }}
+                    placeholder="Your answer"
+                    className="min-w-0 flex-1 px-4 py-4 outline-none sm:px-5"
+                  />
+
+                  <button
+                    onClick={answerQuestion}
+                    disabled={working}
+                    className="shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
+                  >
+                    {working ? "Working..." : "Continue"}
+                  </button>
+                </div>
+              </div>
+            ) : result.action === "draft" ? (
+              <textarea
+                value={approvedContent}
+                onChange={(event) =>
+                  setApprovedContent(event.target.value)
+                }
+                className="min-h-full w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
+              />
+            ) : (
+              <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25] sm:text-lg sm:leading-8">
+                {result.content}
+              </div>
+            )}
+          </div>
+
+          <footer className="flex shrink-0 justify-end gap-2 border-t border-black/10 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:px-8">
+            <button
+              onClick={closeWork}
+              className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm sm:px-6 sm:py-3"
+            >
+              Cancel
+            </button>
+
+            {result.action === "draft" && (
+              <button
+                onClick={approve}
+                className="rounded-full bg-[#6d513a] px-4 py-2.5 text-sm text-white sm:px-6 sm:py-3"
+              >
+                Approve
+              </button>
+            )}
+          </footer>
+        </section>
+      )}
     </main>
   );
 }

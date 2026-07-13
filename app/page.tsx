@@ -1,23 +1,18 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function HomePage() {
-  const router = useRouter();
-
   return (
     <main className="relative h-screen w-screen overflow-hidden">
       <img
         src="/frontdoor.png"
-        alt="The Smiling Monad"
+        alt="The Smiling Monad front door"
         className="absolute inset-0 h-full w-full object-cover"
-        draggable={false}
       />
 
-      <button
-        onClick={() => router.push("/office")}
+      <Link
+        href="/office"
         aria-label="Enter Office"
-        className="absolute inset-0 cursor-pointer"
+        className="absolute inset-0 z-10"
       />
     </main>
   );
