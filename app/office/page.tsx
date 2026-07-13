@@ -133,10 +133,7 @@ ${request.trim()}
       }),
     });
 
-    setResult(null);
-    setRequest("");
-    setOriginalRequest("");
-    setApprovedContent("");
+    closeWork();
   }
 
   function closeWork() {
@@ -147,11 +144,11 @@ ${request.trim()}
   }
 
   return (
-    <main className="relative h-[100dvh] w-screen overflow-hidden bg-[#d9c3a6]">
+    <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <img
         src="/officeimage.png"
         alt="Smiling Monad Office"
-        className="absolute inset-0 h-full w-full select-none object-cover object-center"
+        className="absolute inset-0 h-full w-full select-none object-cover object-[60%_center] sm:object-center"
         draggable={false}
       />
 
@@ -163,7 +160,7 @@ ${request.trim()}
       </button>
 
       {!result && (
-        <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-1.5rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
+        <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-20 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
           <div className="flex w-full overflow-hidden rounded-2xl bg-white/95 shadow-2xl backdrop-blur-md sm:w-auto">
             <input
               value={request}
@@ -189,14 +186,14 @@ ${request.trim()}
       )}
 
       {result && (
-        <section className="absolute inset-2 z-30 flex flex-col overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/96 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%] lg:rounded-[2rem]">
-          <header className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+        <section className="fixed inset-2 z-40 flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%]">
+          <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
             <div className="min-w-0">
               <p className="text-xs capitalize text-[#74695f] sm:text-sm">
                 {result.application.replace("-", " ")}
               </p>
 
-              <h1 className="mt-1 truncate text-xl font-semibold text-[#211d19] sm:text-2xl">
+              <h1 className="mt-1 text-xl font-semibold text-[#211d19] sm:text-2xl">
                 {result.title || "Smiling Monad Companion"}
               </h1>
             </div>
@@ -216,7 +213,7 @@ ${request.trim()}
                   {result.question}
                 </p>
 
-                <div className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white sm:mt-8">
+                <div className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white">
                   <input
                     value={request}
                     onChange={(event) => setRequest(event.target.value)}
@@ -244,7 +241,7 @@ ${request.trim()}
                 onChange={(event) =>
                   setApprovedContent(event.target.value)
                 }
-                className="min-h-full w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
+                className="h-full min-h-[55vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
               />
             ) : (
               <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25] sm:text-lg sm:leading-8">
