@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
 type CompanionResult = {
   action: "draft" | "clarify" | "answer";
@@ -24,14 +24,53 @@ type SavedMemory = {
   approvedContent: string;
 };
 
+type InteractionMode = "voice" | "text";
+
+type SpeechRecognitionResultEvent = {
+  results: ArrayLike<{
+    0: {
+      transcript: string;
+    };
+  }>;
+};
+
+type SpeechRecognitionErrorEvent = {
+  error: string;
+};
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 export default function OfficePage() {
   const router = useRouter();
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const [request, setRequest] = useState("");
   const [originalRequest, setOriginalRequest] = useState("");
   const [result, setResult] = useState<CompanionResult | null>(null);
   const [working, setWorking] = useState(false);
   const [approvedContent, setApprovedContent] = useState("");
+  const [interactionMode, setInteractionMode] =
+    useState<InteractionMode>("text");
+  const [listening, setListening] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
 
   async function askCompanion(message?: string) {
     const currentRequest = (message ?? request).trim();
@@ -39,6 +78,7 @@ export default function OfficePage() {
     if (!currentRequest || working) return;
 
     setWorking(true);
+    setVoiceMessage("");
 
     if (!originalRequest) {
       setOriginalRequest(currentRequest);
@@ -84,6 +124,65 @@ export default function OfficePage() {
     }
   }
 
+  function submitText(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void askCompanion();
+  }
+
+  function chooseText() {
+    setInteractionMode("text");
+    setVoiceMessage("");
+
+    window.setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 50);
+  }
+
+  function startVoice() {
+    setInteractionMode("voice");
+    setVoiceMessage("");
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceMessage(
+        "Voice is not available in this browser. Use the keyboard button."
+      );
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "en-AU";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim() || "";
+
+      if (transcript) {
+        setVoiceMessage(`You said: ${transcript}`);
+        void askCompanion(transcript);
+      }
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+      setVoiceMessage(
+        "I could not hear that. Press the microphone and try again."
+      );
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    setListening(true);
+    setVoiceMessage("Listening…");
+    recognition.start();
+  }
+
   function answerQuestion() {
     if (!result?.question || !request.trim()) return;
 
@@ -98,7 +197,7 @@ User's answer:
 ${request.trim()}
 `;
 
-    askCompanion(combinedRequest);
+    void askCompanion(combinedRequest);
   }
 
   async function approve() {
@@ -141,47 +240,106 @@ ${request.trim()}
     setRequest("");
     setOriginalRequest("");
     setApprovedContent("");
+    setVoiceMessage("");
   }
 
   return (
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
-      <img
-        src="/officeimage.png"
-        alt="Smiling Monad Office"
-        className="absolute inset-0 h-full w-full select-none object-cover object-[60%_center] sm:object-center"
-        draggable={false}
-      />
+      <picture>
+        <source media="(max-width: 639px)" srcSet="/office.mobile.png" />
+
+        <img
+          src="/office.desktop.png"
+          alt="Smiling Monad Office"
+          className="absolute inset-0 h-full w-full select-none object-cover object-center"
+          draggable={false}
+        />
+      </picture>
 
       <button
+        type="button"
         onClick={() => router.push("/")}
-        className="absolute left-3 top-3 z-30 rounded-full bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md sm:left-5 sm:top-5 sm:px-5 sm:py-3"
+        className="absolute left-3 top-3 z-30 rounded-full bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md focus:outline-none focus:ring-4 focus:ring-white/80 sm:left-5 sm:top-5 sm:px-5 sm:py-3"
       >
         Back
       </button>
 
       {!result && (
-        <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-20 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
-          <div className="flex w-full overflow-hidden rounded-2xl bg-white/95 shadow-2xl backdrop-blur-md sm:w-auto">
-            <input
-              value={request}
-              onChange={(event) => setRequest(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  askCompanion();
-                }
-              }}
-              placeholder="What would you like to do?"
-              className="min-w-0 flex-1 px-4 py-4 text-base outline-none sm:w-[430px] sm:flex-none sm:px-6 sm:py-5 sm:text-lg"
-            />
+        <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
+          <form
+            onSubmit={submitText}
+            className="relative z-30 flex w-full items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-2xl backdrop-blur-md sm:w-auto"
+          >
+            {interactionMode === "text" && (
+              <input
+                ref={textInputRef}
+                value={request}
+                onChange={(event) => setRequest(event.target.value)}
+                placeholder="What would you like to do?"
+                aria-label="Type a request for Kimi"
+                enterKeyHint="send"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-xl px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/25 sm:w-[380px] sm:flex-none sm:px-5 sm:py-4 sm:text-lg"
+              />
+            )}
+
+            {interactionMode === "voice" && (
+              <div
+                aria-live="polite"
+                className="min-w-0 flex-1 px-3 py-2 text-sm text-[#5f544b] sm:w-[380px] sm:flex-none sm:text-base"
+              >
+                {working
+                  ? "Kimi is working…"
+                  : voiceMessage || "Press the microphone and speak to Kimi."}
+              </div>
+            )}
 
             <button
-              onClick={() => askCompanion()}
-              disabled={working}
-              className="shrink-0 bg-[#6d513a] px-5 text-white disabled:opacity-60 sm:px-8"
+              type="button"
+              onClick={startVoice}
+              aria-label={
+                listening
+                  ? "Kimi is listening"
+                  : "Talk to Kimi using your voice"
+              }
+              aria-pressed={interactionMode === "voice"}
+              title="Talk to Kimi"
+              className={`touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 ${
+                interactionMode === "voice"
+                  ? "bg-[#6d513a] text-white"
+                  : "bg-[#efe8df] text-[#6d513a]"
+              } ${listening ? "animate-pulse" : ""}`}
             >
-              {working ? "Working..." : "Go"}
+              <span aria-hidden="true">🎤</span>
             </button>
-          </div>
+
+            <button
+              type="button"
+              onClick={chooseText}
+              aria-label="Type to Kimi using the keyboard"
+              aria-pressed={interactionMode === "text"}
+              title="Type to Kimi"
+              className={`touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 ${
+                interactionMode === "text"
+                  ? "bg-[#6d513a] text-white"
+                  : "bg-[#efe8df] text-[#6d513a]"
+              }`}
+            >
+              <span aria-hidden="true">⌨️</span>
+            </button>
+
+            {interactionMode === "text" && (
+              <button
+                type="submit"
+                disabled={working || !request.trim()}
+                aria-label="Send request to Kimi"
+                title="Send"
+                className="touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#6d513a] text-2xl text-white transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden="true">➜</span>
+              </button>
+            )}
+          </form>
         </div>
       )}
 
@@ -199,8 +357,9 @@ ${request.trim()}
             </div>
 
             <button
+              type="button"
               onClick={closeWork}
-              className="shrink-0 rounded-full bg-black/5 px-3 py-2 text-sm sm:px-4"
+              className="shrink-0 rounded-full bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-black/10 sm:px-4"
             >
               Close
             </button>
@@ -213,27 +372,30 @@ ${request.trim()}
                   {result.question}
                 </p>
 
-                <div className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    answerQuestion();
+                  }}
+                  className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white"
+                >
                   <input
                     value={request}
                     onChange={(event) => setRequest(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        answerQuestion();
-                      }
-                    }}
                     placeholder="Your answer"
-                    className="min-w-0 flex-1 px-4 py-4 outline-none sm:px-5"
+                    aria-label="Answer Kimi's question"
+                    enterKeyHint="send"
+                    className="min-w-0 flex-1 px-4 py-4 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5"
                   />
 
                   <button
-                    onClick={answerQuestion}
-                    disabled={working}
-                    className="shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
+                    type="submit"
+                    disabled={working || !request.trim()}
+                    className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
                   >
-                    {working ? "Working..." : "Continue"}
+                    {working ? "Working…" : "Continue"}
                   </button>
-                </div>
+                </form>
               </div>
             ) : result.action === "draft" ? (
               <textarea
@@ -241,6 +403,7 @@ ${request.trim()}
                 onChange={(event) =>
                   setApprovedContent(event.target.value)
                 }
+                aria-label="Generated draft"
                 className="h-full min-h-[55vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
               />
             ) : (
@@ -252,6 +415,7 @@ ${request.trim()}
 
           <footer className="flex shrink-0 justify-end gap-2 border-t border-black/10 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:px-8">
             <button
+              type="button"
               onClick={closeWork}
               className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm sm:px-6 sm:py-3"
             >
@@ -260,6 +424,7 @@ ${request.trim()}
 
             {result.action === "draft" && (
               <button
+                type="button"
                 onClick={approve}
                 className="rounded-full bg-[#6d513a] px-4 py-2.5 text-sm text-white sm:px-6 sm:py-3"
               >
