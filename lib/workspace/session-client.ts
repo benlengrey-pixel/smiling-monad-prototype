@@ -10,9 +10,27 @@ export type TemporaryWorkspaceSession = {
 
 const WORKSPACE_SESSION_KEY = "smiling-monad-workspace-session";
 
+function createLegacyIntent(request: string): SmilingMonadIntent {
+  return {
+    id: crypto.randomUUID(),
+    originalRequest: request.trim(),
+    destination: "workspace",
+    kind: "general",
+    title: request.trim() || "Current task",
+    tools: ["companion"],
+    shouldStartAutomatically: true,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function createTemporaryWorkspaceSession(
-  intent: SmilingMonadIntent
+  intentOrRequest: SmilingMonadIntent | string
 ): TemporaryWorkspaceSession {
+  const intent =
+    typeof intentOrRequest === "string"
+      ? createLegacyIntent(intentOrRequest)
+      : intentOrRequest;
+
   return {
     id: crypto.randomUUID(),
     intent,
@@ -43,20 +61,35 @@ export function readTemporaryWorkspaceSession():
   }
 
   try {
-    const parsedSession = JSON.parse(
-      storedSession
-    ) as TemporaryWorkspaceSession;
+    const parsedSession = JSON.parse(storedSession) as
+      | TemporaryWorkspaceSession
+      | {
+          id?: string;
+          request?: string;
+          createdAt?: string;
+          source?: "office";
+        };
 
-    if (
-      !parsedSession.id ||
-      !parsedSession.intent ||
-      !parsedSession.intent.originalRequest
-    ) {
-      window.sessionStorage.removeItem(WORKSPACE_SESSION_KEY);
-      return null;
+    if ("intent" in parsedSession && parsedSession.intent) {
+      return parsedSession as TemporaryWorkspaceSession;
     }
 
-    return parsedSession;
+    if ("request" in parsedSession && parsedSession.request) {
+      const migratedSession: TemporaryWorkspaceSession = {
+        id: parsedSession.id || crypto.randomUUID(),
+        intent: createLegacyIntent(parsedSession.request),
+        createdAt: parsedSession.createdAt || new Date().toISOString(),
+        source: "office",
+        status: "ready",
+      };
+
+      saveTemporaryWorkspaceSession(migratedSession);
+
+      return migratedSession;
+    }
+
+    window.sessionStorage.removeItem(WORKSPACE_SESSION_KEY);
+    return null;
   } catch {
     window.sessionStorage.removeItem(WORKSPACE_SESSION_KEY);
     return null;
@@ -64,9 +97,7 @@ export function readTemporaryWorkspaceSession():
 }
 
 export function updateTemporaryWorkspaceSession(
-  updates: Partial<
-    Pick<TemporaryWorkspaceSession, "status">
-  >
+  updates: Partial<Pick<TemporaryWorkspaceSession, "status">>
 ): TemporaryWorkspaceSession | null {
   const currentSession = readTemporaryWorkspaceSession();
 
