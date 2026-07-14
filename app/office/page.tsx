@@ -18,6 +18,7 @@ import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
+import { createSmilingMonadIntent } from "@/lib/intent/intent-engine";
 import {
   createTemporaryWorkspaceSession,
   saveTemporaryWorkspaceSession,
@@ -112,27 +113,12 @@ export default function OfficePage() {
   const [voiceMessage, setVoiceMessage] = useState("");
   const [attachments, setAttachments] = useState<WorkspaceAttachment[]>([]);
 
-  function beginWorkspace(message?: string) {
-    const currentRequest = (message ?? request).trim();
-
-    if (!currentRequest || working) return;
-
-    stopCompanionSpeech();
-
-    const session = createTemporaryWorkspaceSession(currentRequest);
-
-    saveTemporaryWorkspaceSession(session);
-    setRequest("");
-    setVoiceMessage("");
-    setListening(false);
-
-    router.push("/workspace");
-  }
-
   async function askCompanion(message?: string) {
     const currentRequest = (message ?? request).trim();
 
-    if (!currentRequest || working) return;
+    if (!currentRequest || working) {
+      return;
+    }
 
     stopCompanionSpeech();
     setWorking(true);
@@ -172,9 +158,35 @@ export default function OfficePage() {
     }
   }
 
+  function handleIntention(message?: string) {
+    const currentRequest = (message ?? request).trim();
+
+    if (!currentRequest || working) {
+      return;
+    }
+
+    stopCompanionSpeech();
+
+    const intent = createSmilingMonadIntent(currentRequest);
+
+    setRequest("");
+    setVoiceMessage("");
+    setListening(false);
+
+    if (intent.destination === "office") {
+      void askCompanion(intent.originalRequest);
+      return;
+    }
+
+    const session = createTemporaryWorkspaceSession(intent);
+
+    saveTemporaryWorkspaceSession(session);
+    router.push("/workspace");
+  }
+
   function submitText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    beginWorkspace();
+    handleIntention();
   }
 
   function chooseText() {
@@ -213,7 +225,7 @@ export default function OfficePage() {
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
         setVoiceMessage(`You said: ${transcript}`);
-        beginWorkspace(transcript);
+        handleIntention(transcript);
       },
       onError: () => {
         setListening(false);
@@ -230,7 +242,9 @@ export default function OfficePage() {
   function answerQuestion(message?: string) {
     const currentAnswer = (message ?? request).trim();
 
-    if (!result?.question || !currentAnswer) return;
+    if (!result?.question || !currentAnswer) {
+      return;
+    }
 
     const combinedRequest = `
 Original request:
@@ -249,7 +263,9 @@ ${currentAnswer}
   function continueConversation(message?: string) {
     const followUp = (message ?? request).trim();
 
-    if (!result || !followUp) return;
+    if (!result || !followUp) {
+      return;
+    }
 
     const previousContent =
       result.action === "draft" ? approvedContent : result.content;
@@ -310,7 +326,9 @@ Continue the same conversation. Use the original request and previous response a
   }
 
   async function approve() {
-    if (!result || !approvedContent.trim()) return;
+    if (!result || !approvedContent.trim()) {
+      return;
+    }
 
     const existingMemory = JSON.parse(
       window.localStorage.getItem("smiling-monad-memory") || "[]"
