@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import WorkspaceAssistant from "@/components/workspace/WorkspaceAssistant";
 import WorkspaceCanvas from "@/components/workspace/WorkspaceCanvas";
-import WorkspaceConversation from "@/components/workspace/WorkspaceConversation";
 import WorkspaceDocument from "@/components/workspace/WorkspaceDocument";
 import WorkspacePanel from "@/components/workspace/WorkspacePanel";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
@@ -184,6 +184,7 @@ the complete updated document in content. Otherwise respond conversationally.
       }
 
       setRequest("");
+
       speakCompanionResponse(
         result.action === "draft"
           ? "I have updated the working document."
@@ -233,48 +234,13 @@ the complete updated document in content. Otherwise respond conversationally.
     });
   }
 
-  function renderPanel(panel: WorkspacePanelDefinition) {
+  function renderSupportingPanel(panel: WorkspacePanelDefinition) {
     if (panel.type === "conversation") {
-      return (
-        <WorkspacePanel
-          key={panel.id}
-          type={panel.type}
-          title={panel.title}
-          purpose={panel.purpose}
-          primary={panel.primary}
-        >
-          <WorkspaceConversation
-            response={response}
-            request={request}
-            working={working}
-            listening={listening}
-            voiceMessage={voiceMessage}
-            onRequestChange={setRequest}
-            onSubmit={() => {
-              void workWithCompanion();
-            }}
-            onStartVoice={startVoice}
-          />
-        </WorkspacePanel>
-      );
+      return null;
     }
 
     if (panel.type === "document") {
-      return (
-        <WorkspacePanel
-          key={panel.id}
-          type={panel.type}
-          title={panel.title}
-          purpose={panel.purpose}
-          primary={panel.primary}
-        >
-          <WorkspaceDocument
-            content={documentContent}
-            working={working}
-            onContentChange={setDocumentContent}
-          />
-        </WorkspacePanel>
-      );
+      return null;
     }
 
     return (
@@ -289,6 +255,15 @@ the complete updated document in content. Otherwise respond conversationally.
       </WorkspacePanel>
     );
   }
+
+  const hasDocument =
+    composition?.panels.some((panel) => panel.type === "document") ?? false;
+
+  const supportingPanels =
+    composition?.panels.filter(
+      (panel) =>
+        panel.type !== "conversation" && panel.type !== "document"
+    ) ?? [];
 
   return (
     <WorkspaceShell
@@ -306,26 +281,59 @@ the complete updated document in content. Otherwise respond conversationally.
         <div className="min-h-[calc(100dvh-7.5rem)] p-4 sm:p-6">
           <WorkspaceCanvas
             title={session.request}
-            description="This Workspace has assembled only the areas relevant to the active task."
+            description="Only the work and tools relevant to this task are visible."
           >
-            <div className="grid gap-4 lg:grid-cols-12">
-              {composition.panels.map((panel) => (
-                <div
-                  key={panel.id}
-                  className={
-                    panel.primary
-                      ? "lg:col-span-8"
-                      : composition.panels.some(
-                            (item) =>
-                              item.primary && item.id !== panel.id
-                          )
-                        ? "lg:col-span-4"
-                        : "lg:col-span-12"
-                  }
+            <div className="grid gap-4">
+              {hasDocument && (
+                <WorkspacePanel
+                  type="document"
+                  title="Working document"
+                  purpose="Review, edit and refine the current document."
+                  primary
                 >
-                  {renderPanel(panel)}
+                  <WorkspaceDocument
+                    content={documentContent}
+                    working={working}
+                    onContentChange={setDocumentContent}
+                  />
+                </WorkspacePanel>
+              )}
+
+              {!hasDocument && supportingPanels.length === 0 && (
+                <WorkspaceAssistant
+                  response={response}
+                  request={request}
+                  working={working}
+                  listening={listening}
+                  voiceMessage={voiceMessage}
+                  onRequestChange={setRequest}
+                  onSubmit={() => {
+                    void workWithCompanion();
+                  }}
+                  onStartVoice={startVoice}
+                />
+              )}
+
+              {supportingPanels.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {supportingPanels.map(renderSupportingPanel)}
                 </div>
-              ))}
+              )}
+
+              {hasDocument && (
+                <WorkspaceAssistant
+                  response={response}
+                  request={request}
+                  working={working}
+                  listening={listening}
+                  voiceMessage={voiceMessage}
+                  onRequestChange={setRequest}
+                  onSubmit={() => {
+                    void workWithCompanion();
+                  }}
+                  onStartVoice={startVoice}
+                />
+              )}
             </div>
           </WorkspaceCanvas>
         </div>
