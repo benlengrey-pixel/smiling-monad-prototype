@@ -4,12 +4,33 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WorkspaceCanvas from "@/components/workspace/WorkspaceCanvas";
+import WorkspaceConversation from "@/components/workspace/WorkspaceConversation";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
+import {
+  sendGatewayRequest,
+  type GatewayResponse,
+} from "@/lib/companion/gateway-client";
+import {
+  speakCompanionResponse,
+  stopCompanionSpeech,
+} from "@/lib/companion/speech-client";
+import {
+  isCompanionVoiceAvailable,
+  startCompanionVoiceRecognition,
+} from "@/lib/companion/voice-client";
 import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
   type TemporaryWorkspaceSession,
 } from "@/lib/workspace/session-client";
+
+function getResponseText(result: GatewayResponse): string {
+  if (result.action === "clarify") {
+    return result.question;
+  }
+
+  return result.content;
+}
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -17,19 +38,120 @@ export default function WorkspacePage() {
   const [session, setSession] =
     useState<TemporaryWorkspaceSession | null>(null);
   const [ready, setReady] = useState(false);
+  const [request, setRequest] = useState("");
+  const [response, setResponse] = useState("");
+  const [working, setWorking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
 
   useEffect(() => {
-    setSession(readTemporaryWorkspaceSession());
+    const currentSession = readTemporaryWorkspaceSession();
+
+    setSession(currentSession);
+
+    if (currentSession) {
+      setRequest(currentSession.request);
+    }
+
     setReady(true);
   }, []);
 
   function returnToOffice() {
+    stopCompanionSpeech();
     router.push("/office");
   }
 
   function discardWorkspace() {
+    stopCompanionSpeech();
     clearTemporaryWorkspaceSession();
     router.push("/office");
+  }
+
+  async function workWithCompanion(message?: string) {
+    const currentRequest = (message ?? request).trim();
+
+    if (!session || !currentRequest || working) {
+      return;
+    }
+
+    stopCompanionSpeech();
+    setWorking(true);
+    setVoiceMessage("");
+
+    try {
+      const memory =
+        window.localStorage.getItem("smiling-monad-memory") || "[]";
+
+      const gatewayRequest = response
+        ? `
+Active Workspace task:
+${session.request}
+
+Previous Companion response:
+${response}
+
+User's next instruction:
+${currentRequest}
+
+Continue working on the same task. Use the previous response as context.
+`
+        : `
+Active Workspace task:
+${session.request}
+
+Begin working on this task:
+${currentRequest}
+`;
+
+      const result = await sendGatewayRequest(gatewayRequest, memory);
+      const responseText = getResponseText(result);
+
+      setResponse(responseText);
+      setRequest("");
+
+      speakCompanionResponse(responseText);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The Companion could not respond.";
+
+      setResponse(message);
+      speakCompanionResponse(message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function startVoice() {
+    stopCompanionSpeech();
+    setVoiceMessage("");
+
+    if (!isCompanionVoiceAvailable()) {
+      setVoiceMessage(
+        "Voice is not available in this browser. Use the keyboard instead."
+      );
+      return;
+    }
+
+    setListening(true);
+    setVoiceMessage("Listening…");
+
+    startCompanionVoiceRecognition({
+      onTranscript: (transcript) => {
+        setVoiceMessage(`You said: ${transcript}`);
+        void workWithCompanion(transcript);
+      },
+      onError: () => {
+        setListening(false);
+        setVoiceMessage(
+          "I could not hear that. Press the microphone and try again."
+        );
+      },
+      onEnd: () => {
+        setListening(false);
+      },
+    });
   }
 
   return (
@@ -48,8 +170,21 @@ export default function WorkspacePage() {
         <div className="min-h-[calc(100dvh-7.5rem)] p-4 sm:p-6">
           <WorkspaceCanvas
             title={session.request}
-            description="This task is temporary. Only the conversation, files, document, or tools needed to complete it will appear here."
-          />
+            description="This task is temporary. Only the conversation and tools needed to complete it will appear here."
+          >
+            <WorkspaceConversation
+              response={response}
+              request={request}
+              working={working}
+              listening={listening}
+              voiceMessage={voiceMessage}
+              onRequestChange={setRequest}
+              onSubmit={() => {
+                void workWithCompanion();
+              }}
+              onStartVoice={startVoice}
+            />
+          </WorkspaceCanvas>
         </div>
       ) : (
         <div className="flex min-h-[calc(100dvh-7.5rem)] items-center justify-center px-6">
