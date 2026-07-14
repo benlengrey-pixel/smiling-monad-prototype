@@ -2,6 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 
+import CompanionControls from "@/components/companion/CompanionControls";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 
 type CompanionResult = {
@@ -247,80 +248,18 @@ ${request.trim()}
     <OfficeEnvironment>
       {!result && (
         <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
-          <form
+          <CompanionControls
+            mode={interactionMode}
+            inputRef={textInputRef}
+            request={request}
+            working={working}
+            listening={listening}
+            voiceMessage={voiceMessage}
+            onRequestChange={setRequest}
             onSubmit={submitText}
-            className="relative z-30 flex w-full items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-2xl backdrop-blur-md sm:w-auto"
-          >
-            {interactionMode === "text" && (
-              <input
-                ref={textInputRef}
-                value={request}
-                onChange={(event) => setRequest(event.target.value)}
-                placeholder="What would you like to do?"
-                aria-label="Type a request for Kimi"
-                enterKeyHint="send"
-                autoComplete="off"
-                className="min-w-0 flex-1 rounded-xl px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/25 sm:w-[380px] sm:flex-none sm:px-5 sm:py-4 sm:text-lg"
-              />
-            )}
-
-            {interactionMode === "voice" && (
-              <div
-                aria-live="polite"
-                className="min-w-0 flex-1 px-3 py-2 text-sm text-[#5f544b] sm:w-[380px] sm:flex-none sm:text-base"
-              >
-                {working
-                  ? "Kimi is working…"
-                  : voiceMessage || "Press the microphone and speak to Kimi."}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={startVoice}
-              aria-label={
-                listening
-                  ? "Kimi is listening"
-                  : "Talk to Kimi using your voice"
-              }
-              aria-pressed={interactionMode === "voice"}
-              title="Talk to Kimi"
-              className={`touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 ${
-                interactionMode === "voice"
-                  ? "bg-[#6d513a] text-white"
-                  : "bg-[#efe8df] text-[#6d513a]"
-              } ${listening ? "animate-pulse" : ""}`}
-            >
-              <span aria-hidden="true">🎤</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={chooseText}
-              aria-label="Type to Kimi using the keyboard"
-              aria-pressed={interactionMode === "text"}
-              title="Type to Kimi"
-              className={`touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 ${
-                interactionMode === "text"
-                  ? "bg-[#6d513a] text-white"
-                  : "bg-[#efe8df] text-[#6d513a]"
-              }`}
-            >
-              <span aria-hidden="true">⌨️</span>
-            </button>
-
-            {interactionMode === "text" && (
-              <button
-                type="submit"
-                disabled={working || !request.trim()}
-                aria-label="Send request to Kimi"
-                title="Send"
-                className="touch-manipulation flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#6d513a] text-2xl text-white transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span aria-hidden="true">➜</span>
-              </button>
-            )}
-          </form>
+            onChooseText={chooseText}
+            onStartVoice={startVoice}
+          />
         </div>
       )}
 
