@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WorkspaceAssistant from "@/components/workspace/WorkspaceAssistant";
@@ -95,6 +95,7 @@ function getPanelPlaceholder(panel: WorkspacePanelDefinition) {
 
 export default function WorkspacePage() {
   const router = useRouter();
+  const taskStartedRef = useRef(false);
 
   const [session, setSession] =
     useState<TemporaryWorkspaceSession | null>(null);
@@ -118,13 +119,17 @@ export default function WorkspacePage() {
     const currentSession = readTemporaryWorkspaceSession();
 
     setSession(currentSession);
-
-    if (currentSession) {
-      setRequest(currentSession.request);
-    }
-
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!session || taskStartedRef.current) {
+      return;
+    }
+
+    taskStartedRef.current = true;
+    void workWithCompanion(session.request);
+  }, [session]);
 
   function returnToOffice() {
     stopCompanionSpeech();
@@ -235,11 +240,7 @@ the complete updated document in content. Otherwise respond conversationally.
   }
 
   function renderSupportingPanel(panel: WorkspacePanelDefinition) {
-    if (panel.type === "conversation") {
-      return null;
-    }
-
-    if (panel.type === "document") {
+    if (panel.type === "conversation" || panel.type === "document") {
       return null;
     }
 
