@@ -11,10 +11,11 @@ export function isCompanionSpeechAvailable(): boolean {
   );
 }
 
-function releaseActiveAudio(): void {
+function releaseAudio(): void {
   if (activeAudio) {
     activeAudio.pause();
-    activeAudio.src = "";
+    activeAudio.removeAttribute("src");
+    activeAudio.load();
     activeAudio = null;
   }
 
@@ -30,57 +31,10 @@ export function stopCompanionSpeech(): void {
   activeRequest?.abort();
   activeRequest = null;
 
-  releaseActiveAudio();
-
-  if (
-    typeof window !== "undefined" &&
-    "speechSynthesis" in window
-  ) {
-    window.speechSynthesis.cancel();
-  }
+  releaseAudio();
 }
 
-function speakWithBrowserFallback(text: string): void {
-  if (
-    typeof window === "undefined" ||
-    !("speechSynthesis" in window) ||
-    !("SpeechSynthesisUtterance" in window)
-  ) {
-    return;
-  }
-
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-
-  utterance.lang = "en-AU";
-  utterance.rate = 0.94;
-  utterance.pitch = 1.05;
-  utterance.volume = 1;
-
-  const voices = window.speechSynthesis.getVoices();
-
-  const preferredVoice =
-    voices.find((voice) =>
-      /natasha|sonia|libby|karen|samantha/i.test(
-        voice.name
-      )
-    ) ??
-    voices.find((voice) =>
-      voice.lang.toLowerCase().startsWith("en-au")
-    ) ??
-    voices.find((voice) =>
-      voice.lang.toLowerCase().startsWith("en")
-    );
-
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
-  }
-
-  window.speechSynthesis.speak(utterance);
-}
-
-async function generateAndPlaySpeech(
+async function playGeneratedSpeech(
   text: string,
   sequence: number
 ): Promise<void> {
@@ -93,15 +47,17 @@ async function generateAndPlaySpeech(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        text,
-      }),
+      body: JSON.stringify({ text }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
+      const errorData = (await response
+        .json()
+        .catch(() => null)) as { error?: string } | null;
+
       throw new Error(
-        "Kimi's generated voice was unavailable."
+        errorData?.error || "Kimi's voice could not be generated."
       );
     }
 
@@ -114,26 +70,20 @@ async function generateAndPlaySpeech(
       return;
     }
 
-    releaseActiveAudio();
+    releaseAudio();
 
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
     activeAudioUrl = audioUrl;
     activeAudio = audio;
-
     audio.preload = "auto";
 
-    audio.onended = () => {
-      if (activeAudio === audio) {
-        releaseActiveAudio();
-      }
-    };
+    audio.onended = releaseAudio;
 
     audio.onerror = () => {
-      if (activeAudio === audio) {
-        releaseActiveAudio();
-      }
+      console.error("Kimi audio playback failed.");
+      releaseAudio();
     };
 
     await audio.play();
@@ -145,10 +95,8 @@ async function generateAndPlaySpeech(
       return;
     }
 
-    console.error("Kimi speech playback error:", error);
-
-    releaseActiveAudio();
-    speakWithBrowserFallback(text);
+    console.error("Kimi voice error:", error);
+    releaseAudio();
   } finally {
     if (activeRequest === controller) {
       activeRequest = null;
@@ -167,5 +115,5 @@ export function speakCompanionResponse(text: string): void {
 
   const sequence = speechSequence;
 
-  void generateAndPlaySpeech(content, sequence);
+  void playGeneratedSpeech(content, sequence);
 }
