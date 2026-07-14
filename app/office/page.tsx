@@ -10,6 +10,10 @@ import {
   type GatewayResponse,
 } from "@/lib/companion/gateway-client";
 import {
+  speakCompanionResponse,
+  stopCompanionSpeech,
+} from "@/lib/companion/speech-client";
+import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
@@ -24,6 +28,14 @@ type SavedMemory = {
 };
 
 type InteractionMode = "voice" | "text";
+
+function getSpokenResponse(result: CompanionResult): string {
+  if (result.action === "clarify") {
+    return result.question;
+  }
+
+  return result.content;
+}
 
 export default function OfficePage() {
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +55,7 @@ export default function OfficePage() {
 
     if (!currentRequest || working) return;
 
+    stopCompanionSpeech();
     setWorking(true);
     setVoiceMessage("");
 
@@ -59,8 +72,10 @@ export default function OfficePage() {
       setResult(data);
       setApprovedContent(data.content || "");
       setRequest("");
+
+      speakCompanionResponse(getSpokenResponse(data));
     } catch (error) {
-      setResult({
+      const errorResult: CompanionResult = {
         action: "answer",
         application: "general",
         title: "Something went wrong",
@@ -69,7 +84,10 @@ export default function OfficePage() {
           error instanceof Error
             ? error.message
             : "The Companion could not respond.",
-      });
+      };
+
+      setResult(errorResult);
+      speakCompanionResponse(errorResult.content);
     } finally {
       setWorking(false);
     }
@@ -90,6 +108,7 @@ export default function OfficePage() {
   }
 
   function startVoice() {
+    stopCompanionSpeech();
     setInteractionMode("voice");
     setVoiceMessage("");
 
@@ -165,6 +184,7 @@ Continue the same conversation. Use the original request and previous response a
   }
 
   function startWorkspaceVoice() {
+    stopCompanionSpeech();
     setInteractionMode("voice");
     setVoiceMessage("");
 
@@ -237,6 +257,7 @@ Continue the same conversation. Use the original request and previous response a
   }
 
   function closeWork() {
+    stopCompanionSpeech();
     setResult(null);
     setRequest("");
     setOriginalRequest("");
