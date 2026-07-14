@@ -35,6 +35,8 @@ export default function CompanionWorkspace({
   onApprove,
   onClose,
 }: CompanionWorkspaceProps) {
+  const isDocument = result.action === "draft";
+
   function submitAnswer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onAnswerQuestion();
@@ -45,46 +47,53 @@ export default function CompanionWorkspace({
     onContinueConversation?.();
   }
 
-  return (
-    <section className="fixed inset-2 z-40 flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%]">
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-        <div className="min-w-0">
-          <p className="text-xs capitalize text-[#74695f] sm:text-sm">
-            {result.application.replace("-", " ")}
-          </p>
-
-          <h1 className="mt-1 text-xl font-semibold text-[#211d19] sm:text-2xl">
-            {result.title || "Smiling Monad Companion"}
-          </h1>
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 rounded-full bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-black/10 sm:px-4"
-        >
-          Close
-        </button>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        {result.action === "clarify" ? (
-          <div className="mx-auto max-w-2xl">
-            <p className="text-lg font-medium text-[#211d19] sm:text-xl">
-              {result.question}
+  if (isDocument) {
+    return (
+      <section className="fixed inset-2 z-40 flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%]">
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+          <div className="min-w-0">
+            <p className="text-xs capitalize text-[#74695f] sm:text-sm">
+              {result.application.replace("-", " ")}
             </p>
 
+            <h1 className="mt-1 text-xl font-semibold text-[#211d19] sm:text-2xl">
+              {result.title || "Smiling Monad Companion"}
+            </h1>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-black/10 sm:px-4"
+          >
+            Close
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <textarea
+            value={approvedContent}
+            onChange={(event) =>
+              onApprovedContentChange(event.target.value)
+            }
+            aria-label="Generated draft"
+            className="h-full min-h-[45vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
+          />
+        </div>
+
+        {onContinueConversation && (
+          <div className="mx-4 mb-3 shrink-0 sm:mx-6 lg:mx-8">
             <form
-              onSubmit={submitAnswer}
-              className="mt-6 flex overflow-hidden rounded-2xl border border-black/10 bg-white"
+              onSubmit={submitContinuation}
+              className="flex overflow-hidden rounded-2xl border border-black/10 bg-white"
             >
               <input
                 value={request}
                 onChange={(event) => onRequestChange(event.target.value)}
-                placeholder="Your answer"
-                aria-label="Answer the Companion's question"
+                placeholder="Ask for a change"
+                aria-label="Continue the conversation"
                 enterKeyHint="send"
-                className="min-w-0 flex-1 px-4 py-4 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5"
+                className="min-w-0 flex-1 px-4 py-3 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5 sm:py-4"
               />
 
               {onStartVoice && (
@@ -95,9 +104,9 @@ export default function CompanionWorkspace({
                   aria-label={
                     listening
                       ? "The Companion is listening"
-                      : "Answer using your voice"
+                      : "Continue using your voice"
                   }
-                  title="Answer using your voice"
+                  title="Continue using your voice"
                   className={`touch-manipulation flex w-14 shrink-0 items-center justify-center text-xl transition disabled:opacity-50 ${
                     listening
                       ? "animate-pulse bg-[#6d513a] text-white"
@@ -113,37 +122,125 @@ export default function CompanionWorkspace({
                 disabled={working || !request.trim()}
                 className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
               >
-                {working ? "Working…" : "Continue"}
+                {working ? "Working…" : "Send"}
               </button>
             </form>
 
             {voiceMessage && (
               <p
                 aria-live="polite"
-                className="mt-3 text-sm text-[#74695f]"
+                className="mt-2 px-2 text-sm text-[#74695f]"
               >
                 {voiceMessage}
               </p>
             )}
           </div>
-        ) : result.action === "draft" ? (
-          <textarea
-            value={approvedContent}
-            onChange={(event) =>
-              onApprovedContentChange(event.target.value)
-            }
-            aria-label="Generated draft"
-            className="h-full min-h-[45vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
-          />
+        )}
+
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-black/10 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:px-8">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm sm:px-6 sm:py-3"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={onApprove}
+            className="rounded-full bg-[#6d513a] px-4 py-2.5 text-sm text-white sm:px-6 sm:py-3"
+          >
+            Approve
+          </button>
+        </footer>
+      </section>
+    );
+  }
+
+  return (
+    <section className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex max-h-[62dvh] w-[calc(100%-1rem)] -translate-x-1/2 flex-col overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/94 shadow-2xl backdrop-blur-xl sm:bottom-[4%] sm:left-auto sm:right-[3%] sm:max-h-[66vh] sm:w-[min(440px,42vw)] sm:translate-x-0 lg:right-[4%] lg:w-[440px]">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/8 px-4 py-3 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+          <p className="text-[11px] capitalize text-[#74695f] sm:text-xs">
+            {result.application.replace("-", " ")}
+          </p>
+
+          <h1 className="mt-0.5 truncate text-base font-semibold text-[#211d19] sm:text-lg">
+            {result.title || "Smiling Monad Companion"}
+          </h1>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close Companion"
+          title="Close"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-lg text-[#4c433c] focus:outline-none focus:ring-4 focus:ring-black/10"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        {result.action === "clarify" ? (
+          <div>
+            <p className="text-base leading-7 text-[#302a25]">
+              {result.question}
+            </p>
+
+            <form
+              onSubmit={submitAnswer}
+              className="mt-4 flex overflow-hidden rounded-2xl border border-black/10 bg-white"
+            >
+              <input
+                value={request}
+                onChange={(event) => onRequestChange(event.target.value)}
+                placeholder="Your answer"
+                aria-label="Answer the Companion's question"
+                enterKeyHint="send"
+                className="min-w-0 flex-1 px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/20"
+              />
+
+              {onStartVoice && (
+                <button
+                  type="button"
+                  onClick={onStartVoice}
+                  disabled={working || listening}
+                  aria-label={
+                    listening
+                      ? "The Companion is listening"
+                      : "Answer using your voice"
+                  }
+                  title="Answer using your voice"
+                  className={`touch-manipulation flex w-12 shrink-0 items-center justify-center text-lg transition disabled:opacity-50 ${
+                    listening
+                      ? "animate-pulse bg-[#6d513a] text-white"
+                      : "bg-[#efe8df] text-[#6d513a]"
+                  }`}
+                >
+                  <span aria-hidden="true">🎤</span>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                disabled={working || !request.trim()}
+                className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-sm text-white disabled:opacity-60"
+              >
+                {working ? "Working…" : "Send"}
+              </button>
+            </form>
+          </div>
         ) : (
-          <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25] sm:text-lg sm:leading-8">
+          <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25]">
             {result.content}
           </div>
         )}
       </div>
 
       {result.action !== "clarify" && onContinueConversation && (
-        <div className="mx-4 mb-3 shrink-0 sm:mx-6 lg:mx-8">
+        <div className="shrink-0 border-t border-black/8 px-3 py-3 sm:px-4">
           <form
             onSubmit={submitContinuation}
             className="flex overflow-hidden rounded-2xl border border-black/10 bg-white"
@@ -151,10 +248,10 @@ export default function CompanionWorkspace({
             <input
               value={request}
               onChange={(event) => onRequestChange(event.target.value)}
-              placeholder="Continue the conversation"
+              placeholder="Continue"
               aria-label="Continue the conversation"
               enterKeyHint="send"
-              className="min-w-0 flex-1 px-4 py-3 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5 sm:py-4"
+              className="min-w-0 flex-1 px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/20"
             />
 
             {onStartVoice && (
@@ -168,7 +265,7 @@ export default function CompanionWorkspace({
                     : "Continue using your voice"
                 }
                 title="Continue using your voice"
-                className={`touch-manipulation flex w-14 shrink-0 items-center justify-center text-xl transition disabled:opacity-50 ${
+                className={`touch-manipulation flex w-12 shrink-0 items-center justify-center text-lg transition disabled:opacity-50 ${
                   listening
                     ? "animate-pulse bg-[#6d513a] text-white"
                     : "bg-[#efe8df] text-[#6d513a]"
@@ -181,7 +278,7 @@ export default function CompanionWorkspace({
             <button
               type="submit"
               disabled={working || !request.trim()}
-              className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
+              className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-sm text-white disabled:opacity-60"
             >
               {working ? "Working…" : "Send"}
             </button>
@@ -190,33 +287,13 @@ export default function CompanionWorkspace({
           {voiceMessage && (
             <p
               aria-live="polite"
-              className="mt-2 px-2 text-sm text-[#74695f]"
+              className="mt-2 px-2 text-xs text-[#74695f]"
             >
               {voiceMessage}
             </p>
           )}
         </div>
       )}
-
-      <footer className="flex shrink-0 justify-end gap-2 border-t border-black/10 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:px-8">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm sm:px-6 sm:py-3"
-        >
-          Cancel
-        </button>
-
-        {result.action === "draft" && (
-          <button
-            type="button"
-            onClick={onApprove}
-            className="rounded-full bg-[#6d513a] px-4 py-2.5 text-sm text-white sm:px-6 sm:py-3"
-          >
-            Approve
-          </button>
-        )}
-      </footer>
     </section>
   );
 }

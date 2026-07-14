@@ -17,6 +17,10 @@ import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
+import type {
+  WorkspaceAttachment,
+  WorkspaceAttachmentKind,
+} from "@/lib/workspace/types";
 
 type CompanionResult = GatewayResponse;
 
@@ -37,6 +41,57 @@ function getSpokenResponse(result: CompanionResult): string {
   return result.content;
 }
 
+function getAttachmentKind(file: File): WorkspaceAttachmentKind {
+  if (file.type.startsWith("image/")) {
+    return "image";
+  }
+
+  if (file.type === "application/pdf") {
+    return "pdf";
+  }
+
+  if (
+    file.type === "text/plain" ||
+    file.type === "text/csv" ||
+    file.name.toLowerCase().endsWith(".txt") ||
+    file.name.toLowerCase().endsWith(".csv")
+  ) {
+    return "text";
+  }
+
+  if (
+    file.type.includes("spreadsheet") ||
+    file.type.includes("excel") ||
+    file.name.toLowerCase().endsWith(".xls") ||
+    file.name.toLowerCase().endsWith(".xlsx")
+  ) {
+    return "spreadsheet";
+  }
+
+  if (
+    file.type.includes("word") ||
+    file.type.includes("document") ||
+    file.name.toLowerCase().endsWith(".doc") ||
+    file.name.toLowerCase().endsWith(".docx")
+  ) {
+    return "document";
+  }
+
+  return "other";
+}
+
+function createTemporaryAttachment(file: File): WorkspaceAttachment {
+  return {
+    id: crypto.randomUUID(),
+    name: file.name,
+    mimeType: file.type || "application/octet-stream",
+    size: file.size,
+    kind: getAttachmentKind(file),
+    status: "selected",
+    storageIntent: "use-once",
+  };
+}
+
 export default function OfficePage() {
   const textInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +104,7 @@ export default function OfficePage() {
     useState<InteractionMode>("text");
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
+  const [attachments, setAttachments] = useState<WorkspaceAttachment[]>([]);
 
   async function askCompanion(message?: string) {
     const currentRequest = (message ?? request).trim();
@@ -105,6 +161,15 @@ export default function OfficePage() {
     window.setTimeout(() => {
       textInputRef.current?.focus();
     }, 50);
+  }
+
+  function chooseFiles(files: File[]) {
+    const selectedAttachments = files.map(createTemporaryAttachment);
+
+    setAttachments((currentAttachments) => [
+      ...currentAttachments,
+      ...selectedAttachments,
+    ]);
   }
 
   function startVoice() {
@@ -264,6 +329,7 @@ Continue the same conversation. Use the original request and previous response a
     setApprovedContent("");
     setVoiceMessage("");
     setListening(false);
+    setAttachments([]);
   }
 
   return (
@@ -281,6 +347,7 @@ Continue the same conversation. Use the original request and previous response a
             onSubmit={submitText}
             onChooseText={chooseText}
             onStartVoice={startVoice}
+            onChooseFiles={chooseFiles}
           />
         </div>
       )}

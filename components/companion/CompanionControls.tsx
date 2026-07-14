@@ -1,6 +1,10 @@
 "use client";
 
-import type { FormEvent, RefObject } from "react";
+import type {
+  ChangeEvent,
+  FormEvent,
+  RefObject,
+} from "react";
 
 type InteractionMode = "voice" | "text";
 
@@ -15,6 +19,7 @@ type CompanionControlsProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onChooseText: () => void;
   onStartVoice: () => void;
+  onChooseFiles: (files: File[]) => void;
 };
 
 export default function CompanionControls({
@@ -28,7 +33,18 @@ export default function CompanionControls({
   onSubmit,
   onChooseText,
   onStartVoice,
+  onChooseFiles,
 }: CompanionControlsProps) {
+  function chooseFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+
+    if (files.length > 0) {
+      onChooseFiles(files);
+    }
+
+    event.target.value = "";
+  }
+
   return (
     <form
       onSubmit={onSubmit}
@@ -55,6 +71,24 @@ export default function CompanionControls({
             : voiceMessage || "Press the microphone and speak to Kimi."}
         </div>
       )}
+
+      <label
+        title="Add files"
+        className="touch-manipulation flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#efe8df] text-2xl text-[#6d513a] transition focus-within:ring-4 focus-within:ring-[#6d513a]/35"
+      >
+        <span aria-hidden="true">📎</span>
+
+        <span className="sr-only">Add files</span>
+
+        <input
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+          onChange={chooseFiles}
+          disabled={working}
+          className="sr-only"
+        />
+      </label>
 
       <button
         type="button"
