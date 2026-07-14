@@ -343,6 +343,7 @@ Continue the same conversation. Use the original request and previous response a
             working={working}
             listening={listening}
             voiceMessage={voiceMessage}
+            attachments={attachments}
             onRequestChange={setRequest}
             onSubmit={submitText}
             onChooseText={chooseText}
