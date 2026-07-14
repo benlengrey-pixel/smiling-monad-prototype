@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import WorkspaceCanvas from "@/components/workspace/WorkspaceCanvas";
 import WorkspaceConversation from "@/components/workspace/WorkspaceConversation";
+import WorkspaceDocument from "@/components/workspace/WorkspaceDocument";
 import WorkspacePanel from "@/components/workspace/WorkspacePanel";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import {
@@ -39,15 +40,6 @@ function getResponseText(result: GatewayResponse): string {
 
 function getPanelPlaceholder(panel: WorkspacePanelDefinition) {
   switch (panel.type) {
-    case "document":
-      return (
-        <div className="flex min-h-[32dvh] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-md text-center text-base leading-7 text-[#77695e]">
-            The working document will appear here as the Companion develops it.
-          </p>
-        </div>
-      );
-
     case "attachments":
       return (
         <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
@@ -96,6 +88,7 @@ function getPanelPlaceholder(panel: WorkspacePanelDefinition) {
       );
 
     case "conversation":
+    case "document":
       return null;
   }
 }
@@ -108,6 +101,7 @@ export default function WorkspacePage() {
   const [ready, setReady] = useState(false);
   const [request, setRequest] = useState("");
   const [response, setResponse] = useState("");
+  const [documentContent, setDocumentContent] = useState("");
   const [working, setWorking] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -158,34 +152,43 @@ export default function WorkspacePage() {
       const memory =
         window.localStorage.getItem("smiling-monad-memory") || "[]";
 
-      const gatewayRequest = response
-        ? `
+      const gatewayRequest = `
 Active Workspace task:
 ${session.request}
+
+Current working document:
+${documentContent || "No working document exists yet."}
 
 Previous Companion response:
-${response}
+${response || "No previous response exists yet."}
 
-User's next instruction:
+User's instruction:
 ${currentRequest}
 
-Continue working on the same task. Use the previous response as context.
-`
-        : `
-Active Workspace task:
-${session.request}
-
-Begin working on this task:
-${currentRequest}
+Continue working on the same task. If the user is creating or revising a report,
+letter, note, plan, email or other usable document, return action "draft" and put
+the complete updated document in content. Otherwise respond conversationally.
 `;
 
       const result = await sendGatewayRequest(gatewayRequest, memory);
       const responseText = getResponseText(result);
 
-      setResponse(responseText);
-      setRequest("");
+      if (result.action === "draft") {
+        setDocumentContent(result.content);
+        setResponse(
+          result.question ||
+            "I have updated the working document. You can review or edit it."
+        );
+      } else {
+        setResponse(responseText);
+      }
 
-      speakCompanionResponse(responseText);
+      setRequest("");
+      speakCompanionResponse(
+        result.action === "draft"
+          ? "I have updated the working document."
+          : responseText
+      );
     } catch (error) {
       const message =
         error instanceof Error
@@ -251,6 +254,24 @@ ${currentRequest}
               void workWithCompanion();
             }}
             onStartVoice={startVoice}
+          />
+        </WorkspacePanel>
+      );
+    }
+
+    if (panel.type === "document") {
+      return (
+        <WorkspacePanel
+          key={panel.id}
+          type={panel.type}
+          title={panel.title}
+          purpose={panel.purpose}
+          primary={panel.primary}
+        >
+          <WorkspaceDocument
+            content={documentContent}
+            working={working}
+            onContentChange={setDocumentContent}
           />
         </WorkspacePanel>
       );
