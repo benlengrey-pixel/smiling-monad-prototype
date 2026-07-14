@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import CompanionControls from "@/components/companion/CompanionControls";
 import CompanionWorkspace from "@/components/companion/CompanionWorkspace";
@@ -17,6 +18,10 @@ import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
+import {
+  createTemporaryWorkspaceSession,
+  saveTemporaryWorkspaceSession,
+} from "@/lib/workspace/session-client";
 import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
@@ -93,6 +98,7 @@ function createTemporaryAttachment(file: File): WorkspaceAttachment {
 }
 
 export default function OfficePage() {
+  const router = useRouter();
   const textInputRef = useRef<HTMLInputElement>(null);
 
   const [request, setRequest] = useState("");
@@ -105,6 +111,23 @@ export default function OfficePage() {
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [attachments, setAttachments] = useState<WorkspaceAttachment[]>([]);
+
+  function beginWorkspace(message?: string) {
+    const currentRequest = (message ?? request).trim();
+
+    if (!currentRequest || working) return;
+
+    stopCompanionSpeech();
+
+    const session = createTemporaryWorkspaceSession(currentRequest);
+
+    saveTemporaryWorkspaceSession(session);
+    setRequest("");
+    setVoiceMessage("");
+    setListening(false);
+
+    router.push("/workspace");
+  }
 
   async function askCompanion(message?: string) {
     const currentRequest = (message ?? request).trim();
@@ -151,7 +174,7 @@ export default function OfficePage() {
 
   function submitText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void askCompanion();
+    beginWorkspace();
   }
 
   function chooseText() {
@@ -190,7 +213,7 @@ export default function OfficePage() {
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
         setVoiceMessage(`You said: ${transcript}`);
-        void askCompanion(transcript);
+        beginWorkspace(transcript);
       },
       onError: () => {
         setListening(false);
