@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 type WorkspaceSceneProps = {
   children: ReactNode;
@@ -16,12 +16,12 @@ export default function WorkspaceScene({
         backgroundImage: "url('/workspace.png')",
       }}
     >
-      {/* Soft readability layer */}
-      <div className="absolute inset-0 bg-white/25 backdrop-blur-[1px]" />
+      {/* Soft overlay so documents remain readable */}
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-[1px]" />
 
-      {/* Workspace */}
-      <div className="relative z-10 flex min-h-screen justify-center px-6 py-8">
-        <div className="w-full max-w-7xl">
+      {/* Workspace content */}
+      <div className="relative z-10 min-h-screen px-6 py-6">
+        <div className="mx-auto w-full max-w-7xl">
           {children}
         </div>
       </div>
