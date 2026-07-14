@@ -9,6 +9,10 @@ import {
   sendGatewayRequest,
   type GatewayResponse,
 } from "@/lib/companion/gateway-client";
+import {
+  isCompanionVoiceAvailable,
+  startCompanionVoiceRecognition,
+} from "@/lib/companion/voice-client";
 
 type CompanionResult = GatewayResponse;
 
@@ -20,38 +24,6 @@ type SavedMemory = {
 };
 
 type InteractionMode = "voice" | "text";
-
-type SpeechRecognitionResultEvent = {
-  results: ArrayLike<{
-    0: {
-      transcript: string;
-    };
-  }>;
-};
-
-type SpeechRecognitionErrorEvent = {
-  error: string;
-};
-
-type SpeechRecognitionInstance = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
 
 export default function OfficePage() {
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -121,45 +93,31 @@ export default function OfficePage() {
     setInteractionMode("voice");
     setVoiceMessage("");
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
+    if (!isCompanionVoiceAvailable()) {
       setVoiceMessage(
         "Voice is not available in this browser. Use the keyboard button."
       );
       return;
     }
 
-    const recognition = new SpeechRecognition();
-
-    recognition.lang = "en-AU";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim() || "";
-
-      if (transcript) {
-        setVoiceMessage(`You said: ${transcript}`);
-        void askCompanion(transcript);
-      }
-    };
-
-    recognition.onerror = () => {
-      setListening(false);
-      setVoiceMessage(
-        "I could not hear that. Press the microphone and try again."
-      );
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
-
     setListening(true);
     setVoiceMessage("Listening…");
-    recognition.start();
+
+    startCompanionVoiceRecognition({
+      onTranscript: (transcript) => {
+        setVoiceMessage(`You said: ${transcript}`);
+        void askCompanion(transcript);
+      },
+      onError: () => {
+        setListening(false);
+        setVoiceMessage(
+          "I could not hear that. Press the microphone and try again."
+        );
+      },
+      onEnd: () => {
+        setListening(false);
+      },
+    });
   }
 
   function answerQuestion() {
@@ -174,6 +132,29 @@ ${result.question}
 
 User's answer:
 ${request.trim()}
+`;
+
+    void askCompanion(combinedRequest);
+  }
+
+  function continueConversation() {
+    if (!result || !request.trim()) return;
+
+    const previousContent =
+      result.action === "draft" ? approvedContent : result.content;
+
+    const combinedRequest = `
+Original request:
+${originalRequest}
+
+Previous Companion response:
+Title: ${result.title}
+${previousContent}
+
+User's follow-up:
+${request.trim()}
+
+Continue the same conversation. Use the original request and previous response as context.
 `;
 
     void askCompanion(combinedRequest);
@@ -250,6 +231,7 @@ ${request.trim()}
           onRequestChange={setRequest}
           onApprovedContentChange={setApprovedContent}
           onAnswerQuestion={answerQuestion}
+          onContinueConversation={continueConversation}
           onApprove={approve}
           onClose={closeWork}
         />

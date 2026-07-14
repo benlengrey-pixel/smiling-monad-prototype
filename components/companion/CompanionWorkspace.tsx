@@ -12,6 +12,7 @@ type CompanionWorkspaceProps = {
   onRequestChange: (value: string) => void;
   onApprovedContentChange: (value: string) => void;
   onAnswerQuestion: () => void;
+  onContinueConversation?: () => void;
   onApprove: () => void;
   onClose: () => void;
 };
@@ -24,12 +25,18 @@ export default function CompanionWorkspace({
   onRequestChange,
   onApprovedContentChange,
   onAnswerQuestion,
+  onContinueConversation,
   onApprove,
   onClose,
 }: CompanionWorkspaceProps) {
   function submitAnswer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onAnswerQuestion();
+  }
+
+  function submitContinuation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onContinueConversation?.();
   }
 
   return (
@@ -69,7 +76,7 @@ export default function CompanionWorkspace({
                 value={request}
                 onChange={(event) => onRequestChange(event.target.value)}
                 placeholder="Your answer"
-                aria-label="Answer Kimi's question"
+                aria-label="Answer the Companion's question"
                 enterKeyHint="send"
                 className="min-w-0 flex-1 px-4 py-4 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5"
               />
@@ -90,7 +97,7 @@ export default function CompanionWorkspace({
               onApprovedContentChange(event.target.value)
             }
             aria-label="Generated draft"
-            className="h-full min-h-[55vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
+            className="h-full min-h-[45vh] w-full resize-none bg-transparent text-base leading-7 text-[#302a25] outline-none sm:text-lg sm:leading-8"
           />
         ) : (
           <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25] sm:text-lg sm:leading-8">
@@ -98,6 +105,30 @@ export default function CompanionWorkspace({
           </div>
         )}
       </div>
+
+      {result.action !== "clarify" && onContinueConversation && (
+        <form
+          onSubmit={submitContinuation}
+          className="mx-4 mb-3 flex shrink-0 overflow-hidden rounded-2xl border border-black/10 bg-white sm:mx-6 lg:mx-8"
+        >
+          <input
+            value={request}
+            onChange={(event) => onRequestChange(event.target.value)}
+            placeholder="Continue the conversation"
+            aria-label="Continue the conversation"
+            enterKeyHint="send"
+            className="min-w-0 flex-1 px-4 py-3 outline-none focus:ring-4 focus:ring-[#6d513a]/20 sm:px-5 sm:py-4"
+          />
+
+          <button
+            type="submit"
+            disabled={working || !request.trim()}
+            className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-white disabled:opacity-60 sm:px-7"
+          >
+            {working ? "Working…" : "Send"}
+          </button>
+        </form>
+      )}
 
       <footer className="flex shrink-0 justify-end gap-2 border-t border-black/10 px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:px-8">
         <button
