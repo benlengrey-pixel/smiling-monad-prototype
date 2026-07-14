@@ -27,6 +27,7 @@ import {
 import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
+  updateTemporaryWorkspaceSession,
   type TemporaryWorkspaceSession,
 } from "@/lib/workspace/session-client";
 
@@ -107,12 +108,17 @@ export default function WorkspacePage() {
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
 
+  const originalRequest = session?.intent.originalRequest ?? "";
+  const workspaceTitle = session?.intent.title || originalRequest;
+
   const composition = useMemo(() => {
     if (!session) {
       return null;
     }
 
-    return createWorkspaceComposition(session.request);
+    return createWorkspaceComposition(
+      session.intent.originalRequest
+    );
   }, [session]);
 
   useEffect(() => {
@@ -123,12 +129,23 @@ export default function WorkspacePage() {
   }, []);
 
   useEffect(() => {
-    if (!session || taskStartedRef.current) {
+    if (
+      !session ||
+      taskStartedRef.current ||
+      !session.intent.shouldStartAutomatically
+    ) {
       return;
     }
 
     taskStartedRef.current = true;
-    void workWithCompanion(session.request);
+    updateTemporaryWorkspaceSession({
+      status: "active",
+    });
+
+    void workWithCompanion(
+      session.intent.originalRequest,
+      session
+    );
   }, [session]);
 
   function returnToOffice() {
@@ -142,10 +159,14 @@ export default function WorkspacePage() {
     router.push("/office");
   }
 
-  async function workWithCompanion(message?: string) {
+  async function workWithCompanion(
+    message?: string,
+    activeSession?: TemporaryWorkspaceSession
+  ) {
+    const currentSession = activeSession ?? session;
     const currentRequest = (message ?? request).trim();
 
-    if (!session || !currentRequest || working) {
+    if (!currentSession || !currentRequest || working) {
       return;
     }
 
@@ -155,11 +176,19 @@ export default function WorkspacePage() {
 
     try {
       const memory =
-        window.localStorage.getItem("smiling-monad-memory") || "[]";
+        window.localStorage.getItem(
+          "smiling-monad-memory"
+        ) || "[]";
 
       const gatewayRequest = `
-Active Workspace task:
-${session.request}
+Smiling Monad Workspace intention:
+${currentSession.intent.originalRequest}
+
+Intent type:
+${currentSession.intent.kind}
+
+Workspace tools selected:
+${currentSession.intent.tools.join(", ")}
 
 Current working document:
 ${documentContent || "No working document exists yet."}
@@ -167,22 +196,35 @@ ${documentContent || "No working document exists yet."}
 Previous Companion response:
 ${response || "No previous response exists yet."}
 
-User's instruction:
+Current user instruction:
 ${currentRequest}
 
-Continue working on the same task. If the user is creating or revising a report,
-letter, note, plan, email or other usable document, return action "draft" and put
-the complete updated document in content. Otherwise respond conversationally.
+Begin or continue the same task without asking the user to repeat the original
+request.
+
+Use approved context when available.
+
+Ask only questions that are genuinely necessary.
+
+If the user is creating or revising a report, agreement, letter, note, plan,
+email or other usable document, return action "draft" and place the complete
+current document in content.
+
+Otherwise respond conversationally and help move the task forward.
 `;
 
-      const result = await sendGatewayRequest(gatewayRequest, memory);
+      const result = await sendGatewayRequest(
+        gatewayRequest,
+        memory
+      );
+
       const responseText = getResponseText(result);
 
       if (result.action === "draft") {
         setDocumentContent(result.content);
         setResponse(
           result.question ||
-            "I have updated the working document. You can review or edit it."
+            "I have prepared the working document. Review it or tell me what you would like changed."
         );
       } else {
         setResponse(responseText);
@@ -192,7 +234,8 @@ the complete updated document in content. Otherwise respond conversationally.
 
       speakCompanionResponse(
         result.action === "draft"
-          ? "I have updated the working document."
+          ? result.question ||
+              "I have prepared the working document."
           : responseText
       );
     } catch (error) {
@@ -239,8 +282,13 @@ the complete updated document in content. Otherwise respond conversationally.
     });
   }
 
-  function renderSupportingPanel(panel: WorkspacePanelDefinition) {
-    if (panel.type === "conversation" || panel.type === "document") {
+  function renderSupportingPanel(
+    panel: WorkspacePanelDefinition
+  ) {
+    if (
+      panel.type === "conversation" ||
+      panel.type === "document"
+    ) {
       return null;
     }
 
@@ -258,12 +306,15 @@ the complete updated document in content. Otherwise respond conversationally.
   }
 
   const hasDocument =
-    composition?.panels.some((panel) => panel.type === "document") ?? false;
+    composition?.panels.some(
+      (panel) => panel.type === "document"
+    ) ?? false;
 
   const supportingPanels =
     composition?.panels.filter(
       (panel) =>
-        panel.type !== "conversation" && panel.type !== "document"
+        panel.type !== "conversation" &&
+        panel.type !== "document"
     ) ?? [];
 
   return (
@@ -281,7 +332,7 @@ the complete updated document in content. Otherwise respond conversationally.
       ) : session && composition ? (
         <div className="min-h-[calc(100dvh-7.5rem)] p-4 sm:p-6">
           <WorkspaceCanvas
-            title={session.request}
+            title={workspaceTitle}
             description="Only the work and tools relevant to this task are visible."
           >
             <div className="grid gap-4">
@@ -295,33 +346,39 @@ the complete updated document in content. Otherwise respond conversationally.
                   <WorkspaceDocument
                     content={documentContent}
                     working={working}
-                    onContentChange={setDocumentContent}
+                    onContentChange={
+                      setDocumentContent
+                    }
                   />
                 </WorkspacePanel>
               )}
 
-              {!hasDocument && supportingPanels.length === 0 && (
-                <WorkspaceAssistant
-                  response={response}
-                  request={request}
-                  working={working}
-                  listening={listening}
-                  voiceMessage={voiceMessage}
-                  onRequestChange={setRequest}
-                  onSubmit={() => {
-                    void workWithCompanion();
-                  }}
-                  onStartVoice={startVoice}
-                />
-              )}
+              {!hasDocument &&
+                supportingPanels.length === 0 && (
+                  <WorkspaceAssistant
+                    response={response}
+                    request={request}
+                    working={working}
+                    listening={listening}
+                    voiceMessage={voiceMessage}
+                    onRequestChange={setRequest}
+                    onSubmit={() => {
+                      void workWithCompanion();
+                    }}
+                    onStartVoice={startVoice}
+                  />
+                )}
 
               {supportingPanels.length > 0 && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                  {supportingPanels.map(renderSupportingPanel)}
+                  {supportingPanels.map(
+                    renderSupportingPanel
+                  )}
                 </div>
               )}
 
-              {hasDocument && (
+              {(hasDocument ||
+                supportingPanels.length > 0) && (
                 <WorkspaceAssistant
                   response={response}
                   request={request}
@@ -350,8 +407,8 @@ the complete updated document in content. Otherwise respond conversationally.
             </h1>
 
             <p className="mt-4 text-base leading-7 text-[#6f6257] sm:text-lg">
-              Begin work from the Office. The current task will then appear
-              here temporarily.
+              Begin work from the Office. The Workspace
+              will open and start the task automatically.
             </p>
 
             <button
