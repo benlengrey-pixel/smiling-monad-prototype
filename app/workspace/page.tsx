@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
@@ -31,90 +32,118 @@ export default function WorkspacePage() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#e7ded2] text-[#211d19]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.92),rgba(255,255,255,0)_42%),linear-gradient(180deg,#f4efe8_0%,#e8ded1_58%,#d9c8b5_100%)]" />
-
-      <div className="absolute inset-x-0 bottom-0 h-[43%] bg-[linear-gradient(180deg,rgba(174,135,96,0.05),rgba(128,88,54,0.18)),repeating-linear-gradient(90deg,rgba(98,67,43,0.06)_0,rgba(98,67,43,0.06)_1px,transparent_1px,transparent_110px)]" />
-
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
-        <button
-          type="button"
-          onClick={returnToOffice}
-          className="rounded-full bg-[#3b2415]/90 px-5 py-3 text-base font-medium text-white shadow-xl backdrop-blur-md transition hover:bg-[#2d1a0e] focus:outline-none focus:ring-4 focus:ring-white/50"
-        >
-          Back to Office
-        </button>
-
-        <div className="rounded-full border border-white/60 bg-white/70 px-4 py-2 text-sm text-[#64584e] shadow-lg backdrop-blur-md">
-          Temporary Workspace
+    <WorkspaceShell
+      onBackToOffice={returnToOffice}
+      onDiscard={discardWorkspace}
+      showDiscard={Boolean(session)}
+    >
+      {!ready ? (
+        <div className="flex min-h-[calc(100dvh-7.5rem)] items-center justify-center px-6">
+          <p className="text-base text-[#6f6257]">
+            Preparing the Workspace…
+          </p>
         </div>
-      </header>
-
-      <section className="relative z-10 flex min-h-dvh items-center justify-center px-4 pb-24 pt-24 sm:px-8">
-        <div className="flex min-h-[58dvh] w-full max-w-6xl items-center justify-center rounded-[2.25rem] border border-white/50 bg-white/18 shadow-[0_30px_80px_rgba(77,52,31,0.12)] backdrop-blur-[2px]">
-          {!ready ? (
-            <p className="text-base text-[#6f6257]">
-              Preparing the Workspace…
+      ) : session ? (
+        <div className="grid min-h-[calc(100dvh-7.5rem)] grid-rows-[auto_1fr]">
+          <header className="border-b border-white/45 px-6 py-6 sm:px-10 sm:py-8">
+            <p className="text-xs uppercase tracking-[0.18em] text-[#85776b]">
+              Current task
             </p>
-          ) : session ? (
-            <div className="w-full max-w-3xl px-6 py-12 sm:px-10">
-              <p className="text-sm uppercase tracking-[0.18em] text-[#85776b]">
-                Current task
-              </p>
 
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[#332a23] sm:text-4xl">
-                {session.request}
-              </h1>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#332a23] sm:text-4xl">
+              {session.request}
+            </h1>
 
-              <p className="mt-5 text-base leading-7 text-[#6f6257] sm:text-lg">
-                Conversation, files, drafts and tools for this task will appear
-                here. Nothing is saved permanently unless you choose to save it.
-              </p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#6f6257] sm:text-base">
+              This Workspace is temporary. Conversation, files, notes, tools and
+              drafts will appear here while you complete the task.
+            </p>
+          </header>
 
-              <div className="mt-10 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={returnToOffice}
-                  className="rounded-full border border-[#6d513a]/20 bg-white/80 px-5 py-3 text-sm font-medium text-[#4d3929] shadow-sm"
-                >
-                  Return to Office
-                </button>
+          <div className="grid min-h-0 gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_320px] sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="flex min-h-[48dvh] items-center justify-center rounded-[1.75rem] border border-white/50 bg-white/25 p-6">
+              <div className="max-w-md text-center">
+                <p className="text-sm uppercase tracking-[0.16em] text-[#8a7b6f]">
+                  Active work
+                </p>
 
-                <button
-                  type="button"
-                  onClick={discardWorkspace}
-                  className="rounded-full bg-[#6d513a] px-5 py-3 text-sm font-medium text-white shadow-sm"
-                >
-                  Discard task
-                </button>
+                <h2 className="mt-3 text-2xl font-semibold text-[#3b3028]">
+                  The task will be completed here.
+                </h2>
+
+                <p className="mt-4 text-base leading-7 text-[#716358]">
+                  The next steps will add the Companion conversation, temporary
+                  files, live documents and task-specific tools to this area.
+                </p>
               </div>
-            </div>
-          ) : (
-            <div className="max-w-md px-6 text-center">
-              <p className="text-sm uppercase tracking-[0.18em] text-[#85776b]">
-                Workspace
-              </p>
+            </section>
 
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#332a23] sm:text-4xl">
-                No active task.
-              </h1>
+            <aside className="grid content-start gap-4">
+              <section className="rounded-[1.5rem] border border-white/55 bg-white/60 p-5 shadow-sm backdrop-blur-md">
+                <p className="text-xs uppercase tracking-[0.16em] text-[#8a7b6f]">
+                  Workspace status
+                </p>
 
-              <p className="mt-4 text-base leading-7 text-[#6f6257] sm:text-lg">
-                Begin work from the Office. The current task will then appear
-                here temporarily.
-              </p>
+                <dl className="mt-4 grid gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-[#74675c]">Storage</dt>
+                    <dd className="font-medium text-[#3e332b]">Use once</dd>
+                  </div>
 
-              <button
-                type="button"
-                onClick={returnToOffice}
-                className="mt-8 rounded-full bg-[#6d513a] px-6 py-3 text-base font-medium text-white shadow-lg"
-              >
-                Return to Office
-              </button>
-            </div>
-          )}
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-[#74675c]">Files</dt>
+                    <dd className="font-medium text-[#3e332b]">None</dd>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-[#74675c]">Saved</dt>
+                    <dd className="font-medium text-[#3e332b]">No</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section className="rounded-[1.5rem] border border-white/55 bg-white/60 p-5 shadow-sm backdrop-blur-md">
+                <p className="text-xs uppercase tracking-[0.16em] text-[#8a7b6f]">
+                  Available areas
+                </p>
+
+                <div className="mt-4 grid gap-2 text-sm text-[#4d4138]">
+                  <p>Conversation</p>
+                  <p>Files and images</p>
+                  <p>Draft document</p>
+                  <p>Task tools</p>
+                  <p>Save or export</p>
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
-      </section>
-    </main>
+      ) : (
+        <div className="flex min-h-[calc(100dvh-7.5rem)] items-center justify-center px-6">
+          <div className="max-w-md text-center">
+            <p className="text-sm uppercase tracking-[0.18em] text-[#85776b]">
+              Workspace
+            </p>
+
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#332a23] sm:text-4xl">
+              No active task.
+            </h1>
+
+            <p className="mt-4 text-base leading-7 text-[#6f6257] sm:text-lg">
+              Begin work from the Office. The current task will then appear
+              here temporarily.
+            </p>
+
+            <button
+              type="button"
+              onClick={returnToOffice}
+              className="mt-8 rounded-full bg-[#6d513a] px-6 py-3 text-base font-medium text-white shadow-lg"
+            >
+              Return to Office
+            </button>
+          </div>
+        </div>
+      )}
+    </WorkspaceShell>
   );
 }
