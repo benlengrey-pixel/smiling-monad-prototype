@@ -120,8 +120,10 @@ export default function OfficePage() {
     });
   }
 
-  function answerQuestion() {
-    if (!result?.question || !request.trim()) return;
+  function answerQuestion(message?: string) {
+    const currentAnswer = (message ?? request).trim();
+
+    if (!result?.question || !currentAnswer) return;
 
     const combinedRequest = `
 Original request:
@@ -131,14 +133,16 @@ The Companion asked:
 ${result.question}
 
 User's answer:
-${request.trim()}
+${currentAnswer}
 `;
 
     void askCompanion(combinedRequest);
   }
 
-  function continueConversation() {
-    if (!result || !request.trim()) return;
+  function continueConversation(message?: string) {
+    const followUp = (message ?? request).trim();
+
+    if (!result || !followUp) return;
 
     const previousContent =
       result.action === "draft" ? approvedContent : result.content;
@@ -152,12 +156,49 @@ Title: ${result.title}
 ${previousContent}
 
 User's follow-up:
-${request.trim()}
+${followUp}
 
 Continue the same conversation. Use the original request and previous response as context.
 `;
 
     void askCompanion(combinedRequest);
+  }
+
+  function startWorkspaceVoice() {
+    setInteractionMode("voice");
+    setVoiceMessage("");
+
+    if (!isCompanionVoiceAvailable()) {
+      setVoiceMessage(
+        "Voice is not available in this browser. Use the keyboard instead."
+      );
+      return;
+    }
+
+    setListening(true);
+    setVoiceMessage("Listening…");
+
+    startCompanionVoiceRecognition({
+      onTranscript: (transcript) => {
+        setVoiceMessage(`You said: ${transcript}`);
+
+        if (result?.action === "clarify") {
+          answerQuestion(transcript);
+          return;
+        }
+
+        continueConversation(transcript);
+      },
+      onError: () => {
+        setListening(false);
+        setVoiceMessage(
+          "I could not hear that. Press the microphone and try again."
+        );
+      },
+      onEnd: () => {
+        setListening(false);
+      },
+    });
   }
 
   async function approve() {
@@ -201,6 +242,7 @@ Continue the same conversation. Use the original request and previous response a
     setOriginalRequest("");
     setApprovedContent("");
     setVoiceMessage("");
+    setListening(false);
   }
 
   return (
@@ -227,11 +269,14 @@ Continue the same conversation. Use the original request and previous response a
           result={result}
           request={request}
           working={working}
+          listening={listening}
+          voiceMessage={voiceMessage}
           approvedContent={approvedContent}
           onRequestChange={setRequest}
           onApprovedContentChange={setApprovedContent}
           onAnswerQuestion={answerQuestion}
           onContinueConversation={continueConversation}
+          onStartVoice={startWorkspaceVoice}
           onApprove={approve}
           onClose={closeWork}
         />
