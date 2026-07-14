@@ -4,20 +4,12 @@ import { FormEvent, useRef, useState } from "react";
 
 import CompanionControls from "@/components/companion/CompanionControls";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
+import {
+  sendGatewayRequest,
+  type GatewayResponse,
+} from "@/lib/companion/gateway-client";
 
-type CompanionResult = {
-  action: "draft" | "clarify" | "answer";
-  application:
-    | "shift-report"
-    | "correspondence"
-    | "notes"
-    | "planning"
-    | "general";
-  title: string;
-  question: string;
-  content: string;
-  error?: string;
-};
+type CompanionResult = GatewayResponse;
 
 type SavedMemory = {
   request: string;
@@ -89,22 +81,7 @@ export default function OfficePage() {
       const memory =
         window.localStorage.getItem("smiling-monad-memory") || "[]";
 
-      const response = await fetch("/api/gateway", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          request: currentRequest,
-          memory,
-        }),
-      });
-
-      const data = (await response.json()) as CompanionResult;
-
-      if (!response.ok) {
-        throw new Error(data.error || "The Companion could not respond.");
-      }
+      const data = await sendGatewayRequest(currentRequest, memory);
 
       setResult(data);
       setApprovedContent(data.content || "");
