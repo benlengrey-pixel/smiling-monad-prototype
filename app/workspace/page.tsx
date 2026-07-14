@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WorkspaceCanvas from "@/components/workspace/WorkspaceCanvas";
 import WorkspaceConversation from "@/components/workspace/WorkspaceConversation";
+import WorkspacePanel from "@/components/workspace/WorkspacePanel";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import {
   sendGatewayRequest,
@@ -19,6 +20,10 @@ import {
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
 import {
+  createWorkspaceComposition,
+  type WorkspacePanel as WorkspacePanelDefinition,
+} from "@/lib/workspace/composer";
+import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
   type TemporaryWorkspaceSession,
@@ -32,6 +37,69 @@ function getResponseText(result: GatewayResponse): string {
   return result.content;
 }
 
+function getPanelPlaceholder(panel: WorkspacePanelDefinition) {
+  switch (panel.type) {
+    case "document":
+      return (
+        <div className="flex min-h-[32dvh] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-md text-center text-base leading-7 text-[#77695e]">
+            The working document will appear here as the Companion develops it.
+          </p>
+        </div>
+      );
+
+    case "attachments":
+      return (
+        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
+            Only files added for this task will appear here. They remain
+            temporary unless you choose to save them.
+          </p>
+        </div>
+      );
+
+    case "checklist":
+      return (
+        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
+            Required actions will appear here as they are identified.
+          </p>
+        </div>
+      );
+
+    case "calendar":
+      return (
+        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
+            Only dates and times relevant to this task will appear here.
+          </p>
+        </div>
+      );
+
+    case "meeting":
+      return (
+        <div className="flex min-h-[32dvh] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-md text-center text-base leading-7 text-[#77695e]">
+            Meeting access, live notes and required materials will appear here
+            only while the meeting is active.
+          </p>
+        </div>
+      );
+
+    case "notes":
+      return (
+        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
+          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
+            Notes relevant to the current task will appear here.
+          </p>
+        </div>
+      );
+
+    case "conversation":
+      return null;
+  }
+}
+
 export default function WorkspacePage() {
   const router = useRouter();
 
@@ -43,6 +111,14 @@ export default function WorkspacePage() {
   const [working, setWorking] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
+
+  const composition = useMemo(() => {
+    if (!session) {
+      return null;
+    }
+
+    return createWorkspaceComposition(session.request);
+  }, [session]);
 
   useEffect(() => {
     const currentSession = readTemporaryWorkspaceSession();
@@ -154,6 +230,45 @@ ${currentRequest}
     });
   }
 
+  function renderPanel(panel: WorkspacePanelDefinition) {
+    if (panel.type === "conversation") {
+      return (
+        <WorkspacePanel
+          key={panel.id}
+          type={panel.type}
+          title={panel.title}
+          purpose={panel.purpose}
+          primary={panel.primary}
+        >
+          <WorkspaceConversation
+            response={response}
+            request={request}
+            working={working}
+            listening={listening}
+            voiceMessage={voiceMessage}
+            onRequestChange={setRequest}
+            onSubmit={() => {
+              void workWithCompanion();
+            }}
+            onStartVoice={startVoice}
+          />
+        </WorkspacePanel>
+      );
+    }
+
+    return (
+      <WorkspacePanel
+        key={panel.id}
+        type={panel.type}
+        title={panel.title}
+        purpose={panel.purpose}
+        primary={panel.primary}
+      >
+        {getPanelPlaceholder(panel)}
+      </WorkspacePanel>
+    );
+  }
+
   return (
     <WorkspaceShell
       onBackToOffice={returnToOffice}
@@ -166,24 +281,31 @@ ${currentRequest}
             Preparing the Workspace…
           </p>
         </div>
-      ) : session ? (
+      ) : session && composition ? (
         <div className="min-h-[calc(100dvh-7.5rem)] p-4 sm:p-6">
           <WorkspaceCanvas
             title={session.request}
-            description="This task is temporary. Only the conversation and tools needed to complete it will appear here."
+            description="This Workspace has assembled only the areas relevant to the active task."
           >
-            <WorkspaceConversation
-              response={response}
-              request={request}
-              working={working}
-              listening={listening}
-              voiceMessage={voiceMessage}
-              onRequestChange={setRequest}
-              onSubmit={() => {
-                void workWithCompanion();
-              }}
-              onStartVoice={startVoice}
-            />
+            <div className="grid gap-4 lg:grid-cols-12">
+              {composition.panels.map((panel) => (
+                <div
+                  key={panel.id}
+                  className={
+                    panel.primary
+                      ? "lg:col-span-8"
+                      : composition.panels.some(
+                            (item) =>
+                              item.primary && item.id !== panel.id
+                          )
+                        ? "lg:col-span-4"
+                        : "lg:col-span-12"
+                  }
+                >
+                  {renderPanel(panel)}
+                </div>
+              ))}
+            </div>
           </WorkspaceCanvas>
         </div>
       ) : (
