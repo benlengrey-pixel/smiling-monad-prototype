@@ -215,15 +215,13 @@ export default function WorkspacePage() {
     );
   }, []);
 
-  function submitReply(
-    event: FormEvent<HTMLFormElement>
+  function continueTask(
+    answer: string
   ) {
-    event.preventDefault();
-
-    const currentReply = reply.trim();
+    const currentAnswer = answer.trim();
 
     if (
-      !currentReply ||
+      !currentAnswer ||
       working ||
       !session
     ) {
@@ -232,7 +230,7 @@ export default function WorkspacePage() {
 
     const benMessage = createMessage(
       "Ben",
-      currentReply
+      currentAnswer
     );
 
     const nextMessages = [
@@ -247,10 +245,13 @@ export default function WorkspacePage() {
     const continuedRequest = [
       session.intent.originalRequest,
       "",
-      "Continue the current task using this new information:",
-      currentReply,
+      "The user is answering your most recent question.",
+      `Their answer is: ${currentAnswer}`,
       "",
-      "Ask only one necessary question at a time. When there is enough information, produce the complete draft.",
+      "Use this answer as task information.",
+      "Do not ask them to repeat or restate it.",
+      "Ask only the next necessary question.",
+      "When there is enough information, produce the complete draft.",
     ].join("\n");
 
     void runCompanion(
@@ -259,49 +260,11 @@ export default function WorkspacePage() {
     );
   }
 
-  function submitVoiceReply(
-    transcript: string
+  function submitReply(
+    event: FormEvent<HTMLFormElement>
   ) {
-    const currentReply =
-      transcript.trim();
-
-    if (
-      !currentReply ||
-      working ||
-      !session
-    ) {
-      return;
-    }
-
-    const benMessage = createMessage(
-      "Ben",
-      currentReply
-    );
-
-    const nextMessages = [
-      ...messages,
-      benMessage,
-    ];
-
-    setMessages(nextMessages);
-    setReply("");
-    setVoiceMessage(
-      `You said: ${currentReply}`
-    );
-
-    const continuedRequest = [
-      session.intent.originalRequest,
-      "",
-      "Continue the current task using this new information:",
-      currentReply,
-      "",
-      "Ask only one necessary question at a time. When there is enough information, produce the complete draft.",
-    ].join("\n");
-
-    void runCompanion(
-      continuedRequest,
-      nextMessages
-    );
+    event.preventDefault();
+    continueTask(reply);
   }
 
   function startVoice() {
@@ -320,8 +283,18 @@ export default function WorkspacePage() {
 
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
+        const spokenAnswer =
+          transcript.trim();
+
         setListening(false);
-        submitVoiceReply(transcript);
+        setReply(spokenAnswer);
+        setVoiceMessage(
+          `You said: ${spokenAnswer}`
+        );
+
+        window.setTimeout(() => {
+          continueTask(spokenAnswer);
+        }, 500);
       },
       onError: () => {
         setListening(false);
@@ -488,7 +461,7 @@ export default function WorkspacePage() {
 
                 {working && result && (
                   <p className="mt-5 text-sm text-[#75675c]">
-                    Kimi is updating this…
+                    Kimi is using your answer…
                   </p>
                 )}
               </div>
