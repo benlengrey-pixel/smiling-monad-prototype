@@ -19,35 +19,33 @@ export default function ConversationThread({
     return null;
   }
 
-  const visibleMessages = messages.slice(-6);
+  const visibleMessages = messages.slice(-4);
 
   return (
-    <div className="pointer-events-none absolute left-[4%] top-[16%] z-20 w-[min(25rem,86vw)] sm:left-[5%] sm:top-[18%] sm:w-[24rem]">
+    <div className="pointer-events-none absolute bottom-[7.5rem] left-1/2 z-20 w-[calc(100%-2rem)] max-w-[34rem] -translate-x-1/2 sm:bottom-auto sm:top-[51%] sm:w-[32rem]">
       <div
         aria-live="polite"
-        className="space-y-2 text-sm leading-6 text-[#3f352d] drop-shadow-[0_1px_1px_rgba(255,255,255,0.9)] sm:text-base"
+        className="space-y-1 text-center text-sm leading-5 text-[#4b4037] sm:text-base sm:leading-6"
       >
         {visibleMessages.map((message, index) => {
           const distanceFromNewest =
             visibleMessages.length - index - 1;
 
           const opacityClass =
-            distanceFromNewest >= 4
-              ? "opacity-30"
-              : distanceFromNewest === 3
-                ? "opacity-45"
-                : distanceFromNewest === 2
-                  ? "opacity-60"
-                  : distanceFromNewest === 1
-                    ? "opacity-75"
-                    : "opacity-100";
+            distanceFromNewest >= 3
+              ? "opacity-20"
+              : distanceFromNewest === 2
+                ? "opacity-35"
+                : distanceFromNewest === 1
+                  ? "opacity-55"
+                  : "opacity-75";
 
           return (
             <p
               key={message.id}
               className={`transition-opacity duration-500 ${opacityClass}`}
             >
-              <span className="font-semibold">
+              <span className="font-medium">
                 {message.speaker}:
               </span>{" "}
               <span className="whitespace-pre-wrap">
@@ -58,11 +56,11 @@ export default function ConversationThread({
         })}
 
         {working && (
-          <p className="opacity-70">
-            <span className="font-semibold">
+          <p className="opacity-50">
+            <span className="font-medium">
               Kimi:
             </span>{" "}
-            <span>Kimi is thinking…</span>
+            thinking…
           </p>
         )}
       </div>

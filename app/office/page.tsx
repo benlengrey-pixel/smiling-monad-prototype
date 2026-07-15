@@ -11,6 +11,7 @@ import CompanionControls from "@/components/companion/CompanionControls";
 import ConversationThread, {
   type ConversationMessage,
 } from "@/components/companion/ConversationThread";
+import DeskTaskObject from "@/components/office/DeskTaskObject";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
 import {
@@ -114,39 +115,6 @@ function createMessage(
   };
 }
 
-function getDeskObjectLabel(
-  intent: SmilingMonadIntent
-): string {
-  switch (intent.kind) {
-    case "report":
-      return "Report";
-
-    case "correspondence":
-      return "Correspondence";
-
-    case "document":
-      return "Document";
-
-    case "planning":
-      return "Planner";
-
-    case "meeting":
-      return "Meeting notes";
-
-    case "research":
-      return "Research";
-
-    case "files":
-      return "Files";
-
-    case "wellbeing":
-      return "Wellbeing";
-
-    default:
-      return "Current task";
-  }
-}
-
 function getPreparedMessage(
   intent: SmilingMonadIntent
 ): string {
@@ -173,7 +141,11 @@ function getPreparedMessage(
       return "I've placed the file task on the desk.";
 
     case "wellbeing":
-      return "I've prepared the wellbeing session.";
+      return intent.originalRequest
+        .toLowerCase()
+        .includes("music")
+        ? "I've placed the headphones on the desk."
+        : "I've prepared the wellbeing activity.";
 
     default:
       return "I've placed the task on the desk.";
@@ -385,15 +357,6 @@ export default function OfficePage() {
     router.push("/workspace");
   }
 
-  function dismissPendingTask() {
-    setPendingIntent(null);
-    setAttachments([]);
-    addMessage(
-      "Kimi",
-      "Okay. I've cleared it from the desk."
-    );
-  }
-
   return (
     <OfficeEnvironment>
       <ConversationThread
@@ -402,35 +365,11 @@ export default function OfficePage() {
       />
 
       {pendingIntent && (
-        <div className="pointer-events-auto absolute left-1/2 top-[51%] z-30 w-[min(12rem,48vw)] -translate-x-1/2 sm:left-[48%] sm:top-[58%] sm:w-44">
-          <button
-            type="button"
-            onClick={openPendingTask}
-            aria-label={`Open ${pendingIntent.title}`}
-            className="group block w-full rounded-lg focus:outline-none focus:ring-4 focus:ring-[#6d513a]/25"
-          >
-            <div className="relative h-20 rounded-md border border-[#8a6749]/40 bg-[linear-gradient(165deg,#8f6849,#5f4431)] shadow-[0_12px_22px_rgba(47,32,22,0.35)] transition group-hover:-translate-y-1 group-hover:shadow-[0_17px_28px_rgba(47,32,22,0.4)]">
-              <div className="absolute left-2 top-2 h-[calc(100%-0.75rem)] w-[calc(100%-0.75rem)] rounded-sm border border-[#d2b28d]/25" />
-
-              <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 text-center">
-                <p className="line-clamp-2 text-xs font-semibold tracking-wide text-[#f6eadc]">
-                  {getDeskObjectLabel(
-                    pendingIntent
-                  )}
-                </p>
-              </div>
-
-              <div className="absolute bottom-0 left-0 h-2 w-full rounded-b-md bg-[#402d20]/45" />
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={dismissPendingTask}
-            className="mx-auto mt-2 block rounded-full bg-white/75 px-3 py-1 text-[11px] text-[#665647] shadow-sm backdrop-blur-sm"
-          >
-            Clear
-          </button>
+        <div className="pointer-events-auto absolute left-1/2 top-[67%] z-20 -translate-x-1/2 sm:left-[43%] sm:top-[70%]">
+          <DeskTaskObject
+            intent={pendingIntent}
+            onOpen={openPendingTask}
+          />
         </div>
       )}
 
