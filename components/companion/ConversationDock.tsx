@@ -31,10 +31,13 @@ type ConversationDockProps = {
 function getAttachmentLabel(
   attachments: WorkspaceAttachment[]
 ): string {
-  if (attachments.length === 0) return "";
+  if (attachments.length === 0) {
+    return "";
+  }
 
   if (attachments.length === 1) {
     const name = attachments[0]?.name || "1 file";
+
     return name.length > 20
       ? `${name.slice(0, 17)}…`
       : name;
@@ -61,12 +64,14 @@ export default function ConversationDock({
   const [mobileExpanded, setMobileExpanded] =
     useState(false);
 
-  const visibleMessages = messages.slice(-4);
+  const visibleMessages = messages.slice(-2);
   const latestMessage =
     messages[messages.length - 1] ?? null;
+
   const attachmentLabel =
     getAttachmentLabel(attachments);
-  const hasAttachments = attachments.length > 0;
+  const hasAttachments =
+    attachments.length > 0;
 
   function chooseFiles(
     event: ChangeEvent<HTMLInputElement>
@@ -90,13 +95,13 @@ export default function ConversationDock({
   }
 
   return (
-    <div className="pointer-events-auto absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-3 z-40 w-[min(18rem,46vw)] sm:bottom-[4%] sm:right-[4%] sm:w-[22rem]">
-      <div className="overflow-hidden rounded-[1.2rem] border border-white/25 bg-[#8a5f3f]/55 shadow-[0_12px_30px_rgba(48,31,19,0.18)] backdrop-blur-xl">
+    <div className="pointer-events-auto absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-40 w-[min(19rem,47vw)] sm:bottom-[4%] sm:right-[4%] sm:w-[22rem]">
+      <div className="overflow-hidden rounded-[1.3rem] border border-white/25 bg-[#8a5f3f]/55 shadow-[0_12px_30px_rgba(48,31,19,0.18)] backdrop-blur-xl">
         <form
           onSubmit={submit}
-          className="flex items-center gap-1 border-b border-white/14 px-2 py-1.5 sm:gap-1.5 sm:px-3 sm:py-2.5"
+          className="flex items-center gap-1 border-b border-white/14 px-2.5 py-2 sm:gap-1.5 sm:px-3 sm:py-2.5"
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-[#3f4641]/75 text-[11px] font-medium text-white sm:h-9 sm:w-9 sm:text-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-[#3f4641]/75 text-xs font-medium text-white sm:h-9 sm:w-9 sm:text-sm">
             N
           </div>
 
@@ -108,7 +113,9 @@ export default function ConversationDock({
                 setMobileExpanded(true)
               }
               onChange={(event) =>
-                onRequestChange(event.target.value)
+                onRequestChange(
+                  event.target.value
+                )
               }
               placeholder={
                 hasAttachments
@@ -118,29 +125,36 @@ export default function ConversationDock({
               aria-label="Type a request for Kimi"
               enterKeyHint="send"
               autoComplete="off"
-              className="min-w-0 flex-1 bg-transparent px-1 py-1 text-[11px] text-white outline-none placeholder:text-white/55 sm:py-2 sm:text-sm"
+              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-xs text-white outline-none placeholder:text-white/55 sm:py-2 sm:text-sm"
             />
           ) : (
             <div
               aria-live="polite"
-              className="min-w-0 flex-1 px-1 py-1 text-[11px] text-white/75 sm:py-2 sm:text-sm"
+              className="min-w-0 flex-1 px-1 py-1.5 text-xs text-white/75 sm:py-2 sm:text-sm"
             >
               {working
                 ? "Thinking…"
-                : voiceMessage || "Speak."}
+                : voiceMessage ||
+                  "Speak to Kimi."}
             </div>
           )}
 
           <label
             title="Add files"
-            className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[11px] transition focus-within:ring-2 focus-within:ring-white/20 sm:h-9 sm:w-9 sm:text-sm ${
+            className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs transition focus-within:ring-2 focus-within:ring-white/20 sm:h-9 sm:w-9 sm:text-sm ${
               hasAttachments
                 ? "bg-white/28 text-white"
                 : "bg-white/14 text-white/80"
             }`}
           >
-            <span aria-hidden="true">📎</span>
-            <span className="sr-only">Add files</span>
+            <span aria-hidden="true">
+              📎
+            </span>
+
+            <span className="sr-only">
+              Add files
+            </span>
+
             <input
               type="file"
               multiple
@@ -160,15 +174,19 @@ export default function ConversationDock({
                 : "Talk to Kimi"
             }
             title="Talk to Kimi"
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] transition focus:outline-none focus:ring-2 focus:ring-white/20 sm:h-9 sm:w-9 sm:text-sm ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs transition focus:outline-none focus:ring-2 focus:ring-white/20 sm:h-9 sm:w-9 sm:text-sm ${
               mode === "voice"
                 ? "bg-white/28 text-white"
                 : "bg-white/14 text-white/80"
             } ${
-              listening ? "animate-pulse" : ""
+              listening
+                ? "animate-pulse"
+                : ""
             }`}
           >
-            <span aria-hidden="true">🎤</span>
+            <span aria-hidden="true">
+              🎤
+            </span>
           </button>
 
           <button
@@ -182,24 +200,31 @@ export default function ConversationDock({
                 : "bg-white/14 text-white/80"
             }`}
           >
-            <span aria-hidden="true">⌨️</span>
+            <span aria-hidden="true">
+              ⌨️
+            </span>
           </button>
 
           {mode === "text" && (
             <button
               type="submit"
-              disabled={working || !request.trim()}
+              disabled={
+                working ||
+                !request.trim()
+              }
               aria-label="Send request to Kimi"
               title="Send"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 text-[11px] text-[#60432f] transition focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9 sm:text-sm"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/85 text-xs text-[#60432f] transition focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9 sm:text-sm"
             >
-              <span aria-hidden="true">➜</span>
+              <span aria-hidden="true">
+                ➜
+              </span>
             </button>
           )}
         </form>
 
         {hasAttachments && (
-          <div className="border-b border-white/10 px-3 py-1 text-[9px] text-white/60">
+          <div className="border-b border-white/10 px-3 py-1 text-[10px] text-white/60">
             📎 {attachmentLabel}
           </div>
         )}
@@ -213,66 +238,89 @@ export default function ConversationDock({
                   (current) => !current
                 )
               }
-              className="block w-full px-2.5 py-1.5 text-left"
+              className="block w-full px-3 py-2 text-left"
             >
-              <div className="flex items-start gap-1.5">
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#314d4c]/85 text-[9px] font-semibold text-white">
-                  {working
-                    ? "K"
-                    : latestMessage?.speaker === "Ben"
-                      ? "B"
-                      : "K"}
-                </div>
+              {working ? (
+                <div className="flex items-start gap-2">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#314d4c]/85 text-[10px] font-semibold text-white">
+                    K
+                  </div>
 
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold text-white">
-                    {working
-                      ? "Kimi"
-                      : latestMessage?.speaker}
-                  </p>
-                  <p
-                    className={`text-[10px] leading-3.5 text-white/72 ${
-                      mobileExpanded
-                        ? "whitespace-pre-wrap"
-                        : "line-clamp-2"
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-white">
+                      Kimi
+                    </p>
+                    <p className="truncate text-[11px] leading-4 text-white/72">
+                      thinking…
+                    </p>
+                  </div>
+                </div>
+              ) : latestMessage ? (
+                <div className="flex items-start gap-2">
+                  <div
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${
+                      latestMessage.speaker ===
+                      "Ben"
+                        ? "bg-[#6f3e1f]/80"
+                        : "bg-[#314d4c]/85"
                     }`}
                   >
-                    {working
-                      ? "thinking…"
-                      : latestMessage?.text}
-                  </p>
+                    {latestMessage.speaker ===
+                    "Ben"
+                      ? "B"
+                      : "K"}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-white">
+                      {latestMessage.speaker}
+                    </p>
+
+                    <p
+                      className={`text-[11px] leading-4 text-white/72 ${
+                        mobileExpanded
+                          ? "whitespace-pre-wrap"
+                          : "line-clamp-2"
+                      }`}
+                    >
+                      {latestMessage.text}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </button>
           )}
 
           {mobileExpanded &&
             visibleMessages.length > 1 && (
-              <div className="max-h-28 overflow-y-auto border-t border-white/10 px-2.5 py-1">
+              <div className="max-h-24 overflow-y-auto border-t border-white/10 px-3 py-1.5">
                 {visibleMessages
                   .slice(0, -1)
                   .map((message) => (
                     <div
                       key={message.id}
-                      className="flex gap-1.5 border-b border-white/8 py-1.5 last:border-b-0"
+                      className="flex gap-2 py-2"
                     >
                       <div
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white ${
-                          message.speaker === "Ben"
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${
+                          message.speaker ===
+                          "Ben"
                             ? "bg-[#6f3e1f]/70"
                             : "bg-[#314d4c]/75"
                         }`}
                       >
-                        {message.speaker === "Ben"
+                        {message.speaker ===
+                        "Ben"
                           ? "B"
                           : "K"}
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-[9px] font-semibold text-white/85">
+                        <p className="text-[10px] font-semibold text-white/85">
                           {message.speaker}
                         </p>
-                        <p className="text-[9px] leading-3.5 text-white/62">
+
+                        <p className="text-[10px] leading-4 text-white/62">
                           {message.text}
                         </p>
                       </div>
@@ -283,46 +331,68 @@ export default function ConversationDock({
         </div>
 
         <div className="hidden sm:block">
-          {(visibleMessages.length > 0 || working) && (
+          {(visibleMessages.length > 0 ||
+            working) && (
             <div
               aria-live="polite"
-              className="max-h-56 overflow-y-auto px-4 py-2.5 text-[12px] leading-4 text-white/88"
+              className="max-h-32 overflow-y-auto px-4 py-2 text-[12px] leading-4 text-white/88"
             >
-              {visibleMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className="flex gap-2 border-b border-white/10 py-2.5 last:border-b-0"
-                >
-                  <div
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 text-[11px] font-semibold text-white ${
-                      message.speaker === "Ben"
-                        ? "bg-[#6f3e1f]/80"
-                        : "bg-[#314d4c]/85"
-                    }`}
-                  >
-                    {message.speaker === "Ben"
-                      ? "B"
-                      : "K"}
-                  </div>
+              {visibleMessages.map(
+                (message, index) => {
+                  const distanceFromNewest =
+                    visibleMessages.length -
+                    index -
+                    1;
 
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {message.speaker}
-                    </p>
-                    <p className="mt-0.5 whitespace-pre-wrap text-white/80">
-                      {message.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                  const opacityClass =
+                    distanceFromNewest === 1
+                      ? "opacity-72"
+                      : "opacity-100";
+
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex gap-2 border-b border-white/10 py-2 last:border-b-0 ${opacityClass}`}
+                    >
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 text-[11px] font-semibold text-white ${
+                          message.speaker ===
+                          "Ben"
+                            ? "bg-[#6f3e1f]/80"
+                            : "bg-[#314d4c]/85"
+                        }`}
+                      >
+                        {message.speaker ===
+                        "Ben"
+                          ? "B"
+                          : "K"}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">
+                          {message.speaker}
+                        </p>
+
+                        <p className="mt-0.5 whitespace-pre-wrap text-white/80">
+                          {message.text}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
 
               {working && (
-                <div className="flex gap-2 py-2.5 opacity-70">
+                <div className="flex gap-2 py-2 opacity-70">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-[#314d4c]/85 text-[11px] font-semibold text-white">
                     K
                   </div>
+
                   <div>
-                    <p className="font-semibold">Kimi</p>
+                    <p className="font-semibold">
+                      Kimi
+                    </p>
+
                     <p className="mt-0.5 text-white/75">
                       thinking…
                     </p>
