@@ -38,15 +38,25 @@ export type SmilingMonadIntent = {
   createdAt: string;
 };
 
-function includesAny(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(term));
+function includesAny(
+  text: string,
+  terms: string[]
+): boolean {
+  return terms.some((term) =>
+    text.includes(term)
+  );
 }
 
-function uniqueTools(tools: IntentTool[]): IntentTool[] {
+function uniqueTools(
+  tools: IntentTool[]
+): IntentTool[] {
   return Array.from(new Set(tools));
 }
 
-function createTitle(request: string, kind: IntentKind): string {
+function createTitle(
+  request: string,
+  kind: IntentKind
+): string {
   const trimmedRequest = request.trim();
 
   if (trimmedRequest.length <= 64) {
@@ -80,33 +90,105 @@ function createTitle(request: string, kind: IntentKind): string {
   }
 }
 
-function classifyIntent(request: string): {
+function classifyIntent(
+  request: string
+): {
   destination: IntentDestination;
   kind: IntentKind;
   tools: IntentTool[];
 } {
-  const text = request.trim().toLowerCase();
+  const text = request
+    .trim()
+    .toLowerCase();
 
-  const isGreeting = includesAny(text, [
-    "hello",
-    "hi",
-    "hey",
-    "good morning",
-    "good afternoon",
-    "good evening",
-    "how are you",
-    "thank you",
-    "thanks",
-    "what do you think",
-    "help me think",
-    "explain",
+  /*
+   * Work requests are checked before greetings.
+   * This prevents a request such as
+   * "Hi Kimi, help me write a shift report"
+   * from being treated as ordinary conversation.
+   */
+
+  const isReport = includesAny(text, [
+    "shift report",
+    "shift notes",
+    "progress report",
+    "incident report",
+    "support report",
+    "case report",
+    "daily report",
+    "weekly report",
+    "write a report",
+    "write report",
+    "prepare a report",
+    "prepare report",
+    "complete a report",
+    "complete report",
+    "do a report",
+    "finish a report",
+    "today's report",
+    "todays report",
+    "yesterday's report",
+    "yesterdays report",
+    "yesterday report",
   ]);
 
-  if (isGreeting) {
+  if (isReport) {
     return {
-      destination: "office",
-      kind: "conversation",
-      tools: ["companion"],
+      destination: "workspace",
+      kind: "report",
+      tools: [
+        "document",
+        "companion",
+      ],
+    };
+  }
+
+  const isCorrespondence = includesAny(
+    text,
+    [
+      "write an email",
+      "draft an email",
+      "send an email",
+      "write a letter",
+      "draft a letter",
+      "write a message",
+      "reply to",
+      "respond to",
+      "correspondence",
+    ]
+  );
+
+  if (isCorrespondence) {
+    return {
+      destination: "workspace",
+      kind: "correspondence",
+      tools: [
+        "document",
+        "companion",
+      ],
+    };
+  }
+
+  const isMeeting = includesAny(text, [
+    "meeting",
+    "zoom",
+    "teams meeting",
+    "google meet",
+    "video call",
+    "agenda",
+    "meeting notes",
+    "meeting minutes",
+  ]);
+
+  if (isMeeting) {
+    return {
+      destination: "workspace",
+      kind: "meeting",
+      tools: [
+        "meeting",
+        "notes",
+        "companion",
+      ],
     };
   }
 
@@ -126,10 +208,16 @@ function classifyIntent(request: string): {
     "sleep",
     "hourglass",
     "timer",
+    "music",
+    "listen to music",
+    "nature sounds",
+    "play sounds",
   ]);
 
   if (isWellbeing) {
-    const tools: IntentTool[] = ["companion"];
+    const tools: IntentTool[] = [
+      "companion",
+    ];
 
     if (
       includesAny(text, [
@@ -141,7 +229,10 @@ function classifyIntent(request: string): {
         "ground me",
       ])
     ) {
-      tools.push("breathing", "timer");
+      tools.push(
+        "breathing",
+        "timer"
+      );
     }
 
     if (
@@ -152,12 +243,21 @@ function classifyIntent(request: string): {
         "sleep",
         "music",
         "nature sounds",
+        "play sounds",
       ])
     ) {
-      tools.push("timer", "audio");
+      tools.push(
+        "timer",
+        "audio"
+      );
     }
 
-    if (includesAny(text, ["yoga", "stretch"])) {
+    if (
+      includesAny(text, [
+        "yoga",
+        "stretch",
+      ])
+    ) {
       tools.push("timer");
     }
 
@@ -168,97 +268,19 @@ function classifyIntent(request: string): {
     };
   }
 
-  const isMeeting = includesAny(text, [
-    "meeting",
-    "zoom",
-    "teams",
-    "google meet",
-    "video call",
-    "agenda",
-    "meeting notes",
-    "minutes",
-  ]);
-
-  if (isMeeting) {
-    return {
-      destination: "workspace",
-      kind: "meeting",
-      tools: ["meeting", "notes", "companion"],
-    };
-  }
-
-  const isReport = includesAny(text, [
-    "shift report",
-    "progress report",
-    "incident report",
-    "support report",
-    "case report",
-    "write a report",
-    "prepare a report",
-    "today's report",
-    "todays report",
-  ]);
-
-  if (isReport) {
-    return {
-      destination: "workspace",
-      kind: "report",
-      tools: ["document", "companion"],
-    };
-  }
-
-  const isCorrespondence = includesAny(text, [
-    "write an email",
-    "draft an email",
-    "send an email",
-    "write a letter",
-    "draft a letter",
-    "write a message",
-    "reply to",
-    "respond to",
-    "correspondence",
-  ]);
-
-  if (isCorrespondence) {
-    return {
-      destination: "workspace",
-      kind: "correspondence",
-      tools: ["document", "companion"],
-    };
-  }
-
-  const isDocument = includesAny(text, [
-    "service agreement",
-    "document",
-    "draft",
-    "write",
-    "rewrite",
-    "edit",
-    "summary",
-    "summarise",
-    "form",
-    "proposal",
-    "agreement",
-  ]);
-
-  if (isDocument) {
-    return {
-      destination: "workspace",
-      kind: "document",
-      tools: ["document", "companion"],
-    };
-  }
-
   const isFileTask = includesAny(text, [
-    "file",
-    "files",
+    "upload file",
+    "upload files",
+    "open file",
+    "open files",
+    "review file",
+    "review files",
     "photo",
     "photos",
     "image",
     "images",
     "pdf",
     "attachment",
-    "upload",
     "spreadsheet",
     "word document",
   ]);
@@ -267,7 +289,10 @@ function classifyIntent(request: string): {
     return {
       destination: "workspace",
       kind: "files",
-      tools: ["attachments", "companion"],
+      tools: [
+        "attachments",
+        "companion",
+      ],
     };
   }
 
@@ -280,7 +305,7 @@ function classifyIntent(request: string): {
     "analyse",
     "analyze",
     "review this",
-    "menu",
+    "search for",
     "website",
   ]);
 
@@ -288,14 +313,21 @@ function classifyIntent(request: string): {
     return {
       destination: "workspace",
       kind: "research",
-      tools: ["research", "notes", "companion"],
+      tools: [
+        "research",
+        "notes",
+        "companion",
+      ],
     };
   }
 
   const isPlanning = includesAny(text, [
     "help me plan",
     "make a plan",
+    "create a plan",
     "planning",
+    "plan my",
+    "plan the",
     "steps",
     "checklist",
     "action items",
@@ -309,7 +341,37 @@ function classifyIntent(request: string): {
     return {
       destination: "workspace",
       kind: "planning",
-      tools: ["checklist", "notes", "companion"],
+      tools: [
+        "checklist",
+        "notes",
+        "companion",
+      ],
+    };
+  }
+
+  const isDocument = includesAny(text, [
+    "service agreement",
+    "create a document",
+    "make a document",
+    "draft a document",
+    "write a document",
+    "rewrite",
+    "edit this",
+    "summary",
+    "summarise",
+    "form",
+    "proposal",
+    "agreement",
+  ]);
+
+  if (isDocument) {
+    return {
+      destination: "workspace",
+      kind: "document",
+      tools: [
+        "document",
+        "companion",
+      ],
     };
   }
 
@@ -326,7 +388,10 @@ function classifyIntent(request: string): {
     return {
       destination: "office",
       kind: "calendar",
-      tools: ["calendar", "companion"],
+      tools: [
+        "calendar",
+        "companion",
+      ],
     };
   }
 
@@ -357,23 +422,33 @@ function classifyIntent(request: string): {
 export function createSmilingMonadIntent(
   request: string
 ): SmilingMonadIntent {
-  const originalRequest = request.trim();
+  const originalRequest =
+    request.trim();
 
   if (!originalRequest) {
-    throw new Error("An intention is required.");
+    throw new Error(
+      "An intention is required."
+    );
   }
 
-  const classification = classifyIntent(originalRequest);
+  const classification =
+    classifyIntent(originalRequest);
 
   return {
     id: crypto.randomUUID(),
     originalRequest,
-    destination: classification.destination,
+    destination:
+      classification.destination,
     kind: classification.kind,
-    title: createTitle(originalRequest, classification.kind),
+    title: createTitle(
+      originalRequest,
+      classification.kind
+    ),
     tools: classification.tools,
     shouldStartAutomatically:
-      classification.destination === "workspace",
-    createdAt: new Date().toISOString(),
+      classification.destination ===
+      "workspace",
+    createdAt:
+      new Date().toISOString(),
   };
 }
