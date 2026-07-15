@@ -7,10 +7,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import CompanionControls from "@/components/companion/CompanionControls";
-import ConversationThread, {
-  type ConversationMessage,
-} from "@/components/companion/ConversationThread";
+import ConversationDock from "@/components/companion/ConversationDock";
+import type { ConversationMessage } from "@/components/companion/ConversationThread";
 import Desk from "@/components/office/Desk";
 import DeskTaskObject from "@/components/office/DeskTaskObject";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
@@ -47,7 +45,9 @@ type GatewayResult = {
   content: string;
 };
 
-function getAttachmentKind(file: File): WorkspaceAttachmentKind {
+function getAttachmentKind(
+  file: File
+): WorkspaceAttachmentKind {
   const name = file.name.toLowerCase();
 
   if (file.type.startsWith("image/")) return "image";
@@ -83,7 +83,9 @@ function getAttachmentKind(file: File): WorkspaceAttachmentKind {
   return "other";
 }
 
-function createTemporaryAttachment(file: File): WorkspaceAttachment {
+function createTemporaryAttachment(
+  file: File
+): WorkspaceAttachment {
   return {
     id: crypto.randomUUID(),
     name: file.name,
@@ -106,7 +108,9 @@ function createMessage(
   };
 }
 
-function getPreparedMessage(intent: SmilingMonadIntent): string {
+function getPreparedMessage(
+  intent: SmilingMonadIntent
+): string {
   switch (intent.kind) {
     case "report":
       return "I've placed the report on the desk.";
@@ -123,7 +127,9 @@ function getPreparedMessage(intent: SmilingMonadIntent): string {
     case "files":
       return "I've placed the file task on the desk.";
     case "wellbeing":
-      return intent.originalRequest.toLowerCase().includes("music")
+      return intent.originalRequest
+        .toLowerCase()
+        .includes("music")
         ? "I've placed the headphones on the desk."
         : "I've prepared the wellbeing activity.";
     default:
@@ -141,26 +147,36 @@ export default function OfficePage() {
   const [listening, setListening] = useState(false);
   const [working, setWorking] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
-  const [attachments, setAttachments] = useState<WorkspaceAttachment[]>([]);
+  const [attachments, setAttachments] =
+    useState<WorkspaceAttachment[]>([]);
   const [pendingIntent, setPendingIntent] =
     useState<SmilingMonadIntent | null>(null);
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [messages, setMessages] =
+    useState<ConversationMessage[]>([]);
 
-  function addMessage(speaker: "Ben" | "Kimi", text: string) {
+  function addMessage(
+    speaker: "Ben" | "Kimi",
+    text: string
+  ) {
     setMessages((currentMessages) => [
       ...currentMessages,
       createMessage(speaker, text),
     ]);
   }
 
-  async function handleRequest(message?: string) {
-    const currentRequest = (message ?? request).trim();
+  async function handleRequest(
+    message?: string
+  ) {
+    const currentRequest = (
+      message ?? request
+    ).trim();
 
     if (!currentRequest || working) return;
 
     stopCompanionSpeech();
 
-    const intent = createSmilingMonadIntent(currentRequest);
+    const intent =
+      createSmilingMonadIntent(currentRequest);
 
     addMessage("Ben", currentRequest);
     setRequest("");
@@ -169,7 +185,10 @@ export default function OfficePage() {
 
     if (intent.destination === "workspace") {
       setPendingIntent(intent);
-      addMessage("Kimi", getPreparedMessage(intent));
+      addMessage(
+        "Kimi",
+        getPreparedMessage(intent)
+      );
       return;
     }
 
@@ -177,20 +196,25 @@ export default function OfficePage() {
     setWorking(true);
 
     try {
-      const response = await fetch("/api/gateway", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          request: currentRequest,
-          memory: "",
-        }),
-      });
+      const response = await fetch(
+        "/api/gateway",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            request: currentRequest,
+            memory: "",
+          }),
+        }
+      );
 
-      const data = (await response.json()) as
-        | GatewayResult
-        | { error?: string };
+      const data =
+        (await response.json()) as
+          | GatewayResult
+          | { error?: string };
 
       if (!response.ok) {
         throw new Error(
@@ -202,9 +226,15 @@ export default function OfficePage() {
 
       const result = data as GatewayResult;
       const responseText =
-        result.action === "clarify" ? result.question : result.content;
+        result.action === "clarify"
+          ? result.question
+          : result.content;
 
-      addMessage("Kimi", responseText || "I'm here with you.");
+      addMessage(
+        "Kimi",
+        responseText ||
+          "I'm here with you."
+      );
     } catch (caughtError) {
       addMessage(
         "Kimi",
@@ -217,7 +247,9 @@ export default function OfficePage() {
     }
   }
 
-  function submitText(event: FormEvent<HTMLFormElement>) {
+  function submitText(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
     void handleRequest();
   }
@@ -232,10 +264,14 @@ export default function OfficePage() {
   }
 
   function chooseFiles(files: File[]) {
-    setAttachments((currentAttachments) => [
-      ...currentAttachments,
-      ...files.map(createTemporaryAttachment),
-    ]);
+    setAttachments(
+      (currentAttachments) => [
+        ...currentAttachments,
+        ...files.map(
+          createTemporaryAttachment
+        ),
+      ]
+    );
   }
 
   function startVoice() {
@@ -255,7 +291,9 @@ export default function OfficePage() {
 
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
-        setVoiceMessage(`You said: ${transcript}`);
+        setVoiceMessage(
+          `You said: ${transcript}`
+        );
         void handleRequest(transcript);
       },
       onError: () => {
@@ -273,21 +311,23 @@ export default function OfficePage() {
   function openPendingTask() {
     if (!pendingIntent) return;
 
-    const session = createTemporaryWorkspaceSession(pendingIntent);
-    saveTemporaryWorkspaceSession(session);
+    const session =
+      createTemporaryWorkspaceSession(
+        pendingIntent
+      );
+
+    saveTemporaryWorkspaceSession(
+      session
+    );
+
     router.push("/workspace");
   }
 
   return (
     <OfficeEnvironment>
-      <ConversationThread
-        messages={messages}
-        working={working}
-      />
-
       <Desk>
         {pendingIntent && (
-          <div className="pointer-events-auto absolute bottom-0 left-1/2 -translate-x-1/2">
+          <div className="pointer-events-auto absolute bottom-0 left-[34%] -translate-x-1/2">
             <DeskTaskObject
               intent={pendingIntent}
               onOpen={openPendingTask}
@@ -296,22 +336,21 @@ export default function OfficePage() {
         )}
       </Desk>
 
-      <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
-        <CompanionControls
-          mode={interactionMode}
-          inputRef={textInputRef}
-          request={request}
-          working={working}
-          listening={listening}
-          voiceMessage={voiceMessage}
-          attachments={attachments}
-          onRequestChange={setRequest}
-          onSubmit={submitText}
-          onChooseText={chooseText}
-          onStartVoice={startVoice}
-          onChooseFiles={chooseFiles}
-        />
-      </div>
+      <ConversationDock
+        messages={messages}
+        mode={interactionMode}
+        inputRef={textInputRef}
+        request={request}
+        working={working}
+        listening={listening}
+        voiceMessage={voiceMessage}
+        attachments={attachments}
+        onRequestChange={setRequest}
+        onSubmit={submitText}
+        onChooseText={chooseText}
+        onStartVoice={startVoice}
+        onChooseFiles={chooseFiles}
+      />
     </OfficeEnvironment>
   );
 }

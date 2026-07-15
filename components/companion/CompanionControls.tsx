@@ -35,8 +35,8 @@ function getAttachmentLabel(
   if (attachments.length === 1) {
     const name = attachments[0]?.name || "1 file";
 
-    return name.length > 24
-      ? `${name.slice(0, 21)}…`
+    return name.length > 26
+      ? `${name.slice(0, 23)}…`
       : name;
   }
 
@@ -73,8 +73,8 @@ export default function CompanionControls({
   return (
     <div className="w-full sm:w-auto">
       {hasAttachments && (
-        <div className="mb-2 flex justify-center sm:justify-start">
-          <div className="max-w-[calc(100vw-2rem)] truncate rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-xs text-[#5f544b] shadow-lg backdrop-blur-md">
+        <div className="mb-1.5 flex justify-center">
+          <div className="max-w-[calc(100vw-2rem)] truncate rounded-full bg-[#f4eee6]/75 px-3 py-1 text-[11px] text-[#5f544b] shadow-sm backdrop-blur-md">
             <span aria-hidden="true">📎 </span>
             {attachmentLabel}
             <span className="ml-1 text-[#8b7d72]">
@@ -86,7 +86,7 @@ export default function CompanionControls({
 
       <form
         onSubmit={onSubmit}
-        className="flex w-full items-center gap-1.5 rounded-[1.35rem] bg-white/95 p-1.5 shadow-2xl backdrop-blur-md sm:w-auto sm:gap-2 sm:rounded-2xl sm:p-2"
+        className="flex w-full items-center gap-1 rounded-full border border-white/35 bg-[#f6f0e8]/72 p-1.5 shadow-[0_8px_22px_rgba(57,40,27,0.14)] backdrop-blur-xl sm:w-auto"
       >
         {mode === "text" ? (
           <input
@@ -98,31 +98,31 @@ export default function CompanionControls({
             placeholder={
               hasAttachments
                 ? "What should I do with this?"
-                : "What would you like to do?"
+                : "Talk to Kimi…"
             }
             aria-label="Type a request for Kimi"
             enterKeyHint="send"
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/25 sm:w-[380px] sm:flex-none sm:px-5 sm:py-4 sm:text-lg"
+            className="min-w-0 flex-1 bg-transparent px-4 py-2 text-[15px] text-[#3f352d] outline-none placeholder:text-[#6f6257]/70 sm:w-[360px] sm:flex-none"
           />
         ) : (
           <div
             aria-live="polite"
-            className="min-w-0 flex-1 px-3 py-2 text-sm text-[#5f544b] sm:w-[380px] sm:flex-none sm:text-base"
+            className="min-w-0 flex-1 px-4 py-2 text-[14px] text-[#54483f] sm:w-[360px] sm:flex-none"
           >
             {working
-              ? "Kimi is working…"
+              ? "Kimi is thinking…"
               : voiceMessage ||
-                "Press the microphone and speak to Kimi."}
+                "Press the microphone and speak."}
           </div>
         )}
 
         <label
           title="Add files"
-          className={`touch-manipulation flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-xl transition focus-within:ring-4 focus-within:ring-[#6d513a]/35 sm:h-14 sm:w-14 sm:text-2xl ${
+          className={`touch-manipulation flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-base transition focus-within:ring-2 focus-within:ring-[#6d513a]/25 ${
             hasAttachments
-              ? "bg-[#6d513a] text-white"
-              : "bg-[#efe8df] text-[#6d513a]"
+              ? "bg-[#6d513a]/90 text-white"
+              : "bg-white/35 text-[#6d513a]"
           }`}
         >
           <span aria-hidden="true">📎</span>
@@ -151,10 +151,10 @@ export default function CompanionControls({
           }
           aria-pressed={mode === "voice"}
           title="Talk to Kimi"
-          className={`touch-manipulation flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 sm:h-14 sm:w-14 sm:text-2xl ${
+          className={`touch-manipulation flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base transition focus:outline-none focus:ring-2 focus:ring-[#6d513a]/25 ${
             mode === "voice"
-              ? "bg-[#6d513a] text-white"
-              : "bg-[#efe8df] text-[#6d513a]"
+              ? "bg-[#6d513a]/90 text-white"
+              : "bg-white/35 text-[#6d513a]"
           } ${listening ? "animate-pulse" : ""}`}
         >
           <span aria-hidden="true">🎤</span>
@@ -166,10 +166,10 @@ export default function CompanionControls({
           aria-label="Type to Kimi"
           aria-pressed={mode === "text"}
           title="Type to Kimi"
-          className={`touch-manipulation flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 sm:h-14 sm:w-14 sm:text-2xl ${
+          className={`touch-manipulation flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base transition focus:outline-none focus:ring-2 focus:ring-[#6d513a]/25 ${
             mode === "text"
-              ? "bg-[#6d513a] text-white"
-              : "bg-[#efe8df] text-[#6d513a]"
+              ? "bg-[#6d513a]/90 text-white"
+              : "bg-white/35 text-[#6d513a]"
           }`}
         >
           <span aria-hidden="true">⌨️</span>
@@ -181,7 +181,7 @@ export default function CompanionControls({
             disabled={working || !request.trim()}
             aria-label="Send request to Kimi"
             title="Send"
-            className="touch-manipulation flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#6d513a] text-xl text-white transition focus:outline-none focus:ring-4 focus:ring-[#6d513a]/35 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14 sm:text-2xl"
+            className="touch-manipulation flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6d513a]/90 text-base text-white transition focus:outline-none focus:ring-2 focus:ring-[#6d513a]/25 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <span aria-hidden="true">➜</span>
           </button>
