@@ -4,7 +4,9 @@ import {
   type ChangeEvent,
   type FormEvent,
   type RefObject,
-  useState,
+  useEffect,
+  useMemo,
+  useRef,
 } from "react";
 
 import type { ConversationMessage } from "@/components/companion/ConversationThread";
@@ -20,7 +22,9 @@ type ConversationDockProps = {
   working: boolean;
   listening: boolean;
   voiceMessage: string;
+  expanded: boolean;
   attachments?: WorkspaceAttachment[];
+  onExpandedChange: (expanded: boolean) => void;
   onRequestChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onChooseText: () => void;
@@ -54,24 +58,110 @@ export default function ConversationDock({
   working,
   listening,
   voiceMessage,
+  expanded,
   attachments = [],
+  onExpandedChange,
   onRequestChange,
   onSubmit,
   onChooseText,
   onStartVoice,
   onChooseFiles,
 }: ConversationDockProps) {
-  const [mobileExpanded, setMobileExpanded] =
-    useState(false);
+  const collapseTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSpokenMessageIdRef =
+    useRef<string | null>(null);
 
-  const visibleMessages = messages.slice(-2);
+  const visibleMessages = useMemo(
+    () => messages.slice(-6),
+    [messages]
+  );
+
   const latestMessage =
     messages[messages.length - 1] ?? null;
+
+  const latestKimiMessage = useMemo(
+    () =>
+      [...messages]
+        .reverse()
+        .find((message) => message.speaker === "Kimi") ??
+      null,
+    [messages]
+  );
 
   const attachmentLabel =
     getAttachmentLabel(attachments);
   const hasAttachments =
     attachments.length > 0;
+
+  useEffect(() => {
+    if (
+      !latestKimiMessage ||
+      lastSpokenMessageIdRef.current ===
+        latestKimiMessage.id ||
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window)
+    ) {
+      return;
+    }
+
+    lastSpokenMessageIdRef.current =
+      latestKimiMessage.id;
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(
+      latestKimiMessage.text
+    );
+
+    utterance.rate = 0.96;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    window.speechSynthesis.speak(utterance);
+  }, [latestKimiMessage]);
+
+  useEffect(() => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+
+    if (
+      listening ||
+      working ||
+      request.trim().length > 0
+    ) {
+      onExpandedChange(true);
+      return;
+    }
+
+    if (!expanded) {
+      return;
+    }
+
+    collapseTimerRef.current = setTimeout(() => {
+      onExpandedChange(false);
+    }, 9000);
+
+    return () => {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+      }
+    };
+  }, [
+    expanded,
+    listening,
+    onExpandedChange,
+    request,
+    working,
+  ]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      onExpandedChange(true);
+    }
+  }, [messages.length, onExpandedChange]);
 
   function chooseFiles(
     event: ChangeEvent<HTMLInputElement>
@@ -82,6 +172,7 @@ export default function ConversationDock({
 
     if (files.length > 0) {
       onChooseFiles(files);
+      onExpandedChange(true);
     }
 
     event.target.value = "";
@@ -90,8 +181,8 @@ export default function ConversationDock({
   function submit(
     event: FormEvent<HTMLFormElement>
   ) {
+    onExpandedChange(true);
     onSubmit(event);
-    setMobileExpanded(false);
   }
 
   return (
@@ -110,7 +201,7 @@ export default function ConversationDock({
               ref={inputRef}
               value={request}
               onFocus={() =>
-                setMobileExpanded(true)
+                onExpandedChange(true)
               }
               onChange={(event) =>
                 onRequestChange(
@@ -147,14 +238,8 @@ export default function ConversationDock({
                 : "bg-white/14 text-white/80"
             }`}
           >
-            <span aria-hidden="true">
-              📎
-            </span>
-
-            <span className="sr-only">
-              Add files
-            </span>
-
+            <span aria-hidden="true">📎</span>
+            <span className="sr-only">Add files</span>
             <input
               type="file"
               multiple
@@ -167,7 +252,10 @@ export default function ConversationDock({
 
           <button
             type="button"
-            onClick={onStartVoice}
+            onClick={() => {
+              onExpandedChange(true);
+              onStartVoice();
+            }}
             aria-label={
               listening
                 ? "Kimi is listening"
@@ -184,9 +272,7 @@ export default function ConversationDock({
                 : ""
             }`}
           >
-            <span aria-hidden="true">
-              🎤
-            </span>
+            <span aria-hidden="true">🎤</span>
           </button>
 
           <button
@@ -200,8 +286,28 @@ export default function ConversationDock({
                 : "bg-white/14 text-white/80"
             }`}
           >
+            <span aria-hidden="true">⌨️</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onExpandedChange(!expanded)
+            }
+            aria-label={
+              expanded
+                ? "Collapse conversation"
+                : "Expand conversation"
+            }
+            title={
+              expanded
+                ? "Collapse conversation"
+                : "Expand conversation"
+            }
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/14 text-xs text-white/80 transition focus:outline-none focus:ring-2 focus:ring-white/20 sm:h-9 sm:w-9 sm:text-sm"
+          >
             <span aria-hidden="true">
-              ⌨️
+              {expanded ? "⌄" : "⌃"}
             </span>
           </button>
 
@@ -216,9 +322,7 @@ export default function ConversationDock({
               title="Send"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/85 text-xs text-[#60432f] transition focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9 sm:text-sm"
             >
-              <span aria-hidden="true">
-                ➜
-              </span>
+              <span aria-hidden="true">➜</span>
             </button>
           )}
         </form>
@@ -229,179 +333,91 @@ export default function ConversationDock({
           </div>
         )}
 
-        <div className="sm:hidden">
-          {(latestMessage || working) && (
+        {!expanded &&
+          (latestMessage || working) && (
             <button
               type="button"
               onClick={() =>
-                setMobileExpanded(
-                  (current) => !current
-                )
+                onExpandedChange(true)
               }
               className="block w-full px-3 py-2 text-left"
             >
-              {working ? (
-                <div className="flex items-start gap-2">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#314d4c]/85 text-[10px] font-semibold text-white">
-                    K
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-white">
-                      Kimi
-                    </p>
-                    <p className="truncate text-[11px] leading-4 text-white/72">
-                      thinking…
-                    </p>
-                  </div>
+              <div className="flex items-start gap-2">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#314d4c]/85 text-[10px] font-semibold text-white">
+                  K
                 </div>
-              ) : latestMessage ? (
-                <div className="flex items-start gap-2">
+
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-white">
+                    {working
+                      ? "Kimi"
+                      : latestMessage?.speaker}
+                  </p>
+
+                  <p className="line-clamp-2 text-[11px] leading-4 text-white/72">
+                    {working
+                      ? "thinking…"
+                      : latestMessage?.text}
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+
+        {expanded && (
+          <div
+            aria-live="polite"
+            className="max-h-[42vh] overflow-y-auto px-3 py-1.5 text-[11px] leading-4 text-white/88 sm:max-h-56 sm:px-4 sm:py-2.5 sm:text-[12px]"
+          >
+            {visibleMessages.map(
+              (message) => (
+                <div
+                  key={message.id}
+                  className="flex gap-2 border-b border-white/10 py-2 last:border-b-0"
+                >
                   <div
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${
-                      latestMessage.speaker ===
-                      "Ben"
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white sm:h-7 sm:w-7 sm:text-[11px] ${
+                      message.speaker === "Ben"
                         ? "bg-[#6f3e1f]/80"
                         : "bg-[#314d4c]/85"
                     }`}
                   >
-                    {latestMessage.speaker ===
-                    "Ben"
+                    {message.speaker === "Ben"
                       ? "B"
                       : "K"}
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-white">
-                      {latestMessage.speaker}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {message.speaker}
                     </p>
 
-                    <p
-                      className={`text-[11px] leading-4 text-white/72 ${
-                        mobileExpanded
-                          ? "whitespace-pre-wrap"
-                          : "line-clamp-2"
-                      }`}
-                    >
-                      {latestMessage.text}
+                    <p className="mt-0.5 whitespace-pre-wrap text-white/80">
+                      {message.text}
                     </p>
                   </div>
                 </div>
-              ) : null}
-            </button>
-          )}
+              )
+            )}
 
-          {mobileExpanded &&
-            visibleMessages.length > 1 && (
-              <div className="max-h-24 overflow-y-auto border-t border-white/10 px-3 py-1.5">
-                {visibleMessages
-                  .slice(0, -1)
-                  .map((message) => (
-                    <div
-                      key={message.id}
-                      className="flex gap-2 py-2"
-                    >
-                      <div
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${
-                          message.speaker ===
-                          "Ben"
-                            ? "bg-[#6f3e1f]/70"
-                            : "bg-[#314d4c]/75"
-                        }`}
-                      >
-                        {message.speaker ===
-                        "Ben"
-                          ? "B"
-                          : "K"}
-                      </div>
+            {working && (
+              <div className="flex gap-2 py-2 opacity-70">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#314d4c]/85 text-[10px] font-semibold text-white sm:h-7 sm:w-7 sm:text-[11px]">
+                  K
+                </div>
 
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold text-white/85">
-                          {message.speaker}
-                        </p>
-
-                        <p className="text-[10px] leading-4 text-white/62">
-                          {message.text}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <p className="font-semibold">
+                    Kimi
+                  </p>
+                  <p className="mt-0.5 text-white/75">
+                    thinking…
+                  </p>
+                </div>
               </div>
             )}
-        </div>
-
-        <div className="hidden sm:block">
-          {(visibleMessages.length > 0 ||
-            working) && (
-            <div
-              aria-live="polite"
-              className="max-h-32 overflow-y-auto px-4 py-2 text-[12px] leading-4 text-white/88"
-            >
-              {visibleMessages.map(
-                (message, index) => {
-                  const distanceFromNewest =
-                    visibleMessages.length -
-                    index -
-                    1;
-
-                  const opacityClass =
-                    distanceFromNewest === 1
-                      ? "opacity-72"
-                      : "opacity-100";
-
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex gap-2 border-b border-white/10 py-2 last:border-b-0 ${opacityClass}`}
-                    >
-                      <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 text-[11px] font-semibold text-white ${
-                          message.speaker ===
-                          "Ben"
-                            ? "bg-[#6f3e1f]/80"
-                            : "bg-[#314d4c]/85"
-                        }`}
-                      >
-                        {message.speaker ===
-                        "Ben"
-                          ? "B"
-                          : "K"}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">
-                          {message.speaker}
-                        </p>
-
-                        <p className="mt-0.5 whitespace-pre-wrap text-white/80">
-                          {message.text}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-
-              {working && (
-                <div className="flex gap-2 py-2 opacity-70">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-[#314d4c]/85 text-[11px] font-semibold text-white">
-                    K
-                  </div>
-
-                  <div>
-                    <p className="font-semibold">
-                      Kimi
-                    </p>
-
-                    <p className="mt-0.5 text-white/75">
-                      thinking…
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

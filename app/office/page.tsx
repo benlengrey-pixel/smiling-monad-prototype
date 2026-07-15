@@ -89,7 +89,8 @@ function createTemporaryAttachment(
   return {
     id: crypto.randomUUID(),
     name: file.name,
-    mimeType: file.type || "application/octet-stream",
+    mimeType:
+      file.type || "application/octet-stream",
     size: file.size,
     kind: getAttachmentKind(file),
     status: "selected",
@@ -137,22 +138,56 @@ function getPreparedMessage(
   }
 }
 
+function isExpandRequest(text: string): boolean {
+  const value = text.toLowerCase();
+
+  return [
+    "expand chat",
+    "expand conversation",
+    "open chat",
+    "show conversation",
+    "show chat",
+  ].some((command) => value.includes(command));
+}
+
+function isCollapseRequest(text: string): boolean {
+  const value = text.toLowerCase();
+
+  return [
+    "collapse chat",
+    "collapse conversation",
+    "close chat",
+    "hide conversation",
+    "minimise chat",
+    "minimize chat",
+  ].some((command) => value.includes(command));
+}
+
 export default function OfficePage() {
   const router = useRouter();
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef =
+    useRef<HTMLInputElement>(null);
 
   const [request, setRequest] = useState("");
   const [interactionMode, setInteractionMode] =
     useState<InteractionMode>("text");
-  const [listening, setListening] = useState(false);
-  const [working, setWorking] = useState(false);
-  const [voiceMessage, setVoiceMessage] = useState("");
+  const [listening, setListening] =
+    useState(false);
+  const [working, setWorking] =
+    useState(false);
+  const [voiceMessage, setVoiceMessage] =
+    useState("");
   const [attachments, setAttachments] =
     useState<WorkspaceAttachment[]>([]);
   const [pendingIntent, setPendingIntent] =
-    useState<SmilingMonadIntent | null>(null);
-  const [messages, setMessages] =
-    useState<ConversationMessage[]>([]);
+    useState<SmilingMonadIntent | null>(
+      null
+    );
+  const [messages, setMessages] = useState<
+    ConversationMessage[]
+  >([]);
+  const [conversationExpanded, setConversationExpanded] =
+    useState(false);
 
   function addMessage(
     speaker: "Ben" | "Kimi",
@@ -171,14 +206,33 @@ export default function OfficePage() {
       message ?? request
     ).trim();
 
-    if (!currentRequest || working) return;
+    if (!currentRequest || working) {
+      return;
+    }
+
+    if (isExpandRequest(currentRequest)) {
+      setConversationExpanded(true);
+      setRequest("");
+      setVoiceMessage("");
+      return;
+    }
+
+    if (isCollapseRequest(currentRequest)) {
+      setConversationExpanded(false);
+      setRequest("");
+      setVoiceMessage("");
+      return;
+    }
 
     stopCompanionSpeech();
 
     const intent =
-      createSmilingMonadIntent(currentRequest);
+      createSmilingMonadIntent(
+        currentRequest
+      );
 
     addMessage("Ben", currentRequest);
+    setConversationExpanded(true);
     setRequest("");
     setVoiceMessage("");
     setListening(false);
@@ -257,6 +311,7 @@ export default function OfficePage() {
   function chooseText() {
     setInteractionMode("text");
     setVoiceMessage("");
+    setConversationExpanded(true);
 
     window.setTimeout(() => {
       textInputRef.current?.focus();
@@ -264,6 +319,7 @@ export default function OfficePage() {
   }
 
   function chooseFiles(files: File[]) {
+    setConversationExpanded(true);
     setAttachments(
       (currentAttachments) => [
         ...currentAttachments,
@@ -277,6 +333,7 @@ export default function OfficePage() {
   function startVoice() {
     stopCompanionSpeech();
     setInteractionMode("voice");
+    setConversationExpanded(true);
     setVoiceMessage("");
 
     if (!isCompanionVoiceAvailable()) {
@@ -344,7 +401,9 @@ export default function OfficePage() {
         working={working}
         listening={listening}
         voiceMessage={voiceMessage}
+        expanded={conversationExpanded}
         attachments={attachments}
+        onExpandedChange={setConversationExpanded}
         onRequestChange={setRequest}
         onSubmit={submitText}
         onChooseText={chooseText}
