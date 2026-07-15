@@ -62,6 +62,17 @@ function buildMemory(
     .join("\n");
 }
 
+function stopAllSpeech() {
+  stopCompanionSpeech();
+
+  if (
+    typeof window !== "undefined" &&
+    "speechSynthesis" in window
+  ) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 function speakText(text: string) {
   if (
     typeof window === "undefined" ||
@@ -71,7 +82,7 @@ function speakText(text: string) {
     return;
   }
 
-  window.speechSynthesis.cancel();
+  stopAllSpeech();
 
   const utterance =
     new SpeechSynthesisUtterance(text);
@@ -160,7 +171,7 @@ export default function WorkspacePage() {
     setWorking(true);
     setError("");
     setStatusMessage("");
-    stopCompanionSpeech();
+    stopAllSpeech();
 
     try {
       const response = await fetch(
@@ -208,7 +219,9 @@ export default function WorkspacePage() {
           createMessage("Kimi", kimiText),
         ]);
 
-        speakText(kimiText);
+        if (nextResult.action === "clarify") {
+          speakText(kimiText);
+        }
       }
     } catch (caughtError) {
       setError(
@@ -325,7 +338,7 @@ export default function WorkspacePage() {
   }
 
   function startVoice() {
-    stopCompanionSpeech();
+    stopAllSpeech();
     setStatusMessage("");
 
     if (!isCompanionVoiceAvailable()) {
@@ -422,13 +435,13 @@ export default function WorkspacePage() {
   }
 
   function finishTask() {
-    stopCompanionSpeech();
+    stopAllSpeech();
     clearTemporaryWorkspaceSession();
     router.push("/office");
   }
 
   function clearWorkspace() {
-    stopCompanionSpeech();
+    stopAllSpeech();
     clearTemporaryWorkspaceSession();
     setSession(null);
     setResult(null);
@@ -451,7 +464,7 @@ export default function WorkspacePage() {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/10 bg-[#f3eee5]/92 px-4 py-3 backdrop-blur-md sm:px-6">
         <Link
           href="/office"
-          onClick={stopCompanionSpeech}
+          onClick={stopAllSpeech}
           className="rounded-full bg-white px-4 py-2 text-sm shadow-sm"
         >
           Back to Office
