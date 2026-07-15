@@ -8,6 +8,9 @@ import {
 import { useRouter } from "next/navigation";
 
 import CompanionControls from "@/components/companion/CompanionControls";
+import ConversationThread, {
+  type ConversationMessage,
+} from "@/components/companion/ConversationThread";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
 import {
@@ -28,6 +31,19 @@ import type {
 } from "@/lib/workspace/types";
 
 type InteractionMode = "voice" | "text";
+
+type GatewayResult = {
+  action: "draft" | "clarify" | "answer";
+  application:
+    | "shift-report"
+    | "correspondence"
+    | "notes"
+    | "planning"
+    | "general";
+  title: string;
+  question: string;
+  content: string;
+};
 
 function getAttachmentKind(
   file: File
@@ -87,36 +103,80 @@ function createTemporaryAttachment(
   };
 }
 
-function getFolderLabel(
+function createMessage(
+  speaker: "Ben" | "Kimi",
+  text: string
+): ConversationMessage {
+  return {
+    id: crypto.randomUUID(),
+    speaker,
+    text,
+  };
+}
+
+function getDeskObjectLabel(
   intent: SmilingMonadIntent
 ): string {
   switch (intent.kind) {
     case "report":
-      return "Report ready to begin";
+      return "Report";
 
     case "correspondence":
-      return "Correspondence ready";
+      return "Correspondence";
 
     case "document":
-      return "Document task ready";
+      return "Document";
 
     case "planning":
-      return "Planning task ready";
+      return "Planner";
 
     case "meeting":
-      return "Meeting task ready";
+      return "Meeting notes";
 
     case "research":
-      return "Research task ready";
+      return "Research";
 
     case "files":
-      return "File task ready";
+      return "Files";
 
     case "wellbeing":
-      return "Wellbeing session ready";
+      return "Wellbeing";
 
     default:
-      return "Task ready";
+      return "Current task";
+  }
+}
+
+function getPreparedMessage(
+  intent: SmilingMonadIntent
+): string {
+  switch (intent.kind) {
+    case "report":
+      return "I've placed the report on the desk.";
+
+    case "correspondence":
+      return "I've placed the correspondence on the desk.";
+
+    case "document":
+      return "I've placed the document on the desk.";
+
+    case "planning":
+      return "I've placed the planner on the desk.";
+
+    case "meeting":
+      return "I've placed the meeting notes on the desk.";
+
+    case "research":
+      return "I've placed the research task on the desk.";
+
+    case "files":
+      return "I've placed the file task on the desk.";
+
+    case "wellbeing":
+      return "I've prepared the wellbeing session.";
+
+    default:
+      return "I've placed the task on the desk.";
   }
 }
 
@@ -130,6 +190,8 @@ export default function OfficePage() {
     useState<InteractionMode>("text");
   const [listening, setListening] =
     useState(false);
+  const [working, setWorking] =
+    useState(false);
   const [voiceMessage, setVoiceMessage] =
     useState("");
   const [attachments, setAttachments] =
@@ -138,13 +200,28 @@ export default function OfficePage() {
     useState<SmilingMonadIntent | null>(
       null
     );
+  const [messages, setMessages] = useState<
+    ConversationMessage[]
+  >([]);
 
-  function prepareTask(message?: string) {
+  function addMessage(
+    speaker: "Ben" | "Kimi",
+    text: string
+  ) {
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createMessage(speaker, text),
+    ]);
+  }
+
+  async function handleRequest(
+    message?: string
+  ) {
     const currentRequest = (
       message ?? request
     ).trim();
 
-    if (!currentRequest) {
+    if (!currentRequest || working) {
       return;
     }
 
@@ -155,17 +232,81 @@ export default function OfficePage() {
         currentRequest
       );
 
-    setPendingIntent(intent);
+    addMessage("Ben", currentRequest);
+
     setRequest("");
     setVoiceMessage("");
     setListening(false);
+
+    if (intent.destination === "workspace") {
+      setPendingIntent(intent);
+      addMessage(
+        "Kimi",
+        getPreparedMessage(intent)
+      );
+      return;
+    }
+
+    setPendingIntent(null);
+    setWorking(true);
+
+    try {
+      const response = await fetch(
+        "/api/gateway",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            request: currentRequest,
+            memory: "",
+          }),
+        }
+      );
+
+      const data =
+        (await response.json()) as
+          | GatewayResult
+          | { error?: string };
+
+      if (!response.ok) {
+        throw new Error(
+          "error" in data && data.error
+            ? data.error
+            : "The Companion could not respond."
+        );
+      }
+
+      const result = data as GatewayResult;
+      const responseText =
+        result.action === "clarify"
+          ? result.question
+          : result.content;
+
+      addMessage(
+        "Kimi",
+        responseText ||
+          "I'm here with you."
+      );
+    } catch (caughtError) {
+      addMessage(
+        "Kimi",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "I could not respond just now."
+      );
+    } finally {
+      setWorking(false);
+    }
   }
 
   function submitText(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
-    prepareTask();
+    void handleRequest();
   }
 
   function chooseText() {
@@ -211,7 +352,7 @@ export default function OfficePage() {
         setVoiceMessage(
           `You said: ${transcript}`
         );
-        prepareTask(transcript);
+        void handleRequest(transcript);
       },
 
       onError: () => {
@@ -247,75 +388,68 @@ export default function OfficePage() {
   function dismissPendingTask() {
     setPendingIntent(null);
     setAttachments([]);
+    addMessage(
+      "Kimi",
+      "Okay. I've cleared it from the desk."
+    );
   }
 
   return (
     <OfficeEnvironment>
+      <ConversationThread
+        messages={messages}
+        working={working}
+      />
+
       {pendingIntent && (
-        <div className="pointer-events-auto absolute left-1/2 top-[47%] z-30 w-[min(19rem,72vw)] -translate-x-1/2 sm:left-auto sm:right-[9%] sm:top-[49%] sm:w-72 sm:translate-x-0">
+        <div className="pointer-events-auto absolute left-1/2 top-[51%] z-30 w-[min(12rem,48vw)] -translate-x-1/2 sm:left-[48%] sm:top-[58%] sm:w-44">
           <button
             type="button"
             onClick={openPendingTask}
-            className="group relative block w-full text-left focus:outline-none focus:ring-4 focus:ring-[#6d513a]/25"
             aria-label={`Open ${pendingIntent.title}`}
+            className="group block w-full rounded-lg focus:outline-none focus:ring-4 focus:ring-[#6d513a]/25"
           >
-            <div className="absolute left-4 top-0 h-6 w-28 rounded-t-xl border border-[#c49a63]/45 border-b-0 bg-[#e8c790]/95 shadow-sm" />
+            <div className="relative h-20 rounded-md border border-[#8a6749]/40 bg-[linear-gradient(165deg,#8f6849,#5f4431)] shadow-[0_12px_22px_rgba(47,32,22,0.35)] transition group-hover:-translate-y-1 group-hover:shadow-[0_17px_28px_rgba(47,32,22,0.4)]">
+              <div className="absolute left-2 top-2 h-[calc(100%-0.75rem)] w-[calc(100%-0.75rem)] rounded-sm border border-[#d2b28d]/25" />
 
-            <div className="relative mt-5 rounded-2xl border border-[#bd8f55]/45 bg-[linear-gradient(145deg,rgba(244,216,166,0.98),rgba(211,166,101,0.98))] px-5 py-5 shadow-[0_18px_35px_rgba(70,45,24,0.28)] transition group-hover:-translate-y-1 group-hover:shadow-[0_24px_44px_rgba(70,45,24,0.34)]">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[#76552f]">
-                {getFolderLabel(
-                  pendingIntent
-                )}
-              </p>
-
-              <h2 className="mt-2 line-clamp-2 text-lg font-semibold leading-6 text-[#3b2818]">
-                {pendingIntent.title}
-              </h2>
-
-              <p className="mt-3 text-sm text-[#745537]">
-                Open in Workspace
-              </p>
-
-              {attachments.length > 0 && (
-                <p className="mt-2 text-xs text-[#806342]">
-                  {attachments.length} temporary{" "}
-                  {attachments.length === 1
-                    ? "file"
-                    : "files"}{" "}
-                  selected
+              <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 text-center">
+                <p className="line-clamp-2 text-xs font-semibold tracking-wide text-[#f6eadc]">
+                  {getDeskObjectLabel(
+                    pendingIntent
+                  )}
                 </p>
-              )}
+              </div>
+
+              <div className="absolute bottom-0 left-0 h-2 w-full rounded-b-md bg-[#402d20]/45" />
             </div>
           </button>
 
           <button
             type="button"
             onClick={dismissPendingTask}
-            className="mx-auto mt-2 block rounded-full bg-white/80 px-4 py-2 text-xs text-[#665647] shadow-md backdrop-blur-md"
+            className="mx-auto mt-2 block rounded-full bg-white/75 px-3 py-1 text-[11px] text-[#665647] shadow-sm backdrop-blur-sm"
           >
-            Dismiss
+            Clear
           </button>
         </div>
       )}
 
-      {!pendingIntent && (
-        <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
-          <CompanionControls
-            mode={interactionMode}
-            inputRef={textInputRef}
-            request={request}
-            working={false}
-            listening={listening}
-            voiceMessage={voiceMessage}
-            attachments={attachments}
-            onRequestChange={setRequest}
-            onSubmit={submitText}
-            onChooseText={chooseText}
-            onStartVoice={startVoice}
-            onChooseFiles={chooseFiles}
-          />
-        </div>
-      )}
+      <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
+        <CompanionControls
+          mode={interactionMode}
+          inputRef={textInputRef}
+          request={request}
+          working={working}
+          listening={listening}
+          voiceMessage={voiceMessage}
+          attachments={attachments}
+          onRequestChange={setRequest}
+          onSubmit={submitText}
+          onChooseText={chooseText}
+          onStartVoice={startVoice}
+          onChooseFiles={chooseFiles}
+        />
+      </div>
     </OfficeEnvironment>
   );
 }
