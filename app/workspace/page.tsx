@@ -8,6 +8,11 @@ import {
   useState,
 } from "react";
 
+import { stopCompanionSpeech } from "@/lib/companion/speech-client";
+import {
+  isCompanionVoiceAvailable,
+  startCompanionVoiceRecognition,
+} from "@/lib/companion/voice-client";
 import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
@@ -56,6 +61,29 @@ function buildMemory(
     .join("\n");
 }
 
+function speakText(text: string) {
+  if (
+    typeof window === "undefined" ||
+    !("speechSynthesis" in window) ||
+    !text.trim()
+  ) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  const utterance =
+    new SpeechSynthesisUtterance(text);
+
+  utterance.rate = 0.96;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  window.speechSynthesis.speak(
+    utterance
+  );
+}
+
 export default function WorkspacePage() {
   const hasStarted = useRef(false);
   const inputRef =
@@ -76,6 +104,10 @@ export default function WorkspacePage() {
   const [reply, setReply] = useState("");
   const [working, setWorking] =
     useState(false);
+  const [listening, setListening] =
+    useState(false);
+  const [voiceMessage, setVoiceMessage] =
+    useState("");
   const [error, setError] = useState("");
 
   async function runCompanion(
@@ -84,6 +116,7 @@ export default function WorkspacePage() {
   ) {
     setWorking(true);
     setError("");
+    stopCompanionSpeech();
 
     try {
       const response = await fetch(
@@ -130,6 +163,8 @@ export default function WorkspacePage() {
           ...current,
           createMessage("Kimi", kimiText),
         ]);
+
+        speakText(kimiText);
       }
 
       window.setTimeout(() => {
@@ -207,6 +242,7 @@ export default function WorkspacePage() {
 
     setMessages(nextMessages);
     setReply("");
+    setVoiceMessage("");
 
     const continuedRequest = [
       session.intent.originalRequest,
@@ -223,12 +259,99 @@ export default function WorkspacePage() {
     );
   }
 
+  function submitVoiceReply(
+    transcript: string
+  ) {
+    const currentReply =
+      transcript.trim();
+
+    if (
+      !currentReply ||
+      working ||
+      !session
+    ) {
+      return;
+    }
+
+    const benMessage = createMessage(
+      "Ben",
+      currentReply
+    );
+
+    const nextMessages = [
+      ...messages,
+      benMessage,
+    ];
+
+    setMessages(nextMessages);
+    setReply("");
+    setVoiceMessage(
+      `You said: ${currentReply}`
+    );
+
+    const continuedRequest = [
+      session.intent.originalRequest,
+      "",
+      "Continue the current task using this new information:",
+      currentReply,
+      "",
+      "Ask only one necessary question at a time. When there is enough information, produce the complete draft.",
+    ].join("\n");
+
+    void runCompanion(
+      continuedRequest,
+      nextMessages
+    );
+  }
+
+  function startVoice() {
+    stopCompanionSpeech();
+    setVoiceMessage("");
+
+    if (!isCompanionVoiceAvailable()) {
+      setVoiceMessage(
+        "Voice is not available in this browser."
+      );
+      return;
+    }
+
+    setListening(true);
+    setVoiceMessage("Listening…");
+
+    startCompanionVoiceRecognition({
+      onTranscript: (transcript) => {
+        setListening(false);
+        submitVoiceReply(transcript);
+      },
+      onError: () => {
+        setListening(false);
+        setVoiceMessage(
+          "I could not hear that. Press the microphone and try again."
+        );
+      },
+      onEnd: () => {
+        setListening(false);
+      },
+    });
+  }
+
+  function repeatKimi() {
+    const text =
+      result?.action === "clarify"
+        ? result.question
+        : result?.content || "";
+
+    speakText(text);
+  }
+
   function clearWorkspace() {
+    stopCompanionSpeech();
     clearTemporaryWorkspaceSession();
     setSession(null);
     setResult(null);
     setMessages([]);
     setReply("");
+    setVoiceMessage("");
     setError("");
   }
 
@@ -240,6 +363,7 @@ export default function WorkspacePage() {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-[#f6f1e8]/92 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4">
         <Link
           href="/office"
+          onClick={stopCompanionSpeech}
           className="rounded-full bg-white px-4 py-2 text-sm shadow-sm"
         >
           Back to Office
@@ -315,9 +439,21 @@ export default function WorkspacePage() {
 
                 {isClarifying && (
                   <div>
-                    <p className="text-xs uppercase tracking-[0.16em] text-[#7d6a5a]">
-                      Kimi needs one detail
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[#7d6a5a]">
+                        Kimi needs one detail
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={repeatKimi}
+                        aria-label="Repeat Kimi's question"
+                        title="Repeat Kimi's question"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm"
+                      >
+                        🔊
+                      </button>
+                    </div>
 
                     <p className="mt-3 text-lg leading-7">
                       {result.question}
@@ -328,9 +464,21 @@ export default function WorkspacePage() {
                 {result &&
                   result.action !== "clarify" && (
                     <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-[#7d6a5a]">
-                        Draft
-                      </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs uppercase tracking-[0.16em] text-[#7d6a5a]">
+                          Draft
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={repeatKimi}
+                          aria-label="Read the draft aloud"
+                          title="Read the draft aloud"
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm"
+                        >
+                          🔊
+                        </button>
+                      </div>
 
                       <div className="mt-4 whitespace-pre-wrap text-base leading-7">
                         {result.content}
@@ -375,7 +523,34 @@ export default function WorkspacePage() {
                   className="mt-2 w-full resize-none rounded-2xl border border-black/10 bg-[#fbf8f3] px-4 py-3 text-base outline-none transition focus:border-[#8a6b52] disabled:opacity-60"
                 />
 
-                <div className="mt-3 flex justify-end">
+                {voiceMessage && (
+                  <p className="mt-2 text-sm text-[#75675c]">
+                    {voiceMessage}
+                  </p>
+                )}
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={startVoice}
+                    disabled={
+                      working || listening
+                    }
+                    className={`flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-sm transition ${
+                      listening
+                        ? "animate-pulse bg-[#5f4938] text-white"
+                        : "bg-white text-[#5f4938]"
+                    } disabled:opacity-50`}
+                    aria-label={
+                      listening
+                        ? "Listening"
+                        : "Answer with voice"
+                    }
+                    title="Answer with voice"
+                  >
+                    🎤
+                  </button>
+
                   <button
                     type="submit"
                     disabled={
