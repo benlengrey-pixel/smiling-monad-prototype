@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WorkspaceAssistant from "@/components/workspace/WorkspaceAssistant";
-import WorkspaceCanvas from "@/components/workspace/WorkspaceCanvas";
-import WorkspaceDocument from "@/components/workspace/WorkspaceDocument";
-import WorkspacePanel from "@/components/workspace/WorkspacePanel";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import {
   sendGatewayRequest,
@@ -16,14 +12,6 @@ import {
   speakCompanionResponse,
   stopCompanionSpeech,
 } from "@/lib/companion/speech-client";
-import {
-  isCompanionVoiceAvailable,
-  startCompanionVoiceRecognition,
-} from "@/lib/companion/voice-client";
-import {
-  createWorkspaceComposition,
-  type WorkspacePanel as WorkspacePanelDefinition,
-} from "@/lib/workspace/composer";
 import {
   clearTemporaryWorkspaceSession,
   readTemporaryWorkspaceSession,
@@ -39,64 +27,9 @@ function getResponseText(result: GatewayResponse): string {
   return result.content;
 }
 
-function getPanelPlaceholder(panel: WorkspacePanelDefinition) {
-  switch (panel.type) {
-    case "attachments":
-      return (
-        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
-            Only files added for this task will appear here. They remain
-            temporary unless you choose to save them.
-          </p>
-        </div>
-      );
-
-    case "checklist":
-      return (
-        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
-            Required actions will appear here as they are identified.
-          </p>
-        </div>
-      );
-
-    case "calendar":
-      return (
-        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
-            Only dates and times relevant to this task will appear here.
-          </p>
-        </div>
-      );
-
-    case "meeting":
-      return (
-        <div className="flex min-h-[32dvh] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-md text-center text-base leading-7 text-[#77695e]">
-            Meeting access, live notes and required materials will appear here
-            only while the meeting is active.
-          </p>
-        </div>
-      );
-
-    case "notes":
-      return (
-        <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[#8f7d6e]/25 bg-white/20 p-6">
-          <p className="max-w-sm text-center text-sm leading-6 text-[#77695e]">
-            Notes relevant to the current task will appear here.
-          </p>
-        </div>
-      );
-
-    case "conversation":
-    case "document":
-      return null;
-  }
-}
-
 export default function WorkspacePage() {
   const router = useRouter();
-  const taskStartedRef = useRef(false);
+  const startedRef = useRef(false);
 
   const [session, setSession] =
     useState<TemporaryWorkspaceSession | null>(null);
@@ -105,21 +38,7 @@ export default function WorkspacePage() {
   const [response, setResponse] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [working, setWorking] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [voiceMessage, setVoiceMessage] = useState("");
-
-  const originalRequest = session?.intent.originalRequest ?? "";
-  const workspaceTitle = session?.intent.title || originalRequest;
-
-  const composition = useMemo(() => {
-    if (!session) {
-      return null;
-    }
-
-    return createWorkspaceComposition(
-      session.intent.originalRequest
-    );
-  }, [session]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const currentSession = readTemporaryWorkspaceSession();
@@ -129,15 +48,16 @@ export default function WorkspacePage() {
   }, []);
 
   useEffect(() => {
-    if (
-      !session ||
-      taskStartedRef.current ||
-      !session.intent.shouldStartAutomatically
-    ) {
+    if (!session || startedRef.current) {
       return;
     }
 
-    taskStartedRef.current = true;
+    if (!session.intent.shouldStartAutomatically) {
+      return;
+    }
+
+    startedRef.current = true;
+
     updateTemporaryWorkspaceSession({
       status: "active",
     });
@@ -160,19 +80,18 @@ export default function WorkspacePage() {
   }
 
   async function workWithCompanion(
-    message?: string,
-    activeSession?: TemporaryWorkspaceSession
+    message: string,
+    activeSession: TemporaryWorkspaceSession
   ) {
-    const currentSession = activeSession ?? session;
-    const currentRequest = (message ?? request).trim();
+    const currentRequest = message.trim();
 
-    if (!currentSession || !currentRequest || working) {
+    if (!currentRequest || working) {
       return;
     }
 
     stopCompanionSpeech();
     setWorking(true);
-    setVoiceMessage("");
+    setError("");
 
     try {
       const memory =
@@ -181,36 +100,30 @@ export default function WorkspacePage() {
         ) || "[]";
 
       const gatewayRequest = `
-Smiling Monad Workspace intention:
-${currentSession.intent.originalRequest}
+ORIGINAL TASK:
+${activeSession.intent.originalRequest}
 
-Intent type:
-${currentSession.intent.kind}
+TASK TYPE:
+${activeSession.intent.kind}
 
-Workspace tools selected:
-${currentSession.intent.tools.join(", ")}
+PREVIOUS COMPANION RESPONSE:
+${response || "None yet."}
 
-Current working document:
-${documentContent || "No working document exists yet."}
+CURRENT WORKING DOCUMENT:
+${documentContent || "None yet."}
 
-Previous Companion response:
-${response || "No previous response exists yet."}
-
-Current user instruction:
+CURRENT USER INSTRUCTION:
 ${currentRequest}
 
-Begin or continue the same task without asking the user to repeat the original
-request.
+Continue the same task.
 
-Use approved context when available.
+Do not ask the user to repeat the original request.
 
-Ask only questions that are genuinely necessary.
+Ask only one genuinely necessary question.
 
-If the user is creating or revising a report, agreement, letter, note, plan,
-email or other usable document, return action "draft" and place the complete
-current document in content.
-
-Otherwise respond conversationally and help move the task forward.
+If this task requires a usable document, report, note,
+agreement, email, letter or plan, return action "draft"
+and place the complete current draft in content.
 `;
 
       const result = await sendGatewayRequest(
@@ -218,104 +131,53 @@ Otherwise respond conversationally and help move the task forward.
         memory
       );
 
-      const responseText = getResponseText(result);
-
       if (result.action === "draft") {
         setDocumentContent(result.content);
         setResponse(
           result.question ||
-            "I have prepared the working document. Review it or tell me what you would like changed."
+            "I have prepared the working draft. Review it or tell me what to change."
+        );
+
+        speakCompanionResponse(
+          result.question ||
+            "I have prepared the working draft."
         );
       } else {
+        const responseText = getResponseText(result);
+
         setResponse(responseText);
+        speakCompanionResponse(responseText);
       }
 
       setRequest("");
-
-      speakCompanionResponse(
-        result.action === "draft"
-          ? result.question ||
-              "I have prepared the working document."
-          : responseText
-      );
-    } catch (error) {
+    } catch (caughtError) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "The Companion could not respond.";
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The Companion could not complete the request.";
 
-      setResponse(message);
-      speakCompanionResponse(message);
+      setError(message);
     } finally {
       setWorking(false);
     }
   }
 
-  function startVoice() {
-    stopCompanionSpeech();
-    setVoiceMessage("");
+  function submitRequest(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
 
-    if (!isCompanionVoiceAvailable()) {
-      setVoiceMessage(
-        "Voice is not available in this browser. Use the keyboard instead."
-      );
+    if (!session || !request.trim()) {
       return;
     }
 
-    setListening(true);
-    setVoiceMessage("Listening…");
-
-    startCompanionVoiceRecognition({
-      onTranscript: (transcript) => {
-        setVoiceMessage(`You said: ${transcript}`);
-        void workWithCompanion(transcript);
-      },
-      onError: () => {
-        setListening(false);
-        setVoiceMessage(
-          "I could not hear that. Press the microphone and try again."
-        );
-      },
-      onEnd: () => {
-        setListening(false);
-      },
-    });
+    void workWithCompanion(request, session);
   }
 
-  function renderSupportingPanel(
-    panel: WorkspacePanelDefinition
-  ) {
-    if (
-      panel.type === "conversation" ||
-      panel.type === "document"
-    ) {
-      return null;
-    }
-
-    return (
-      <WorkspacePanel
-        key={panel.id}
-        type={panel.type}
-        title={panel.title}
-        purpose={panel.purpose}
-        primary={panel.primary}
-      >
-        {getPanelPlaceholder(panel)}
-      </WorkspacePanel>
-    );
-  }
-
-  const hasDocument =
-    composition?.panels.some(
-      (panel) => panel.type === "document"
-    ) ?? false;
-
-  const supportingPanels =
-    composition?.panels.filter(
-      (panel) =>
-        panel.type !== "conversation" &&
-        panel.type !== "document"
-    ) ?? [];
+  const title =
+    session?.intent.title ||
+    session?.intent.originalRequest ||
+    "Current task";
 
   return (
     <WorkspaceShell
@@ -324,91 +186,24 @@ Otherwise respond conversationally and help move the task forward.
       showDiscard={Boolean(session)}
     >
       {!ready ? (
-        <div className="flex min-h-[calc(100dvh-7.5rem)] items-center justify-center px-6">
+        <main className="flex min-h-[calc(100dvh-7rem)] items-center justify-center px-6">
           <p className="text-base text-[#6f6257]">
             Preparing the Workspace…
           </p>
-        </div>
-      ) : session && composition ? (
-        <div className="min-h-[calc(100dvh-7.5rem)] p-4 sm:p-6">
-          <WorkspaceCanvas
-            title={workspaceTitle}
-            description="Only the work and tools relevant to this task are visible."
-          >
-            <div className="grid gap-4">
-              {hasDocument && (
-                <WorkspacePanel
-                  type="document"
-                  title="Working document"
-                  purpose="Review, edit and refine the current document."
-                  primary
-                >
-                  <WorkspaceDocument
-                    content={documentContent}
-                    working={working}
-                    onContentChange={
-                      setDocumentContent
-                    }
-                  />
-                </WorkspacePanel>
-              )}
-
-              {!hasDocument &&
-                supportingPanels.length === 0 && (
-                  <WorkspaceAssistant
-                    response={response}
-                    request={request}
-                    working={working}
-                    listening={listening}
-                    voiceMessage={voiceMessage}
-                    onRequestChange={setRequest}
-                    onSubmit={() => {
-                      void workWithCompanion();
-                    }}
-                    onStartVoice={startVoice}
-                  />
-                )}
-
-              {supportingPanels.length > 0 && (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {supportingPanels.map(
-                    renderSupportingPanel
-                  )}
-                </div>
-              )}
-
-              {(hasDocument ||
-                supportingPanels.length > 0) && (
-                <WorkspaceAssistant
-                  response={response}
-                  request={request}
-                  working={working}
-                  listening={listening}
-                  voiceMessage={voiceMessage}
-                  onRequestChange={setRequest}
-                  onSubmit={() => {
-                    void workWithCompanion();
-                  }}
-                  onStartVoice={startVoice}
-                />
-              )}
-            </div>
-          </WorkspaceCanvas>
-        </div>
-      ) : (
-        <div className="flex min-h-[calc(100dvh-7.5rem)] items-center justify-center px-6">
+        </main>
+      ) : !session ? (
+        <main className="flex min-h-[calc(100dvh-7rem)] items-center justify-center px-6">
           <div className="max-w-md text-center">
             <p className="text-sm uppercase tracking-[0.18em] text-[#85776b]">
               Workspace
             </p>
 
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#332a23] sm:text-4xl">
-              No active task.
+            <h1 className="mt-3 text-3xl font-semibold text-[#332a23]">
+              No active task
             </h1>
 
-            <p className="mt-4 text-base leading-7 text-[#6f6257] sm:text-lg">
-              Begin work from the Office. The Workspace
-              will open and start the task automatically.
+            <p className="mt-4 text-base leading-7 text-[#6f6257]">
+              Begin a task from the Office.
             </p>
 
             <button
@@ -419,7 +214,94 @@ Otherwise respond conversationally and help move the task forward.
               Return to Office
             </button>
           </div>
-        </div>
+        </main>
+      ) : (
+        <main className="min-h-[calc(100dvh-7rem)] p-4 sm:p-6">
+          <section className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-white/70 bg-[#f7f2eb]/90 shadow-[0_24px_70px_rgba(70,50,35,0.16)] backdrop-blur-md">
+            <header className="border-b border-[#9b8978]/15 px-6 py-7 sm:px-10">
+              <p className="text-xs uppercase tracking-[0.2em] text-[#8a7b6f]">
+                Active work
+              </p>
+
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#362d26] sm:text-4xl">
+                {title}
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-base leading-7 text-[#74675c]">
+                Only the conversation and tools needed for
+                this task appear here.
+              </p>
+            </header>
+
+            <div className="grid gap-5 p-5 sm:p-8">
+              {working && !response && !documentContent && (
+                <div className="rounded-[1.5rem] border border-white/80 bg-white/65 p-6 shadow-sm">
+                  <p className="text-base text-[#6f6257]">
+                    Kimi is preparing the task…
+                  </p>
+                </div>
+              )}
+
+              {documentContent && (
+                <section className="rounded-[1.5rem] border border-white/80 bg-white/75 shadow-sm">
+                  <div className="border-b border-[#9b8978]/15 px-6 py-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-[#8a7b6f]">
+                      Working document
+                    </p>
+                  </div>
+
+                  <textarea
+                    value={documentContent}
+                    onChange={(event) =>
+                      setDocumentContent(event.target.value)
+                    }
+                    className="min-h-[22rem] w-full resize-y bg-transparent px-6 py-5 text-base leading-7 text-[#3f352e] outline-none"
+                    aria-label="Working document"
+                  />
+                </section>
+              )}
+
+              {response && (
+                <section className="rounded-[1.5rem] border border-white/80 bg-white/75 px-6 py-5 shadow-sm">
+                  <p className="whitespace-pre-wrap text-base leading-7 text-[#463b33]">
+                    {response}
+                  </p>
+                </section>
+              )}
+
+              {error && (
+                <section className="rounded-[1.5rem] border border-red-200 bg-red-50 px-6 py-5">
+                  <p className="text-sm text-red-700">
+                    {error}
+                  </p>
+                </section>
+              )}
+
+              <form
+                onSubmit={submitRequest}
+                className="flex overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/80 p-2 shadow-sm"
+              >
+                <input
+                  value={request}
+                  onChange={(event) =>
+                    setRequest(event.target.value)
+                  }
+                  placeholder="Continue working on this task"
+                  disabled={working}
+                  className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#3f352e] outline-none placeholder:text-[#9a9088]"
+                />
+
+                <button
+                  type="submit"
+                  disabled={working || !request.trim()}
+                  className="rounded-2xl bg-[#76583f] px-6 py-3 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {working ? "Working…" : "Send"}
+                </button>
+              </form>
+            </div>
+          </section>
+        </main>
       )}
     </WorkspaceShell>
   );

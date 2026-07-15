@@ -1,0 +1,3321 @@
+{
+  "generatedAt": "2026-07-15T01:25:13.251Z",
+  "projectRoot": "C:\\Users\\benle\\OneDrive\\Desktop\\smiling-monad-prototype",
+  "totalFiles": 152,
+  "pages": [
+    "app/apps/shift-report/page.tsx",
+    "app/circle/page.tsx",
+    "app/companion/chat/page.tsx",
+    "app/companion/page.tsx",
+    "app/goals/page.tsx",
+    "app/notes/page.tsx",
+    "app/office/page.tsx",
+    "app/page.tsx",
+    "app/profiles/page.tsx",
+    "app/project/page.tsx",
+    "app/timeline/page.tsx",
+    "app/workspace/page.tsx"
+  ],
+  "layouts": [
+    "app/layout.tsx"
+  ],
+  "apiRoutes": [
+    "app/api/ai/route.ts",
+    "app/api/auth/passkey/login-options/route.ts",
+    "app/api/auth/passkey/register-options/route.ts",
+    "app/api/auth/passkey/verify-login/route.ts",
+    "app/api/auth/passkey/verify-registration/route.ts",
+    "app/api/developer/ai/route.ts",
+    "app/api/developer/route.ts",
+    "app/api/engine/route.ts",
+    "app/api/gateway/route.ts",
+    "app/api/profiles/route.ts",
+    "app/api/speech/route.ts",
+    "app/api/storage/dropbox/route.ts",
+    "app/api/storage/google-drive/route.ts",
+    "app/api/storage/onedrive/route.ts",
+    "app/api/storage/smiling-monad/route.ts",
+    "app/api/storage/use-once/route.ts",
+    "app/api/tiles/route.ts"
+  ],
+  "speechFiles": [
+    {
+      "file": "app/api/speech/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server",
+        "@/lib/companion/kimi-voice"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [
+        "audio/speech"
+      ],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/office/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/companion/CompanionControls",
+        "@/components/office/OfficeEnvironment",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/intent/intent-engine",
+        "@/lib/workspace/session-client",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficePage"
+      ],
+      "speechReferences": [
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "OfficeEnvironment",
+        "/office",
+        "OfficePage"
+      ],
+      "workspaceReferences": [
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/workspace/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/workspace/WorkspaceAssistant",
+        "@/components/workspace/WorkspaceCanvas",
+        "@/components/workspace/WorkspaceDocument",
+        "@/components/workspace/WorkspacePanel",
+        "@/components/workspace/WorkspaceShell",
+        "@/lib/companion/gateway-client",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/workspace/composer",
+        "@/lib/workspace/session-client"
+      ],
+      "exports": [
+        "WorkspacePage"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [
+        "WorkspaceShell",
+        "WorkspacePage",
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/speech-client.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "isCompanionSpeechAvailable",
+        "stopCompanionSpeech",
+        "speakCompanionResponse"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech",
+        "/api/speech",
+        "HTMLAudioElement",
+        "new Audio"
+      ],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    }
+  ],
+  "officeFiles": [
+    {
+      "file": "app/apps/shift-report/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/navigation",
+        "react"
+      ],
+      "exports": [
+        "ShiftReportPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/office/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/companion/CompanionControls",
+        "@/components/office/OfficeEnvironment",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/intent/intent-engine",
+        "@/lib/workspace/session-client",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficePage"
+      ],
+      "speechReferences": [
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "OfficeEnvironment",
+        "/office",
+        "OfficePage"
+      ],
+      "workspaceReferences": [
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link"
+      ],
+      "exports": [
+        "HomePage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/workspace/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/workspace/WorkspaceAssistant",
+        "@/components/workspace/WorkspaceCanvas",
+        "@/components/workspace/WorkspaceDocument",
+        "@/components/workspace/WorkspacePanel",
+        "@/components/workspace/WorkspaceShell",
+        "@/lib/companion/gateway-client",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/workspace/composer",
+        "@/lib/workspace/session-client"
+      ],
+      "exports": [
+        "WorkspacePage"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [
+        "WorkspaceShell",
+        "WorkspacePage",
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeBackground.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "OfficeBackground"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeEnvironment.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "./OfficeBackground",
+        "./OfficeBackButton"
+      ],
+      "exports": [
+        "OfficeEnvironment"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "OfficeEnvironment"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeV2.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/navigation"
+      ],
+      "exports": [
+        "OfficeV2"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    }
+  ],
+  "workspaceFiles": [
+    {
+      "file": "app/office/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/companion/CompanionControls",
+        "@/components/office/OfficeEnvironment",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/intent/intent-engine",
+        "@/lib/workspace/session-client",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficePage"
+      ],
+      "speechReferences": [
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "OfficeEnvironment",
+        "/office",
+        "OfficePage"
+      ],
+      "workspaceReferences": [
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/workspace/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/workspace/WorkspaceAssistant",
+        "@/components/workspace/WorkspaceCanvas",
+        "@/components/workspace/WorkspaceDocument",
+        "@/components/workspace/WorkspacePanel",
+        "@/components/workspace/WorkspaceShell",
+        "@/lib/companion/gateway-client",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/workspace/composer",
+        "@/lib/workspace/session-client"
+      ],
+      "exports": [
+        "WorkspacePage"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [
+        "WorkspaceShell",
+        "WorkspacePage",
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/CompanionControls.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "CompanionControls"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeShell old.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "./OfficeSidebar",
+        "./WorkspaceCanvas",
+        "@/components/companion/ConversationDock",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeShell.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "./OfficeSidebar",
+        "./WorkspaceCanvas",
+        "@/components/companion/ConversationDock",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/WorkspaceCanvas.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "@/components/companion/WorkspaceCard",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "WorkspaceCanvas"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceAssistant.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/components/workspace/WorkspaceConversation"
+      ],
+      "exports": [
+        "WorkspaceAssistant"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceCanvas.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/components/workspace/WorkspaceDesk"
+      ],
+      "exports": [
+        "WorkspaceCanvas"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceScene.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceScene"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceShell.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "WorkspaceShell"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/office/types.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/companion/types",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeType",
+        "SubscriptionTier",
+        "Office"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/engine.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "createTask",
+        "startTask",
+        "addTaskCard",
+        "completeTask"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/executor.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types",
+        "./engine",
+        "@/lib/workspace/engine",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "TaskExecution",
+        "executeTask"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/types.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "TaskStatus",
+        "Task"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/session-client.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/intent/intent-engine"
+      ],
+      "exports": [
+        "TemporaryWorkspaceSession",
+        "createTemporaryWorkspaceSession",
+        "saveTemporaryWorkspaceSession",
+        "readTemporaryWorkspaceSession",
+        "updateTemporaryWorkspaceSession",
+        "clearTemporaryWorkspaceSession"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/WorkspacePane.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/lib/workspace/composer"
+      ],
+      "exports": [
+        "WorkspacePanel"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    }
+  ],
+  "aiFiles": [
+    {
+      "file": "app/api/ai/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/ai/gateway"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/gateway/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server",
+        "@/lib/companion/uniform"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY",
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/speech/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server",
+        "@/lib/companion/kimi-voice"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [
+        "audio/speech"
+      ],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/workspace/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/workspace/WorkspaceAssistant",
+        "@/components/workspace/WorkspaceCanvas",
+        "@/components/workspace/WorkspaceDocument",
+        "@/components/workspace/WorkspacePanel",
+        "@/components/workspace/WorkspaceShell",
+        "@/lib/companion/gateway-client",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/workspace/composer",
+        "@/lib/workspace/session-client"
+      ],
+      "exports": [
+        "WorkspacePage"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [
+        "WorkspaceShell",
+        "WorkspacePage",
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/gateway-client.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GatewayResponse",
+        "sendGatewayRequest"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "/api/gateway",
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/uniform.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    }
+  ],
+  "files": [
+    {
+      "file": "AGENTS.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/ai/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/ai/gateway"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/auth/passkey/login-options/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@simplewebauthn/server"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/auth/passkey/register-options/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@simplewebauthn/server",
+        "@/lib/passkey-store"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/auth/passkey/verify-login/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/auth/passkey/verify-registration/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@simplewebauthn/server",
+        "@/lib/passkey-store"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/developer/ai/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/developer/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "node:fs/promises",
+        "node:path",
+        "node:child_process"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/engine/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/engine"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/gateway/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server",
+        "@/lib/companion/uniform"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY",
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/profiles/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server"
+      ],
+      "exports": [
+        "POST",
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/speech/route.ts",
+      "extension": ".ts",
+      "imports": [
+        "next/server",
+        "@/lib/companion/kimi-voice"
+      ],
+      "exports": [
+        "POST"
+      ],
+      "speechReferences": [
+        "audio/speech"
+      ],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "OPENAI_API_KEY"
+      ],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/storage/dropbox/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/storage/google-drive/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/storage/onedrive/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/storage/smiling-monad/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/storage/use-once/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/api/tiles/route.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": true,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/apps/shift-report/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/navigation",
+        "react"
+      ],
+      "exports": [
+        "ShiftReportPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/circle/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "CirclePage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/companion/chat/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "CompanionChatPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/companion/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link"
+      ],
+      "exports": [
+        "CompanionPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/globals.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "app/goals/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "GoalsPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/layout.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next"
+      ],
+      "exports": [
+        "metadata",
+        "viewport",
+        "RootLayout"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": true
+    },
+    {
+      "file": "app/notes/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "NotesPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/office/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/companion/CompanionControls",
+        "@/components/office/OfficeEnvironment",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/intent/intent-engine",
+        "@/lib/workspace/session-client",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficePage"
+      ],
+      "speechReferences": [
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "OfficeEnvironment",
+        "/office",
+        "OfficePage"
+      ],
+      "workspaceReferences": [
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link"
+      ],
+      "exports": [
+        "HomePage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/profiles/page.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "ProfilesPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/project/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "ProjectPage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/timeline/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/link",
+        "react"
+      ],
+      "exports": [
+        "TimelinePage"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "app/workspace/page.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "next/navigation",
+        "@/components/workspace/WorkspaceAssistant",
+        "@/components/workspace/WorkspaceCanvas",
+        "@/components/workspace/WorkspaceDocument",
+        "@/components/workspace/WorkspacePanel",
+        "@/components/workspace/WorkspaceShell",
+        "@/lib/companion/gateway-client",
+        "@/lib/companion/speech-client",
+        "@/lib/companion/voice-client",
+        "@/lib/workspace/composer",
+        "@/lib/workspace/session-client"
+      ],
+      "exports": [
+        "WorkspacePage"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech"
+      ],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [
+        "WorkspaceShell",
+        "WorkspacePage",
+        "/workspace",
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": true,
+      "isLayout": false
+    },
+    {
+      "file": "CLAUDE.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/Companion.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "Companion"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/CompanionControls.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "CompanionControls"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/CompanionWorkspace.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/lib/companion/gateway-client"
+      ],
+      "exports": [
+        "CompanionWorkspace"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/ConversationDock.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "ConversationDock"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/TextInput.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "TextInput"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/VoiceInput.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "VoiceInput"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/companion/WorkspaceCard.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "WorkspaceCard"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/AmbientOffice.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "AmbientOffice"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/CompanionPanel.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "CompanionPanel"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/Desk.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "Desk"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/DocumentPreview.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "DocumentPreview"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/FloatingObject.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "FloatingObject"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/Office.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "Office"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeBackButton.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/navigation"
+      ],
+      "exports": [
+        "OfficeBackButton"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeBackground.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "OfficeBackground"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeEnvironment.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "./OfficeBackground",
+        "./OfficeBackButton"
+      ],
+      "exports": [
+        "OfficeEnvironment"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "OfficeEnvironment"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeHeader.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "OfficeHeader"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeLayout.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "OfficeLayout"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeNavigation.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "OfficeNavigation"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeShell old.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "./OfficeSidebar",
+        "./WorkspaceCanvas",
+        "@/components/companion/ConversationDock",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeShell.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "./OfficeSidebar",
+        "./WorkspaceCanvas",
+        "@/components/companion/ConversationDock",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeSidebar.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "@/components/companion/Companion"
+      ],
+      "exports": [
+        "OfficeSidebar"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/OfficeV2.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "next/navigation"
+      ],
+      "exports": [
+        "OfficeV2"
+      ],
+      "speechReferences": [],
+      "officeReferences": [
+        "/office"
+      ],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/office/WorkspaceCanvas.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "@/components/companion/WorkspaceCard",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "WorkspaceCanvas"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceAssistant.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/components/workspace/WorkspaceConversation"
+      ],
+      "exports": [
+        "WorkspaceAssistant"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceCanvas.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/components/workspace/WorkspaceDesk"
+      ],
+      "exports": [
+        "WorkspaceCanvas"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceConversation.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceConversation"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceDesk.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceDesk"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceDocument.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [
+        "WorkspaceDocument"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceScene.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceScene"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "components/workspace/WorkspaceShell.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "WorkspaceShell"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "WorkspaceShell"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "data/tiles.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/circle.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "CircleType",
+        "Circle",
+        "CIRCLE_PRINCIPLE"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/companion.ts",
+      "extension": ".ts",
+      "imports": [
+        "./participant-mode",
+        "./circle"
+      ],
+      "exports": [
+        "CompanionMode",
+        "CompanionContext",
+        "buildCompanionContext"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/context.ts",
+      "extension": ".ts",
+      "imports": [
+        "./contract",
+        "./parameters"
+      ],
+      "exports": [
+        "SubscriptionTier",
+        "AIContext",
+        "buildAIContext"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/contract.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "SMILING_MONAD_CONTRACT"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/gateway.ts",
+      "extension": ".ts",
+      "imports": [
+        "./context",
+        "./prompt",
+        "./tools",
+        "./companion",
+        "./session"
+      ],
+      "exports": [
+        "buildGatewayRequest"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/parameters.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "AI_PARAMETERS"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/participant-mode.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "PARTICIPANT_MODE"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/prompt.ts",
+      "extension": ".ts",
+      "imports": [
+        "./contract",
+        "./parameters",
+        "./companion",
+        "./context",
+        "./tools"
+      ],
+      "exports": [
+        "buildSystemPrompt"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/session.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "SessionMessage",
+        "Session",
+        "createSession",
+        "addMessage",
+        "setCurrentTask",
+        "setActiveCircle",
+        "clearSession"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/ai/tools.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "SmilingMonadTool",
+        "ToolRequest"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/gateway-client.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "GatewayResponse",
+        "sendGatewayRequest"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "/api/gateway",
+        "sendGatewayRequest"
+      ],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/kimi-voice.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "KIMI_VOICE"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/speech-client.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "isCompanionSpeechAvailable",
+        "stopCompanionSpeech",
+        "speakCompanionResponse"
+      ],
+      "speechReferences": [
+        "speakCompanionResponse",
+        "stopCompanionSpeech",
+        "/api/speech",
+        "HTMLAudioElement",
+        "new Audio"
+      ],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/types.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "CompanionStatus",
+        "Companion"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/uniform.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [
+        "SMILING_MONAD_UNIFORM"
+      ],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/companion/voice-client.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "CompanionVoiceCallbacks",
+        "isCompanionVoiceAvailable",
+        "startCompanionVoiceRecognition"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/engine/decide.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types"
+      ],
+      "exports": [
+        "decide"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/engine/index.ts",
+      "extension": ".ts",
+      "imports": [
+        "./decide",
+        "./types"
+      ],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/engine/types.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "EngineObject",
+        "Thought",
+        "Decision"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/intent/intent-engine.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "IntentDestination",
+        "IntentKind",
+        "IntentTool",
+        "SmilingMonadIntent",
+        "createSmilingMonadIntent"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/office/types.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/companion/types",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "OfficeType",
+        "SubscriptionTier",
+        "Office"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/passkey-store.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "StoredPasskey",
+        "saveRegistrationChallenge",
+        "getRegistrationChallenge",
+        "saveAuthenticationChallenge",
+        "getAuthenticationChallenge",
+        "savePasskey",
+        "getPasskey",
+        "getAllPasskeys"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/passkeys.ts",
+      "extension": ".ts",
+      "imports": [
+        "@simplewebauthn/browser"
+      ],
+      "exports": [
+        "registerPasskey",
+        "authenticatePasskey"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/storage/options.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/storage/types.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/supabase.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/engine.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "createTask",
+        "startTask",
+        "addTaskCard",
+        "completeTask"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/executor.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types",
+        "./engine",
+        "@/lib/workspace/engine",
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "TaskExecution",
+        "executeTask"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/shift-report.ts",
+      "extension": ".ts",
+      "imports": [
+        "./engine",
+        "./types"
+      ],
+      "exports": [
+        "createShiftReportTask"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tasks/types.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/workspace/types"
+      ],
+      "exports": [
+        "TaskStatus",
+        "Task"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tile-types/index.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/tiles.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "Tile"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/composer.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "WorkspacePanelType",
+        "WorkspacePanel",
+        "WorkspaceComposition",
+        "createWorkspaceComposition"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/engine.ts",
+      "extension": ".ts",
+      "imports": [
+        "./types"
+      ],
+      "exports": [
+        "createWorkspace",
+        "openCard",
+        "closeCard",
+        "updateCard",
+        "clearWorkspace"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/session-client.ts",
+      "extension": ".ts",
+      "imports": [
+        "@/lib/intent/intent-engine"
+      ],
+      "exports": [
+        "TemporaryWorkspaceSession",
+        "createTemporaryWorkspaceSession",
+        "saveTemporaryWorkspaceSession",
+        "readTemporaryWorkspaceSession",
+        "updateTemporaryWorkspaceSession",
+        "clearTemporaryWorkspaceSession"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "TemporaryWorkspaceSession"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/types.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [
+        "WorkspaceCardType",
+        "WorkspaceAttachmentKind",
+        "WorkspaceAttachmentStatus",
+        "WorkspaceAttachmentStorageIntent",
+        "WorkspaceAttachment",
+        "WorkspaceCard",
+        "WorkspaceState"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "lib/workspace/WorkspacePane.tsx",
+      "extension": ".tsx",
+      "imports": [
+        "react",
+        "@/lib/workspace/composer"
+      ],
+      "exports": [
+        "WorkspacePanel"
+      ],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [
+        "/workspace"
+      ],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "next-env.d.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "next.config.ts",
+      "extension": ".ts",
+      "imports": [
+        "next"
+      ],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "package-lock.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "package.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/ADAVisualizationComponent-m14wkthf.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/AnimatedMascot-dx2jnhv5.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/ansi-1f6vhsjh.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/AssistantMessage-lplwfziw.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/Avatar-kw5t2dfu.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/code-block-dop2czwo.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/code-block-viewer-bb2wmqiy.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/conversation-small-oc29fk65(1).css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/conversation-small-oc29fk65.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/cot-message-mbvpc7rn.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/DatePicker-lvtkn77u.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/fullscreen-lxd7vmcm.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/global-modals-5n50n0lo.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/Image-nnxrmk5d.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/Input-eusic68p.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/map-with-entities-hwk5oa65.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/mapbox-gl-l6rc2zka.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/Popover-jjzuc9pc.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/product-variants-ga945uk2.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/RadioGroup-m8zapj2d.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/root-mplnkz48(1).css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/root-mplnkz48.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/SegmentedControl-nay8rogw.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/Select-bspt7hni.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/silk-hq-jrmbfqt7.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/src-mkg8l0bu.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/table-components-ca43bz4f.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/TextLink-hyfuyd7n.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/tpp-site-preview-transition-jee6i7ix.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/tpp-work-mode-pet-c9j7ibsj.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/user-loqx9inc.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Profitable Idea Without Capital_files/writing-block-provider-isi2q4e4.css",
+      "extension": ".css",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "PROJECT_MANIFEST.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "README.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/AGENTS.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/CLAUDE.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/CURRENT_COMPANION_STATUS.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/FOUNDATIONAL_RESET.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/next-env.d.ts",
+      "extension": ".ts",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/next.config.ts",
+      "extension": ".ts",
+      "imports": [
+        "next"
+      ],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/package-lock.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/package.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/participant-profile/page.tsx",
+      "extension": ".tsx",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/README.md",
+      "extension": ".md",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "Smiling Monad App/smiling-monad-hub/tsconfig.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    },
+    {
+      "file": "tsconfig.json",
+      "extension": ".json",
+      "imports": [],
+      "exports": [],
+      "speechReferences": [],
+      "officeReferences": [],
+      "workspaceReferences": [],
+      "aiReferences": [],
+      "isApiRoute": false,
+      "isPage": false,
+      "isLayout": false
+    }
+  ]
+}
