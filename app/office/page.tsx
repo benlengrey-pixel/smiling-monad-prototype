@@ -11,6 +11,7 @@ import CompanionControls from "@/components/companion/CompanionControls";
 import ConversationThread, {
   type ConversationMessage,
 } from "@/components/companion/ConversationThread";
+import Desk from "@/components/office/Desk";
 import DeskTaskObject from "@/components/office/DeskTaskObject";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
@@ -46,18 +47,11 @@ type GatewayResult = {
   content: string;
 };
 
-function getAttachmentKind(
-  file: File
-): WorkspaceAttachmentKind {
+function getAttachmentKind(file: File): WorkspaceAttachmentKind {
   const name = file.name.toLowerCase();
 
-  if (file.type.startsWith("image/")) {
-    return "image";
-  }
-
-  if (file.type === "application/pdf") {
-    return "pdf";
-  }
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type === "application/pdf") return "pdf";
 
   if (
     file.type === "text/plain" ||
@@ -89,14 +83,11 @@ function getAttachmentKind(
   return "other";
 }
 
-function createTemporaryAttachment(
-  file: File
-): WorkspaceAttachment {
+function createTemporaryAttachment(file: File): WorkspaceAttachment {
   return {
     id: crypto.randomUUID(),
     name: file.name,
-    mimeType:
-      file.type || "application/octet-stream",
+    mimeType: file.type || "application/octet-stream",
     size: file.size,
     kind: getAttachmentKind(file),
     status: "selected",
@@ -115,38 +106,26 @@ function createMessage(
   };
 }
 
-function getPreparedMessage(
-  intent: SmilingMonadIntent
-): string {
+function getPreparedMessage(intent: SmilingMonadIntent): string {
   switch (intent.kind) {
     case "report":
       return "I've placed the report on the desk.";
-
     case "correspondence":
       return "I've placed the correspondence on the desk.";
-
     case "document":
       return "I've placed the document on the desk.";
-
     case "planning":
       return "I've placed the planner on the desk.";
-
     case "meeting":
       return "I've placed the meeting notes on the desk.";
-
     case "research":
       return "I've placed the research task on the desk.";
-
     case "files":
       return "I've placed the file task on the desk.";
-
     case "wellbeing":
-      return intent.originalRequest
-        .toLowerCase()
-        .includes("music")
+      return intent.originalRequest.toLowerCase().includes("music")
         ? "I've placed the headphones on the desk."
         : "I've prepared the wellbeing activity.";
-
     default:
       return "I've placed the task on the desk.";
   }
@@ -154,68 +133,43 @@ function getPreparedMessage(
 
 export default function OfficePage() {
   const router = useRouter();
-  const textInputRef =
-    useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const [request, setRequest] = useState("");
   const [interactionMode, setInteractionMode] =
     useState<InteractionMode>("text");
-  const [listening, setListening] =
-    useState(false);
-  const [working, setWorking] =
-    useState(false);
-  const [voiceMessage, setVoiceMessage] =
-    useState("");
-  const [attachments, setAttachments] =
-    useState<WorkspaceAttachment[]>([]);
+  const [listening, setListening] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const [attachments, setAttachments] = useState<WorkspaceAttachment[]>([]);
   const [pendingIntent, setPendingIntent] =
-    useState<SmilingMonadIntent | null>(
-      null
-    );
-  const [messages, setMessages] = useState<
-    ConversationMessage[]
-  >([]);
+    useState<SmilingMonadIntent | null>(null);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
 
-  function addMessage(
-    speaker: "Ben" | "Kimi",
-    text: string
-  ) {
+  function addMessage(speaker: "Ben" | "Kimi", text: string) {
     setMessages((currentMessages) => [
       ...currentMessages,
       createMessage(speaker, text),
     ]);
   }
 
-  async function handleRequest(
-    message?: string
-  ) {
-    const currentRequest = (
-      message ?? request
-    ).trim();
+  async function handleRequest(message?: string) {
+    const currentRequest = (message ?? request).trim();
 
-    if (!currentRequest || working) {
-      return;
-    }
+    if (!currentRequest || working) return;
 
     stopCompanionSpeech();
 
-    const intent =
-      createSmilingMonadIntent(
-        currentRequest
-      );
+    const intent = createSmilingMonadIntent(currentRequest);
 
     addMessage("Ben", currentRequest);
-
     setRequest("");
     setVoiceMessage("");
     setListening(false);
 
     if (intent.destination === "workspace") {
       setPendingIntent(intent);
-      addMessage(
-        "Kimi",
-        getPreparedMessage(intent)
-      );
+      addMessage("Kimi", getPreparedMessage(intent));
       return;
     }
 
@@ -223,25 +177,20 @@ export default function OfficePage() {
     setWorking(true);
 
     try {
-      const response = await fetch(
-        "/api/gateway",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            request: currentRequest,
-            memory: "",
-          }),
-        }
-      );
+      const response = await fetch("/api/gateway", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          request: currentRequest,
+          memory: "",
+        }),
+      });
 
-      const data =
-        (await response.json()) as
-          | GatewayResult
-          | { error?: string };
+      const data = (await response.json()) as
+        | GatewayResult
+        | { error?: string };
 
       if (!response.ok) {
         throw new Error(
@@ -253,15 +202,9 @@ export default function OfficePage() {
 
       const result = data as GatewayResult;
       const responseText =
-        result.action === "clarify"
-          ? result.question
-          : result.content;
+        result.action === "clarify" ? result.question : result.content;
 
-      addMessage(
-        "Kimi",
-        responseText ||
-          "I'm here with you."
-      );
+      addMessage("Kimi", responseText || "I'm here with you.");
     } catch (caughtError) {
       addMessage(
         "Kimi",
@@ -274,9 +217,7 @@ export default function OfficePage() {
     }
   }
 
-  function submitText(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  function submitText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void handleRequest();
   }
@@ -291,17 +232,10 @@ export default function OfficePage() {
   }
 
   function chooseFiles(files: File[]) {
-    const selectedAttachments =
-      files.map(
-        createTemporaryAttachment
-      );
-
-    setAttachments(
-      (currentAttachments) => [
-        ...currentAttachments,
-        ...selectedAttachments,
-      ]
-    );
+    setAttachments((currentAttachments) => [
+      ...currentAttachments,
+      ...files.map(createTemporaryAttachment),
+    ]);
   }
 
   function startVoice() {
@@ -321,19 +255,15 @@ export default function OfficePage() {
 
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
-        setVoiceMessage(
-          `You said: ${transcript}`
-        );
+        setVoiceMessage(`You said: ${transcript}`);
         void handleRequest(transcript);
       },
-
       onError: () => {
         setListening(false);
         setVoiceMessage(
           "I could not hear that. Press the microphone and try again."
         );
       },
-
       onEnd: () => {
         setListening(false);
       },
@@ -341,19 +271,10 @@ export default function OfficePage() {
   }
 
   function openPendingTask() {
-    if (!pendingIntent) {
-      return;
-    }
+    if (!pendingIntent) return;
 
-    const session =
-      createTemporaryWorkspaceSession(
-        pendingIntent
-      );
-
-    saveTemporaryWorkspaceSession(
-      session
-    );
-
+    const session = createTemporaryWorkspaceSession(pendingIntent);
+    saveTemporaryWorkspaceSession(session);
     router.push("/workspace");
   }
 
@@ -364,14 +285,16 @@ export default function OfficePage() {
         working={working}
       />
 
-      {pendingIntent && (
-        <div className="pointer-events-auto absolute left-1/2 top-[67%] z-20 -translate-x-1/2 sm:left-[43%] sm:top-[70%]">
-          <DeskTaskObject
-            intent={pendingIntent}
-            onOpen={openPendingTask}
-          />
-        </div>
-      )}
+      <Desk>
+        {pendingIntent && (
+          <div className="pointer-events-auto absolute bottom-0 left-1/2 -translate-x-1/2">
+            <DeskTaskObject
+              intent={pendingIntent}
+              onOpen={openPendingTask}
+            />
+          </div>
+        )}
+      </Desk>
 
       <div className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-1rem)] -translate-x-1/2 sm:bottom-auto sm:top-[63%] sm:w-auto">
         <CompanionControls

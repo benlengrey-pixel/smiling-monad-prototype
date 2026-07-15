@@ -56,37 +56,27 @@ function createTitle(request: string, kind: IntentKind): string {
   switch (kind) {
     case "report":
       return "Working report";
-
     case "document":
       return "Working document";
-
     case "correspondence":
       return "Correspondence";
-
     case "planning":
       return "Planning task";
-
     case "research":
       return "Research task";
-
     case "files":
       return "File review";
-
     case "meeting":
       return "Meeting workspace";
-
     case "wellbeing":
       return "Wellbeing session";
-
     case "reminder":
       return "Reminder";
-
     case "calendar":
       return "Calendar task";
-
     case "conversation":
     case "general":
-      return "Current task";
+      return "Conversation";
   }
 }
 
@@ -96,6 +86,29 @@ function classifyIntent(request: string): {
   tools: IntentTool[];
 } {
   const text = request.trim().toLowerCase();
+
+  const isGreeting = includesAny(text, [
+    "hello",
+    "hi",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "how are you",
+    "thank you",
+    "thanks",
+    "what do you think",
+    "help me think",
+    "explain",
+  ]);
+
+  if (isGreeting) {
+    return {
+      destination: "office",
+      kind: "conversation",
+      tools: ["companion"],
+    };
+  }
 
   const isWellbeing = includesAny(text, [
     "meditation",
@@ -225,7 +238,6 @@ function classifyIntent(request: string): {
     "summarise",
     "form",
     "proposal",
-    "plan",
     "agreement",
   ]);
 
@@ -335,28 +347,9 @@ function classifyIntent(request: string): {
     };
   }
 
-  const isSimpleConversation = includesAny(text, [
-    "hello",
-    "hi",
-    "how are you",
-    "thank you",
-    "thanks",
-    "what do you think",
-    "help me think",
-    "explain",
-  ]);
-
-  if (isSimpleConversation) {
-    return {
-      destination: "office",
-      kind: "conversation",
-      tools: ["companion"],
-    };
-  }
-
   return {
-    destination: "workspace",
-    kind: "general",
+    destination: "office",
+    kind: "conversation",
     tools: ["companion"],
   };
 }
