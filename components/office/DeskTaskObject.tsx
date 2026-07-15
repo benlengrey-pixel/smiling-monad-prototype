@@ -9,6 +9,7 @@ type DeskTaskObjectProps = {
 
 type DeskObjectType =
   | "report"
+  | "document"
   | "notes"
   | "planner"
   | "headphones"
@@ -22,10 +23,20 @@ function getDeskObjectType(
 
   if (
     intent.kind === "report" ||
+    request.includes("shift report") ||
+    request.includes("progress report") ||
+    request.includes("incident report") ||
+    request.includes("support report") ||
+    request.includes("report")
+  ) {
+    return "report";
+  }
+
+  if (
     intent.kind === "correspondence" ||
     intent.kind === "files"
   ) {
-    return "report";
+    return "document";
   }
 
   if (intent.kind === "meeting") {
@@ -55,35 +66,37 @@ function getDeskObjectType(
     return "book";
   }
 
-  return "book";
+  return "document";
 }
 
-function getShortTitle(
+function getObjectTitle(
   intent: SmilingMonadIntent
 ): string {
+  const request = intent.originalRequest.trim();
+
+  if (request.length <= 34) {
+    return request;
+  }
+
   switch (intent.kind) {
     case "report":
-      return "SHIFT REPORT";
+      return "Shift Report";
     case "correspondence":
-      return "CORRESPONDENCE";
-    case "meeting":
-      return "NOTES";
-    case "planning":
-      return "PLANNING";
-    case "research":
-      return "RESEARCH";
-    case "files":
-      return "FILES";
-    case "wellbeing":
-      return intent.originalRequest
-        .toLowerCase()
-        .includes("music")
-        ? "MUSIC"
-        : "WELLBEING";
+      return "Correspondence";
     case "document":
-      return "DOCUMENT";
+      return "Document";
+    case "planning":
+      return "Planning";
+    case "meeting":
+      return "Notes";
+    case "research":
+      return "Research";
+    case "files":
+      return "Files";
+    case "wellbeing":
+      return "Wellbeing";
     default:
-      return "CURRENT TASK";
+      return "Current Task";
   }
 }
 
@@ -92,35 +105,35 @@ export default function DeskTaskObject({
   onOpen,
 }: DeskTaskObjectProps) {
   const objectType = getDeskObjectType(intent);
-  const shortTitle = getShortTitle(intent);
+  const title = getObjectTitle(intent);
 
   if (objectType === "report") {
     return (
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${intent.title}`}
-        className="group relative h-36 w-28 focus:outline-none sm:h-40 sm:w-32"
+        aria-label={`Open ${title}`}
+        className="group relative h-32 w-24 focus:outline-none sm:h-40 sm:w-32"
       >
-        <div className="absolute inset-x-2 bottom-1 top-3 rotate-[1deg] rounded-sm border border-[#8f7a63]/40 bg-[#f3eee4] shadow-[0_14px_22px_rgba(54,39,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
-          <div className="absolute left-1/2 top-[-0.45rem] h-4 w-8 -translate-x-1/2 rounded-b-sm rounded-t-md bg-[#c7b8a6] shadow-sm" />
+        <div className="absolute inset-x-1 bottom-1 top-2 rotate-[-2deg] rounded-sm border border-[#8e7a63]/40 bg-[#f3eee4] shadow-[0_14px_22px_rgba(54,39,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
+          <div className="absolute left-1/2 top-[-0.4rem] h-4 w-8 -translate-x-1/2 rounded-b-sm rounded-t-md bg-[#c8b9a6] shadow-sm" />
 
           <div className="px-3 pt-5 text-left">
             <div className="flex items-center justify-between">
-              <span className="text-[8px] uppercase tracking-[0.14em] text-[#7a6e62]">
+              <span className="text-[7px] uppercase tracking-[0.14em] text-[#7a6e62] sm:text-[8px]">
                 Draft
               </span>
 
-              <span className="rounded-full bg-[#587259] px-1.5 py-0.5 text-[7px] font-semibold uppercase text-white">
+              <span className="rounded-full bg-[#587259] px-1.5 py-0.5 text-[6px] font-semibold uppercase text-white sm:text-[7px]">
                 Ready
               </span>
             </div>
 
-            <p className="mt-2 line-clamp-2 text-[10px] font-semibold uppercase leading-4 text-[#342c26]">
-              {intent.title}
+            <p className="mt-2 line-clamp-3 text-[9px] font-semibold uppercase leading-3.5 text-[#342c26] sm:text-[10px] sm:leading-4">
+              {title}
             </p>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-1.5">
               <div className="h-px bg-[#cfc6bb]" />
               <div className="h-px bg-[#d9d1c8]" />
               <div className="h-px bg-[#d9d1c8]" />
@@ -132,13 +145,33 @@ export default function DeskTaskObject({
     );
   }
 
+  if (objectType === "document") {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${title}`}
+        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-30"
+      >
+        <div className="absolute inset-1 rotate-[1deg] rounded-md border border-[#9d7143]/35 bg-[#c89458] shadow-[0_14px_22px_rgba(54,39,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
+          <div className="absolute left-2 top-[-0.38rem] h-4 w-10 rounded-t-md bg-[#d8ad74]" />
+          <div className="absolute inset-x-3 top-7 rounded-sm bg-[#f1e5d2]/85 px-2 py-2 text-center">
+            <p className="line-clamp-2 text-[8px] font-semibold uppercase leading-3 text-[#563a22] sm:text-[9px]">
+              {title}
+            </p>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
   if (objectType === "notes") {
     return (
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${intent.title}`}
-        className="group relative h-32 w-28 focus:outline-none sm:h-36 sm:w-32"
+        aria-label={`Open ${title}`}
+        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
       >
         <div className="absolute inset-1 rotate-[-2deg] rounded-md border border-[#8b7866]/35 bg-[#c8b49e] shadow-[0_14px_22px_rgba(52,38,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
           <div className="absolute left-0 top-0 h-full w-3 rounded-l-md bg-[#a68f78]" />
@@ -154,7 +187,7 @@ export default function DeskTaskObject({
 
           <div className="flex h-full flex-col items-center justify-center px-4 text-center">
             <div className="mb-2 h-6 w-6 rounded-full border border-[#5f5145]/60" />
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-[#4f4237]">
+            <p className="text-[9px] font-semibold tracking-[0.16em] text-[#4f4237] sm:text-[10px]">
               NOTES
             </p>
           </div>
@@ -168,8 +201,8 @@ export default function DeskTaskObject({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${intent.title}`}
-        className="group relative h-32 w-28 focus:outline-none sm:h-36 sm:w-32"
+        aria-label={`Open ${title}`}
+        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
       >
         <div className="absolute inset-1 rotate-[2deg] rounded-md border border-[#263b2d]/40 bg-[#2e4a37] shadow-[0_14px_22px_rgba(38,43,31,0.32)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
           <div className="absolute inset-y-0 left-0 w-2 rounded-l-md bg-[#203527]" />
@@ -177,7 +210,7 @@ export default function DeskTaskObject({
           <div className="flex h-full flex-col items-center justify-center px-4 text-center">
             <div className="mb-3 h-7 w-7 rounded-full border border-[#d4b46f]/70" />
 
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-[#e7cc8f]">
+            <p className="text-[9px] font-semibold tracking-[0.16em] text-[#e7cc8f] sm:text-[10px]">
               PLANNING
             </p>
           </div>
@@ -195,16 +228,12 @@ export default function DeskTaskObject({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${intent.title}`}
-        className="group relative h-28 w-28 focus:outline-none"
+        aria-label={`Open ${title}`}
+        className="group relative h-24 w-24 focus:outline-none sm:h-28 sm:w-28"
       >
-        <div className="absolute left-1/2 top-1 h-20 w-20 -translate-x-1/2 rounded-full border-[8px] border-[#2d2925] shadow-sm transition duration-300 group-hover:-translate-y-2" />
-        <div className="absolute bottom-2 left-2 h-12 w-6 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)]" />
-        <div className="absolute bottom-2 right-2 h-12 w-6 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)]" />
-
-        <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium tracking-wide text-[#4c4036]">
-          MUSIC
-        </span>
+        <div className="absolute left-1/2 top-1 h-16 w-16 -translate-x-1/2 rounded-full border-[7px] border-[#2d2925] shadow-sm transition duration-300 group-hover:-translate-y-2 sm:h-20 sm:w-20 sm:border-[8px]" />
+        <div className="absolute bottom-2 left-2 h-10 w-5 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)] sm:h-12 sm:w-6" />
+        <div className="absolute bottom-2 right-2 h-10 w-5 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)] sm:h-12 sm:w-6" />
       </button>
     );
   }
@@ -214,15 +243,11 @@ export default function DeskTaskObject({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${intent.title}`}
-        className="group relative h-24 w-36 focus:outline-none"
+        aria-label={`Open ${title}`}
+        className="group relative h-20 w-32 focus:outline-none sm:h-24 sm:w-36"
       >
-        <div className="absolute inset-x-1 bottom-3 h-12 rounded-full bg-[#8d7a65] shadow-[0_12px_18px_rgba(54,41,31,0.28)] transition duration-300 group-hover:-translate-y-2" />
-        <div className="absolute right-2 top-4 h-12 w-12 rounded-full border-4 border-[#6f5e4d] bg-[#a1907c]" />
-
-        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium tracking-wide text-[#4c4036]">
-          WELLBEING
-        </span>
+        <div className="absolute inset-x-1 bottom-3 h-10 rounded-full bg-[#8d7a65] shadow-[0_12px_18px_rgba(54,41,31,0.28)] transition duration-300 group-hover:-translate-y-2 sm:h-12" />
+        <div className="absolute right-2 top-4 h-10 w-10 rounded-full border-4 border-[#6f5e4d] bg-[#a1907c] sm:h-12 sm:w-12" />
       </button>
     );
   }
@@ -231,8 +256,8 @@ export default function DeskTaskObject({
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Open ${intent.title}`}
-      className="group relative h-32 w-28 focus:outline-none sm:h-36 sm:w-32"
+      aria-label={`Open ${title}`}
+      className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
     >
       <div className="absolute inset-1 rotate-[-2deg] rounded-md bg-[#6e523f] shadow-[0_14px_22px_rgba(47,31,21,0.3)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0" />
 
@@ -240,8 +265,8 @@ export default function DeskTaskObject({
         <div className="flex h-full flex-col items-center justify-center px-3 text-center">
           <div className="mb-3 h-7 w-7 rounded-full border border-[#e6d5c6]/60" />
 
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#f2e8df]">
-            {shortTitle}
+          <p className="line-clamp-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#f2e8df] sm:text-[10px]">
+            {title}
           </p>
         </div>
       </div>
