@@ -114,27 +114,46 @@ function getPreparedMessage(
 ): string {
   switch (intent.kind) {
     case "report":
-      return "I've placed the report on the desk.";
+      return "I've placed the Reports folder on the desk.";
     case "correspondence":
-      return "I've placed the correspondence on the desk.";
+      return "I've placed the Correspondence folder on the desk.";
     case "document":
-      return "I've placed the document on the desk.";
+      return "I've placed the Documents folder on the desk.";
     case "planning":
-      return "I've placed the planner on the desk.";
+      return "I've placed the Planning folder on the desk.";
     case "meeting":
-      return "I've placed the meeting notes on the desk.";
+      return "I've placed the Notes folder on the desk.";
     case "research":
-      return "I've placed the research task on the desk.";
+      return "I've placed the Research folder on the desk.";
     case "files":
-      return "I've placed the file task on the desk.";
+      return "I've placed the Files folder on the desk.";
     case "wellbeing":
-      return intent.originalRequest
-        .toLowerCase()
-        .includes("music")
-        ? "I've placed the headphones on the desk."
-        : "I've prepared the wellbeing activity.";
+      return "I've prepared the wellbeing task.";
     default:
-      return "I've placed the task on the desk.";
+      return "I've placed the task folder on the desk.";
+  }
+}
+
+function getPreviewTitle(
+  intent: SmilingMonadIntent
+): string {
+  switch (intent.kind) {
+    case "report":
+      return "Report ready to work on";
+    case "correspondence":
+      return "Correspondence ready";
+    case "planning":
+      return "Planning task ready";
+    case "meeting":
+      return "Meeting notes ready";
+    case "research":
+      return "Research task ready";
+    case "files":
+      return "Files ready";
+    case "wellbeing":
+      return "Wellbeing activity ready";
+    default:
+      return "Task ready";
   }
 }
 
@@ -183,6 +202,8 @@ export default function OfficePage() {
     useState<SmilingMonadIntent | null>(
       null
     );
+  const [previewOpen, setPreviewOpen] =
+    useState(false);
   const [messages, setMessages] = useState<
     ConversationMessage[]
   >([]);
@@ -239,6 +260,7 @@ export default function OfficePage() {
 
     if (intent.destination === "workspace") {
       setPendingIntent(intent);
+      setPreviewOpen(false);
       addMessage(
         "Kimi",
         getPreparedMessage(intent)
@@ -247,6 +269,7 @@ export default function OfficePage() {
     }
 
     setPendingIntent(null);
+    setPreviewOpen(false);
     setWorking(true);
 
     try {
@@ -380,14 +403,66 @@ export default function OfficePage() {
     router.push("/workspace");
   }
 
+  function dismissPendingTask() {
+    setPreviewOpen(false);
+    setPendingIntent(null);
+  }
+
   return (
     <OfficeEnvironment>
       <Desk>
         {pendingIntent && (
           <div className="pointer-events-auto absolute bottom-0 left-[34%] -translate-x-1/2">
+            {previewOpen && (
+              <div className="absolute bottom-[7.4rem] left-1/2 w-[min(20rem,82vw)] -translate-x-1/2 rounded-[1.5rem] border border-white/35 bg-[#f7f0e6]/94 p-4 text-[#3b2f27] shadow-[0_18px_40px_rgba(49,34,23,0.2)] backdrop-blur-md sm:bottom-[9rem] sm:w-[22rem] sm:p-5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a7564]">
+                  Preview
+                </p>
+
+                <h2 className="mt-2 text-lg font-semibold">
+                  {getPreviewTitle(pendingIntent)}
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-[#6f6156]">
+                  {pendingIntent.originalRequest}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={openPendingTask}
+                    className="rounded-full bg-[#5d4939] px-4 py-2 text-sm font-medium text-white shadow-sm"
+                  >
+                    Open in Workspace
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={startVoice}
+                    className="rounded-full bg-white px-4 py-2 text-sm font-medium text-[#5d4939] shadow-sm"
+                  >
+                    Continue by voice
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={dismissPendingTask}
+                    className="rounded-full px-4 py-2 text-sm text-[#75675d]"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             <DeskTaskObject
               intent={pendingIntent}
-              onOpen={openPendingTask}
+              open={previewOpen}
+              onOpen={() =>
+                setPreviewOpen(
+                  (current) => !current
+                )
+              }
             />
           </div>
         )}

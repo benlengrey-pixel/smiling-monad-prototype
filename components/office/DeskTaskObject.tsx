@@ -4,269 +4,73 @@ import type { SmilingMonadIntent } from "@/lib/intent/intent-engine";
 
 type DeskTaskObjectProps = {
   intent: SmilingMonadIntent;
+  open: boolean;
   onOpen: () => void;
 };
 
-type DeskObjectType =
-  | "report"
-  | "document"
-  | "notes"
-  | "planner"
-  | "headphones"
-  | "mat"
-  | "book";
-
-function getDeskObjectType(
-  intent: SmilingMonadIntent
-): DeskObjectType {
-  const request = intent.originalRequest.toLowerCase();
-
-  if (
-    intent.kind === "report" ||
-    request.includes("shift report") ||
-    request.includes("progress report") ||
-    request.includes("incident report") ||
-    request.includes("support report") ||
-    request.includes("report")
-  ) {
-    return "report";
-  }
-
-  if (
-    intent.kind === "correspondence" ||
-    intent.kind === "files"
-  ) {
-    return "document";
-  }
-
-  if (intent.kind === "meeting") {
-    return "notes";
-  }
-
-  if (intent.kind === "planning") {
-    return "planner";
-  }
-
-  if (intent.kind === "wellbeing") {
-    if (
-      request.includes("music") ||
-      request.includes("listen") ||
-      request.includes("audio")
-    ) {
-      return "headphones";
-    }
-
-    return "mat";
-  }
-
-  if (
-    intent.kind === "document" ||
-    intent.kind === "research"
-  ) {
-    return "book";
-  }
-
-  return "document";
-}
-
-function getObjectTitle(
+function getFolderLabel(
   intent: SmilingMonadIntent
 ): string {
-  const request = intent.originalRequest.trim();
-
-  if (request.length <= 34) {
-    return request;
-  }
-
   switch (intent.kind) {
     case "report":
-      return "Shift Report";
+      return "REPORTS";
     case "correspondence":
-      return "Correspondence";
-    case "document":
-      return "Document";
+      return "CORRESPONDENCE";
     case "planning":
-      return "Planning";
+      return "PLANNING";
     case "meeting":
-      return "Notes";
-    case "research":
-      return "Research";
+      return "NOTES";
     case "files":
-      return "Files";
+      return "FILES";
+    case "research":
+      return "RESEARCH";
     case "wellbeing":
-      return "Wellbeing";
+      return "WELLBEING";
     default:
-      return "Current Task";
+      return "DOCUMENTS";
   }
 }
 
 export default function DeskTaskObject({
   intent,
+  open,
   onOpen,
 }: DeskTaskObjectProps) {
-  const objectType = getDeskObjectType(intent);
-  const title = getObjectTitle(intent);
-
-  if (objectType === "report") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-32 w-24 focus:outline-none sm:h-40 sm:w-32"
-      >
-        <div className="absolute inset-x-1 bottom-1 top-2 rotate-[-2deg] rounded-sm border border-[#8e7a63]/40 bg-[#f3eee4] shadow-[0_14px_22px_rgba(54,39,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
-          <div className="absolute left-1/2 top-[-0.4rem] h-4 w-8 -translate-x-1/2 rounded-b-sm rounded-t-md bg-[#c8b9a6] shadow-sm" />
-
-          <div className="px-3 pt-5 text-left">
-            <div className="flex items-center justify-between">
-              <span className="text-[7px] uppercase tracking-[0.14em] text-[#7a6e62] sm:text-[8px]">
-                Draft
-              </span>
-
-              <span className="rounded-full bg-[#587259] px-1.5 py-0.5 text-[6px] font-semibold uppercase text-white sm:text-[7px]">
-                Ready
-              </span>
-            </div>
-
-            <p className="mt-2 line-clamp-3 text-[9px] font-semibold uppercase leading-3.5 text-[#342c26] sm:text-[10px] sm:leading-4">
-              {title}
-            </p>
-
-            <div className="mt-3 space-y-1.5">
-              <div className="h-px bg-[#cfc6bb]" />
-              <div className="h-px bg-[#d9d1c8]" />
-              <div className="h-px bg-[#d9d1c8]" />
-              <div className="h-px bg-[#d9d1c8]" />
-            </div>
-          </div>
-        </div>
-      </button>
-    );
-  }
-
-  if (objectType === "document") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-30"
-      >
-        <div className="absolute inset-1 rotate-[1deg] rounded-md border border-[#9d7143]/35 bg-[#c89458] shadow-[0_14px_22px_rgba(54,39,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
-          <div className="absolute left-2 top-[-0.38rem] h-4 w-10 rounded-t-md bg-[#d8ad74]" />
-          <div className="absolute inset-x-3 top-7 rounded-sm bg-[#f1e5d2]/85 px-2 py-2 text-center">
-            <p className="line-clamp-2 text-[8px] font-semibold uppercase leading-3 text-[#563a22] sm:text-[9px]">
-              {title}
-            </p>
-          </div>
-        </div>
-      </button>
-    );
-  }
-
-  if (objectType === "notes") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
-      >
-        <div className="absolute inset-1 rotate-[-2deg] rounded-md border border-[#8b7866]/35 bg-[#c8b49e] shadow-[0_14px_22px_rgba(52,38,25,0.28)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
-          <div className="absolute left-0 top-0 h-full w-3 rounded-l-md bg-[#a68f78]" />
-
-          <div className="absolute -left-1 top-2 flex h-[calc(100%-1rem)] flex-col justify-between">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <span
-                key={index}
-                className="block h-1.5 w-3 rounded-full bg-[#5f5145]"
-              />
-            ))}
-          </div>
-
-          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-            <div className="mb-2 h-6 w-6 rounded-full border border-[#5f5145]/60" />
-            <p className="text-[9px] font-semibold tracking-[0.16em] text-[#4f4237] sm:text-[10px]">
-              NOTES
-            </p>
-          </div>
-        </div>
-      </button>
-    );
-  }
-
-  if (objectType === "planner") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
-      >
-        <div className="absolute inset-1 rotate-[2deg] rounded-md border border-[#263b2d]/40 bg-[#2e4a37] shadow-[0_14px_22px_rgba(38,43,31,0.32)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0">
-          <div className="absolute inset-y-0 left-0 w-2 rounded-l-md bg-[#203527]" />
-
-          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-            <div className="mb-3 h-7 w-7 rounded-full border border-[#d4b46f]/70" />
-
-            <p className="text-[9px] font-semibold tracking-[0.16em] text-[#e7cc8f] sm:text-[10px]">
-              PLANNING
-            </p>
-          </div>
-        </div>
-
-        <div className="absolute bottom-2 right-0 h-2 w-16 rotate-[-38deg] rounded-full bg-[#171717] shadow-md transition duration-300 group-hover:-translate-y-2">
-          <div className="absolute right-0 top-0 h-2 w-3 rounded-r-full bg-[#b98a45]" />
-        </div>
-      </button>
-    );
-  }
-
-  if (objectType === "headphones") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-24 w-24 focus:outline-none sm:h-28 sm:w-28"
-      >
-        <div className="absolute left-1/2 top-1 h-16 w-16 -translate-x-1/2 rounded-full border-[7px] border-[#2d2925] shadow-sm transition duration-300 group-hover:-translate-y-2 sm:h-20 sm:w-20 sm:border-[8px]" />
-        <div className="absolute bottom-2 left-2 h-10 w-5 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)] sm:h-12 sm:w-6" />
-        <div className="absolute bottom-2 right-2 h-10 w-5 rounded-xl bg-[#403b35] shadow-[0_8px_14px_rgba(30,25,20,0.28)] sm:h-12 sm:w-6" />
-      </button>
-    );
-  }
-
-  if (objectType === "mat") {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${title}`}
-        className="group relative h-20 w-32 focus:outline-none sm:h-24 sm:w-36"
-      >
-        <div className="absolute inset-x-1 bottom-3 h-10 rounded-full bg-[#8d7a65] shadow-[0_12px_18px_rgba(54,41,31,0.28)] transition duration-300 group-hover:-translate-y-2 sm:h-12" />
-        <div className="absolute right-2 top-4 h-10 w-10 rounded-full border-4 border-[#6f5e4d] bg-[#a1907c] sm:h-12 sm:w-12" />
-      </button>
-    );
-  }
+  const label = getFolderLabel(intent);
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Open ${title}`}
-      className="group relative h-28 w-24 focus:outline-none sm:h-36 sm:w-32"
+      aria-label={`${open ? "Close" : "Open"} ${label} folder`}
+      className="group relative h-24 w-36 focus:outline-none sm:h-28 sm:w-44"
     >
-      <div className="absolute inset-1 rotate-[-2deg] rounded-md bg-[#6e523f] shadow-[0_14px_22px_rgba(47,31,21,0.3)] transition duration-300 group-hover:-translate-y-2 group-hover:rotate-0" />
+      <div
+        className={`absolute inset-x-0 bottom-0 h-[72%] rounded-md border border-[#8b6239]/35 bg-[#bd8950] shadow-[0_14px_24px_rgba(58,39,22,0.28)] transition duration-300 ${
+          open
+            ? "translate-y-1 rotate-[1deg]"
+            : "group-hover:-translate-y-1"
+        }`}
+      />
 
-      <div className="absolute inset-x-3 bottom-4 top-3 rotate-[1deg] rounded-sm border border-[#8d6c53]/40 bg-[#866449] shadow-[0_8px_14px_rgba(47,31,21,0.2)]">
-        <div className="flex h-full flex-col items-center justify-center px-3 text-center">
-          <div className="mb-3 h-7 w-7 rounded-full border border-[#e6d5c6]/60" />
+      <div
+        className={`absolute left-2 top-3 h-7 w-20 rounded-t-md border border-b-0 border-[#9b6e42]/35 bg-[#cf9b60] transition duration-300 sm:w-24 ${
+          open
+            ? "-translate-y-1"
+            : ""
+        }`}
+      />
 
-          <p className="line-clamp-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#f2e8df] sm:text-[10px]">
-            {title}
+      <div
+        className={`absolute inset-x-2 bottom-2 h-[64%] origin-bottom rounded-md border border-[#9a6b3f]/35 bg-[#d3a06a] shadow-sm transition duration-300 ${
+          open
+            ? "-translate-y-5 rotate-[-7deg]"
+            : ""
+        }`}
+      >
+        <div className="absolute inset-x-4 top-4 rounded-sm bg-[#f4eadc]/92 px-3 py-2 text-center shadow-sm">
+          <p className="text-[9px] font-semibold tracking-[0.18em] text-[#5a3c25] sm:text-[10px]">
+            {label}
           </p>
         </div>
       </div>
