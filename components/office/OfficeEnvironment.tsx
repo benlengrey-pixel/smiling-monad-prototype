@@ -17,8 +17,8 @@ export default function OfficeEnvironment({
 
       <Link
         href="/circle"
-        aria-label="Open the Circle of Support Centre"
-        title="Circle of Support Centre"
+        aria-label="Open the Circles of Support Centre"
+        title="Circles of Support Centre"
         className="
           group
           absolute
@@ -77,14 +77,14 @@ export default function OfficeEnvironment({
             group-focus-visible:opacity-100
           "
         >
-          Circle of Support Centre
+          Circles of Support Centre
         </span>
       </Link>
 
       <Link
         href="/market"
-        aria-label="Walk outside to the Smiling Monad Market"
-        title="Smiling Monad Market"
+        aria-label="Walk outside to the Smiling Monad Community Market"
+        title="Smiling Monad Community Market"
         className="
           group
           absolute
@@ -143,7 +143,7 @@ export default function OfficeEnvironment({
             group-focus-visible:opacity-100
           "
         >
-          Walk to the Market
+          Community Market
         </span>
       </Link>
 
