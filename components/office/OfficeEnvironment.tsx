@@ -15,7 +15,7 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
-      {/* Smiling Monad poster behind Kimi */}
+      {/* Poster behind Kimi: Circles of Support Centre */}
       <Link
         href="/circle"
         aria-label="Open the Circles of Support Centre"
@@ -25,7 +25,7 @@ export default function OfficeEnvironment({
           absolute
           right-[14%]
           top-[25%]
-          z-10
+          z-20
           h-[17%]
           w-[22%]
           cursor-pointer
@@ -82,7 +82,7 @@ export default function OfficeEnvironment({
         </span>
       </Link>
 
-      {/* Open doorway leading towards the waterfall */}
+      {/* Doorway and waterfall: Community Market */}
       <Link
         href="/market"
         aria-label="Walk through the doorway to the Community Market"
