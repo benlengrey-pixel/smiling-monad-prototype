@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -116,44 +117,21 @@ function getPreparedMessage(
     case "report":
       return "I've placed the Reports folder on the desk.";
     case "correspondence":
-      return "I've placed the Correspondence folder on the desk.";
+      return "I've placed the mail folder on the desk.";
     case "document":
-      return "I've placed the Documents folder on the desk.";
+      return "I've placed the documents folder on the desk.";
     case "planning":
-      return "I've placed the Planning folder on the desk.";
+      return "I've placed the planner on the desk.";
     case "meeting":
-      return "I've placed the Notes folder on the desk.";
+      return "I've placed the meeting folder on the desk.";
     case "research":
-      return "I've placed the Research folder on the desk.";
+      return "I've placed the research folder on the desk.";
     case "files":
-      return "I've placed the Files folder on the desk.";
+      return "I've placed the file folder on the desk.";
     case "wellbeing":
-      return "I've prepared the wellbeing task.";
+      return "I've prepared the wellbeing activity.";
     default:
-      return "I've placed the task folder on the desk.";
-  }
-}
-
-function getPreviewTitle(
-  intent: SmilingMonadIntent
-): string {
-  switch (intent.kind) {
-    case "report":
-      return "Report ready to work on";
-    case "correspondence":
-      return "Correspondence ready";
-    case "planning":
-      return "Planning task ready";
-    case "meeting":
-      return "Meeting notes ready";
-    case "research":
-      return "Research task ready";
-    case "files":
-      return "Files ready";
-    case "wellbeing":
-      return "Wellbeing activity ready";
-    default:
-      return "Task ready";
+      return "I've placed the task on the desk.";
   }
 }
 
@@ -182,6 +160,112 @@ function isCollapseRequest(text: string): boolean {
   ].some((command) => value.includes(command));
 }
 
+function getPreviewTitle(
+  intent: SmilingMonadIntent
+): string {
+  switch (intent.kind) {
+    case "report":
+      return "Shift Report Preview";
+    case "document":
+      return "Document Preview";
+    case "correspondence":
+      return "Correspondence Preview";
+    case "planning":
+      return "Planning Preview";
+    case "research":
+      return "Research Preview";
+    case "meeting":
+      return "Meeting Preview";
+    case "files":
+      return "File Preview";
+    case "wellbeing":
+      return "Wellbeing Preview";
+    default:
+      return "Task Preview";
+  }
+}
+
+function getPreviewBody(
+  intent: SmilingMonadIntent
+): string[] {
+  switch (intent.kind) {
+    case "report":
+      return [
+        "Date: [Insert date]",
+        "Participant: [Insert participant name]",
+        "Support worker: Ben",
+        "Shift time: [Insert start and finish time]",
+        "Activities completed",
+        "Observations and mood",
+        "Outcome and next steps",
+      ];
+
+    case "document":
+      return [
+        "Working draft ready for review.",
+        "Main sections prepared.",
+        "Open in Workspace to continue writing.",
+      ];
+
+    case "correspondence":
+      return [
+        "Draft correspondence prepared.",
+        "Subject and main message ready.",
+        "Open in Workspace to refine or send.",
+      ];
+
+    case "planning":
+      return [
+        "Planning structure prepared.",
+        "Main steps and checklist ready.",
+        "Open in Workspace to continue.",
+      ];
+
+    case "research":
+      return [
+        "Research notes prepared.",
+        "Key findings can be reviewed.",
+        "Open in Workspace for full work.",
+      ];
+
+    case "meeting":
+      return [
+        "Meeting notes structure prepared.",
+        "Agenda and note sections ready.",
+        "Open in Workspace to continue.",
+      ];
+
+    case "files":
+      return [
+        "Selected files are ready.",
+        "Review items before continuing.",
+        "Open in Workspace to work on them.",
+      ];
+
+    case "wellbeing":
+      return [
+        "Wellbeing activity prepared.",
+        "Tools are ready in the Workspace.",
+        "Open to begin the session.",
+      ];
+
+    default:
+      return [
+        "Task prepared and ready to review.",
+      ];
+  }
+}
+
+function getPreviewPlainText(
+  intent: SmilingMonadIntent
+): string {
+  return [
+    getPreviewTitle(intent),
+    "",
+    ...getPreviewBody(intent),
+  ].join("\n");
+}
+
 export default function OfficePage() {
   const router = useRouter();
   const textInputRef =
@@ -202,12 +286,14 @@ export default function OfficePage() {
     useState<SmilingMonadIntent | null>(
       null
     );
-  const [previewOpen, setPreviewOpen] =
-    useState(false);
   const [messages, setMessages] = useState<
     ConversationMessage[]
   >([]);
   const [conversationExpanded, setConversationExpanded] =
+    useState(false);
+  const [folderPreviewOpen, setFolderPreviewOpen] =
+    useState(false);
+  const [useOptionsOpen, setUseOptionsOpen] =
     useState(false);
 
   function addMessage(
@@ -260,7 +346,9 @@ export default function OfficePage() {
 
     if (intent.destination === "workspace") {
       setPendingIntent(intent);
-      setPreviewOpen(false);
+      setFolderPreviewOpen(false);
+      setUseOptionsOpen(false);
+
       addMessage(
         "Kimi",
         getPreparedMessage(intent)
@@ -269,7 +357,8 @@ export default function OfficePage() {
     }
 
     setPendingIntent(null);
-    setPreviewOpen(false);
+    setFolderPreviewOpen(false);
+    setUseOptionsOpen(false);
     setWorking(true);
 
     try {
@@ -403,66 +492,192 @@ export default function OfficePage() {
     router.push("/workspace");
   }
 
-  function dismissPendingTask() {
-    setPreviewOpen(false);
-    setPendingIntent(null);
+  function toggleFolderPreview() {
+    setFolderPreviewOpen((current) => {
+      const nextValue = !current;
+      if (!nextValue) {
+        setUseOptionsOpen(false);
+      }
+      return nextValue;
+    });
   }
+
+  async function copyPreview() {
+    if (!pendingIntent) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        getPreviewPlainText(pendingIntent)
+      );
+      addMessage(
+        "Kimi",
+        "The preview text has been copied."
+      );
+      setConversationExpanded(true);
+    } catch {
+      addMessage(
+        "Kimi",
+        "I could not copy that just now."
+      );
+      setConversationExpanded(true);
+    }
+  }
+
+  async function sharePreview() {
+    if (!pendingIntent) return;
+
+    const text = getPreviewPlainText(
+      pendingIntent
+    );
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: getPreviewTitle(
+            pendingIntent
+          ),
+          text,
+        });
+        addMessage(
+          "Kimi",
+          "The preview is ready to share."
+        );
+      } else {
+        await navigator.clipboard.writeText(
+          text
+        );
+        addMessage(
+          "Kimi",
+          "Sharing is not available here, so I copied the preview instead."
+        );
+      }
+
+      setConversationExpanded(true);
+    } catch {
+      addMessage(
+        "Kimi",
+        "Sharing was cancelled."
+      );
+      setConversationExpanded(true);
+    }
+  }
+
+  const previewLines = useMemo(() => {
+    if (!pendingIntent) return [];
+    return getPreviewBody(pendingIntent);
+  }, [pendingIntent]);
 
   return (
     <OfficeEnvironment>
-      <Desk>
-        {pendingIntent && (
-          <div className="pointer-events-auto absolute bottom-0 left-[34%] -translate-x-1/2">
-            {previewOpen && (
-              <div className="absolute bottom-[7.4rem] left-1/2 w-[min(20rem,82vw)] -translate-x-1/2 rounded-[1.5rem] border border-white/35 bg-[#f7f0e6]/94 p-4 text-[#3b2f27] shadow-[0_18px_40px_rgba(49,34,23,0.2)] backdrop-blur-md sm:bottom-[9rem] sm:w-[22rem] sm:p-5">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a7564]">
-                  Preview
-                </p>
+      {pendingIntent &&
+        folderPreviewOpen && (
+          <div className="pointer-events-none absolute left-1/2 top-[9%] z-30 w-[calc(100%-2rem)] max-w-[34rem] -translate-x-1/2 sm:top-[8%] sm:max-w-[38rem]">
+            <div className="pointer-events-auto rounded-[28px] border border-[#d9ccb8] bg-[rgba(252,247,239,0.96)] p-4 shadow-[0_24px_48px_rgba(60,36,15,0.22)] backdrop-blur-[3px] sm:p-5">
+              <div className="rounded-[24px] border border-[#e1d6c4] bg-[#fffaf2] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-5">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#907963] sm:text-xs">
+                      Current preview
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-[#49372a] sm:text-2xl">
+                      {pendingIntent
+                        ? getPreviewTitle(
+                            pendingIntent
+                          )
+                        : "Preview"}
+                    </h2>
+                  </div>
 
-                <h2 className="mt-2 text-lg font-semibold">
-                  {getPreviewTitle(pendingIntent)}
-                </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFolderPreviewOpen(false);
+                      setUseOptionsOpen(false);
+                    }}
+                    className="rounded-full bg-[#f0e5d5] px-3 py-1.5 text-sm text-[#5d4839] shadow-sm transition hover:bg-[#eadcc9]"
+                  >
+                    Close
+                  </button>
+                </div>
 
-                <p className="mt-2 text-sm leading-6 text-[#6f6156]">
-                  {pendingIntent.originalRequest}
-                </p>
+                <div className="rounded-[18px] border border-[#eadfce] bg-[#f8f2e9] p-4 text-[#4a392d] shadow-[0_10px_20px_rgba(60,36,15,0.06)]">
+                  <div className="mb-3 border-b border-[#e6d9c5] pb-3">
+                    <p className="text-sm text-[#7b6858]">
+                      {pendingIntent?.originalRequest}
+                    </p>
+                  </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="space-y-2 text-sm leading-6 sm:text-base">
+                    {previewLines.map((line) => (
+                      <p
+                        key={line}
+                        className="whitespace-pre-wrap"
+                      >
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setUseOptionsOpen(
+                        (current) => !current
+                      )
+                    }
+                    className="rounded-full bg-[#6c4b32] px-5 py-2.5 text-sm font-medium text-white shadow-[0_10px_18px_rgba(60,36,15,0.18)] transition hover:bg-[#5a3f2b]"
+                  >
+                    Use
+                  </button>
+
                   <button
                     type="button"
                     onClick={openPendingTask}
-                    className="rounded-full bg-[#5d4939] px-4 py-2 text-sm font-medium text-white shadow-sm"
+                    className="rounded-full bg-[#efe4d5] px-5 py-2.5 text-sm font-medium text-[#4b392d] shadow-sm transition hover:bg-[#e7d8c3]"
                   >
-                    Open in Workspace
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={startVoice}
-                    className="rounded-full bg-white px-4 py-2 text-sm font-medium text-[#5d4939] shadow-sm"
-                  >
-                    Continue by voice
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={dismissPendingTask}
-                    className="rounded-full px-4 py-2 text-sm text-[#75675d]"
-                  >
-                    Dismiss
+                    Work on
                   </button>
                 </div>
-              </div>
-            )}
 
+                {useOptionsOpen && (
+                  <div className="mt-4 rounded-[18px] border border-[#e6d9c8] bg-[#f5ede2] p-3">
+                    <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-[#8d775f]">
+                      Use options
+                    </p>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={copyPreview}
+                        className="rounded-full bg-white px-4 py-2 text-sm text-[#4b392d] shadow-sm transition hover:bg-[#faf6ef]"
+                      >
+                        Copy
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={sharePreview}
+                        className="rounded-full bg-white px-4 py-2 text-sm text-[#4b392d] shadow-sm transition hover:bg-[#faf6ef]"
+                      >
+                        Share
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+      <Desk>
+        {pendingIntent && (
+          <div className="pointer-events-auto absolute bottom-[4%] left-[34%] -translate-x-1/2 sm:bottom-[6%] sm:left-[33%]">
             <DeskTaskObject
               intent={pendingIntent}
-              open={previewOpen}
-              onOpen={() =>
-                setPreviewOpen(
-                  (current) => !current
-                )
-              }
+              previewOpen={folderPreviewOpen}
+              onTogglePreview={toggleFolderPreview}
             />
           </div>
         )}
