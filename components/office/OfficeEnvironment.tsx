@@ -15,6 +15,7 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
+      {/* Smiling Monad poster behind Kimi */}
       <Link
         href="/circle"
         aria-label="Open the Circles of Support Centre"
@@ -22,21 +23,21 @@ export default function OfficeEnvironment({
         className="
           group
           absolute
-          left-[15%]
-          top-[31%]
+          right-[14%]
+          top-[25%]
           z-10
-          h-[18%]
+          h-[17%]
           w-[22%]
           cursor-pointer
-          rounded-[18px]
+          rounded-[10px]
           outline-none
           transition
           focus-visible:ring-4
           focus-visible:ring-[rgba(255,248,230,0.8)]
-          sm:left-[13%]
-          sm:top-[25%]
-          sm:h-[25%]
-          sm:w-[18%]
+          sm:right-[18%]
+          sm:top-[22%]
+          sm:h-[22%]
+          sm:w-[15%]
         "
       >
         <span
@@ -44,13 +45,13 @@ export default function OfficeEnvironment({
             pointer-events-none
             absolute
             inset-0
-            rounded-[18px]
+            rounded-[10px]
             border
             border-transparent
             transition
-            group-hover:border-[rgba(255,248,230,0.75)]
+            group-hover:border-[rgba(255,248,230,0.8)]
             group-hover:bg-[rgba(255,248,230,0.08)]
-            group-hover:shadow-[0_0_28px_rgba(255,244,215,0.4)]
+            group-hover:shadow-[0_0_28px_rgba(255,244,215,0.45)]
           "
         />
 
@@ -63,7 +64,7 @@ export default function OfficeEnvironment({
             -translate-x-1/2
             whitespace-nowrap
             rounded-full
-            bg-[rgba(55,38,26,0.88)]
+            bg-[rgba(55,38,26,0.9)]
             px-4
             py-2
             text-xs
@@ -81,28 +82,30 @@ export default function OfficeEnvironment({
         </span>
       </Link>
 
+      {/* Open doorway leading towards the waterfall */}
       <Link
         href="/market"
-        aria-label="Walk outside to the Smiling Monad Community Market"
+        aria-label="Walk through the doorway to the Community Market"
         title="Smiling Monad Community Market"
         className="
           group
           absolute
-          right-[1%]
+          left-[2%]
           top-[20%]
           z-10
-          h-[38%]
-          w-[21%]
+          h-[43%]
+          w-[54%]
           cursor-pointer
-          rounded-[40px]
+          rounded-t-[50%]
+          rounded-b-[20px]
           outline-none
           transition
           focus-visible:ring-4
           focus-visible:ring-[rgba(224,246,238,0.85)]
-          sm:right-[2%]
-          sm:top-[15%]
-          sm:h-[48%]
-          sm:w-[19%]
+          sm:left-[4%]
+          sm:top-[14%]
+          sm:h-[54%]
+          sm:w-[42%]
         "
       >
         <span
@@ -110,12 +113,13 @@ export default function OfficeEnvironment({
             pointer-events-none
             absolute
             inset-0
-            rounded-[40px]
+            rounded-t-[50%]
+            rounded-b-[20px]
             border
             border-transparent
             transition
-            group-hover:border-[rgba(224,246,238,0.72)]
-            group-hover:bg-[rgba(210,239,226,0.08)]
+            group-hover:border-[rgba(224,246,238,0.75)]
+            group-hover:bg-[rgba(210,239,226,0.06)]
             group-hover:shadow-[0_0_35px_rgba(215,244,235,0.48)]
           "
         />
