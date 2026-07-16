@@ -119,9 +119,10 @@ function isApproval(text: string): boolean {
     "keep it as it is",
     "i'm happy with it",
     "im happy with it",
-  ].some((phrase) =>
-    value === phrase ||
-    value.includes(phrase)
+  ].some(
+    (phrase) =>
+      value === phrase ||
+      value.includes(phrase)
   );
 }
 
@@ -132,7 +133,10 @@ function safeFilename(title: string): string {
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
 
-  return cleaned || "smiling-monad-document";
+  return (
+    cleaned ||
+    "smiling-monad-document"
+  );
 }
 
 export default function WorkspacePage() {
@@ -149,9 +153,8 @@ export default function WorkspacePage() {
   const [result, setResult] =
     useState<GatewayResult | null>(null);
 
-  const [messages, setMessages] = useState<
-    WorkspaceMessage[]
-  >([]);
+  const [messages, setMessages] =
+    useState<WorkspaceMessage[]>([]);
 
   const [reply, setReply] = useState("");
   const [working, setWorking] =
@@ -219,7 +222,9 @@ export default function WorkspacePage() {
           createMessage("Kimi", kimiText),
         ]);
 
-        if (nextResult.action === "clarify") {
+        if (
+          nextResult.action === "clarify"
+        ) {
           speakText(kimiText);
         }
       }
@@ -268,9 +273,7 @@ export default function WorkspacePage() {
     );
   }, []);
 
-  function continueTask(
-    answer: string
-  ) {
+  function continueTask(answer: string) {
     const currentAnswer = answer.trim();
 
     if (
@@ -460,30 +463,38 @@ export default function WorkspacePage() {
     "Current task";
 
   return (
-    <main className="min-h-screen bg-[#f3eee5] text-[#34271f]">
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/10 bg-[#f3eee5]/92 px-4 py-3 backdrop-blur-md sm:px-6">
+    <main className="relative min-h-screen overflow-hidden bg-[#dfe8df] text-[#34271f]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.92),rgba(232,239,228,0.82)_34%,rgba(179,196,177,0.78)_100%)]" />
+
+        <div className="absolute left-[-8%] top-[10%] h-72 w-72 rounded-full bg-[#7f9b79]/18 blur-3xl" />
+
+        <div className="absolute right-[-10%] top-[18%] h-80 w-80 rounded-full bg-[#d8c29f]/24 blur-3xl" />
+
+        <div className="absolute inset-x-0 bottom-0 h-[34%] bg-[linear-gradient(to_top,rgba(91,65,43,0.34),rgba(155,118,78,0.18),transparent)]" />
+      </div>
+
+      <header className="relative z-30 flex items-center justify-between px-4 py-4 sm:px-6">
         <Link
           href="/office"
           onClick={stopAllSpeech}
-          className="rounded-full bg-white px-4 py-2 text-sm shadow-sm"
+          className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
         >
           Back to Office
         </Link>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={clearWorkspace}
-            className="rounded-full bg-white px-4 py-2 text-sm shadow-sm"
-          >
-            Clear
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={clearWorkspace}
+          className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
+        >
+          Clear
+        </button>
       </header>
 
       {!session && (
-        <section className="flex min-h-[75vh] items-center justify-center px-5 text-center">
-          <div>
+        <section className="relative z-10 flex min-h-[75vh] items-center justify-center px-5 text-center">
+          <div className="rounded-[2rem] border border-white/50 bg-white/72 px-8 py-10 shadow-xl backdrop-blur-md">
             <h1 className="text-3xl font-semibold">
               Workspace
             </h1>
@@ -494,7 +505,7 @@ export default function WorkspacePage() {
 
             <Link
               href="/office"
-              className="mt-6 inline-block rounded-full bg-white px-5 py-3 shadow-sm"
+              className="mt-6 inline-block rounded-full bg-[#5f4938] px-5 py-3 text-white shadow-sm"
             >
               Return to Office
             </Link>
@@ -503,138 +514,163 @@ export default function WorkspacePage() {
       )}
 
       {session && (
-        <section className="mx-auto w-full max-w-4xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10">
-          <article className="min-h-[65vh] rounded-[2rem] bg-[#fffdf9] px-6 py-8 shadow-[0_20px_50px_rgba(72,55,40,0.12)] sm:px-12 sm:py-12">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#8a7767]">
-              {result?.action === "clarify"
-                ? "In progress"
-                : "Document"}
-            </p>
+        <section className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-4 pb-36 pt-3 sm:px-6 sm:pt-8">
+          <div className="relative w-full max-w-4xl">
+            <div className="absolute -inset-4 rounded-[2.4rem] bg-white/28 blur-xl" />
 
-            <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
-              {documentTitle}
-            </h1>
+            <article className="relative min-h-[67vh] rounded-[2rem] border border-white/60 bg-[#fffdf8]/88 px-6 py-8 shadow-[0_28px_70px_rgba(63,48,34,0.18)] backdrop-blur-xl sm:px-12 sm:py-12">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[#8a7767]">
+                    {result?.action ===
+                    "clarify"
+                      ? "Working together"
+                      : "Current document"}
+                  </p>
 
-            <p className="mt-3 text-sm leading-6 text-[#817267]">
-              {session.intent.originalRequest}
-            </p>
+                  <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+                    {documentTitle}
+                  </h1>
 
-            <div className="my-8 h-px bg-black/10" />
+                  <p className="mt-3 text-sm leading-6 text-[#817267]">
+                    {
+                      session.intent
+                        .originalRequest
+                    }
+                  </p>
+                </div>
 
-            {working && !result && (
-              <div className="flex min-h-[35vh] items-center justify-center text-[#75675c]">
-                Kimi is preparing the document…
+                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#765f4b]/20 bg-[#efe5d7] sm:flex">
+                  <div className="h-5 w-5 rounded-full border border-[#765f4b]/55" />
+                </div>
               </div>
-            )}
 
-            {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-                <p className="font-medium text-red-700">
-                  Kimi could not complete the task.
-                </p>
+              <div className="my-8 h-px bg-black/10" />
 
-                <p className="mt-2 text-sm text-red-600">
-                  {error}
-                </p>
-              </div>
-            )}
-
-            {result?.action !== "clarify" &&
-              result?.content && (
-                <div className="whitespace-pre-wrap text-[1.05rem] leading-8 text-[#3e332c]">
-                  {result.content}
+              {working && !result && (
+                <div className="flex min-h-[35vh] items-center justify-center text-[#75675c]">
+                  Kimi is preparing the workspace…
                 </div>
               )}
 
-            {isClarifying && (
-              <div className="mx-auto max-w-2xl rounded-3xl border border-black/10 bg-[#f8f3eb] p-6 sm:p-8">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7767]">
-                    Kimi needs one detail
+              {error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50/90 p-5">
+                  <p className="font-medium text-red-700">
+                    Kimi could not complete the task.
                   </p>
 
+                  <p className="mt-2 text-sm text-red-600">
+                    {error}
+                  </p>
+                </div>
+              )}
+
+              {result?.action !==
+                "clarify" &&
+                result?.content && (
+                  <div className="whitespace-pre-wrap text-[1.05rem] leading-8 text-[#3e332c]">
+                    {result.content}
+                  </div>
+                )}
+
+              {isClarifying && (
+                <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/60 bg-[#f5eee3]/88 p-6 shadow-[0_16px_34px_rgba(73,53,36,0.12)] backdrop-blur-md sm:p-8">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7767]">
+                        Kimi
+                      </p>
+
+                      <p className="mt-1 text-sm text-[#847469]">
+                        One detail before we continue
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={repeatKimi}
+                      aria-label="Repeat Kimi's question"
+                      title="Repeat Kimi's question"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/85 text-lg shadow-sm"
+                    >
+                      🔊
+                    </button>
+                  </div>
+
+                  <p className="mt-5 text-xl leading-8">
+                    {result.question}
+                  </p>
+                </div>
+              )}
+
+              {working && result && (
+                <p className="mt-8 text-center text-sm text-[#75675c]">
+                  Kimi is updating the workspace…
+                </p>
+              )}
+            </article>
+
+            {showKeyboard && (
+              <form
+                onSubmit={submitReply}
+                className="relative mt-5 rounded-[1.5rem] border border-white/55 bg-white/84 p-4 shadow-lg backdrop-blur-md sm:p-5"
+              >
+                <textarea
+                  ref={textInputRef}
+                  value={reply}
+                  onChange={(event) =>
+                    setReply(
+                      event.target.value
+                    )
+                  }
+                  placeholder={
+                    isClarifying
+                      ? "Answer Kimi’s question…"
+                      : "Tell Kimi what to change…"
+                  }
+                  rows={3}
+                  disabled={working}
+                  className="w-full resize-none rounded-2xl border border-black/10 bg-[#fbf8f3]/90 px-4 py-3 text-base outline-none focus:border-[#8a6b52]"
+                />
+
+                <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={repeatKimi}
-                    aria-label="Repeat Kimi's question"
-                    title="Repeat Kimi's question"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm"
+                    onClick={() => {
+                      setShowKeyboard(false);
+                      setReply("");
+                    }}
+                    className="rounded-full px-4 py-2 text-sm text-[#6f6157]"
                   >
-                    🔊
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      working ||
+                      !reply.trim()
+                    }
+                    className="rounded-full bg-[#5f4938] px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  >
+                    Send
                   </button>
                 </div>
-
-                <p className="mt-4 text-xl leading-8">
-                  {result.question}
-                </p>
-              </div>
+              </form>
             )}
 
-            {working && result && (
-              <p className="mt-8 text-center text-sm text-[#75675c]">
-                Kimi is updating the document…
+            {statusMessage && (
+              <p className="mt-4 text-center text-sm text-[#5f554e]">
+                {statusMessage}
               </p>
             )}
-          </article>
-
-          {showKeyboard && (
-            <form
-              onSubmit={submitReply}
-              className="mt-5 rounded-3xl bg-white p-4 shadow-lg sm:p-5"
-            >
-              <textarea
-                ref={textInputRef}
-                value={reply}
-                onChange={(event) =>
-                  setReply(event.target.value)
-                }
-                placeholder={
-                  isClarifying
-                    ? "Answer Kimi’s question…"
-                    : "Tell Kimi what to change…"
-                }
-                rows={3}
-                disabled={working}
-                className="w-full resize-none rounded-2xl border border-black/10 bg-[#fbf8f3] px-4 py-3 text-base outline-none focus:border-[#8a6b52]"
-              />
-
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowKeyboard(false);
-                    setReply("");
-                  }}
-                  className="rounded-full px-4 py-2 text-sm text-[#6f6157]"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={
-                    working ||
-                    !reply.trim()
-                  }
-                  className="rounded-full bg-[#5f4938] px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
-                >
-                  Send
-                </button>
-              </div>
-            </form>
-          )}
-
-          {statusMessage && (
-            <p className="mt-4 text-center text-sm text-[#75675c]">
-              {statusMessage}
-            </p>
-          )}
+          </div>
         </section>
       )}
 
       {session && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#f3eee5]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+        <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 rounded-[1.5rem] border border-white/45 bg-[#6f5642]/84 px-3 py-3 shadow-[0_16px_40px_rgba(45,31,21,0.2)] backdrop-blur-xl">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -644,8 +680,8 @@ export default function WorkspacePage() {
                 }
                 className={`flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-sm transition ${
                   listening
-                    ? "animate-pulse bg-[#5f4938] text-white"
-                    : "bg-white text-[#5f4938]"
+                    ? "animate-pulse bg-white text-[#5f4938]"
+                    : "bg-white/18 text-white"
                 } disabled:opacity-50`}
                 aria-label={
                   listening
@@ -661,7 +697,7 @@ export default function WorkspacePage() {
                 type="button"
                 onClick={showTextInput}
                 disabled={working}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg shadow-sm disabled:opacity-50"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/18 text-lg text-white shadow-sm disabled:opacity-50"
                 aria-label="Type to Kimi"
                 title="Type to Kimi"
               >
@@ -672,7 +708,7 @@ export default function WorkspacePage() {
                 <button
                   type="button"
                   onClick={repeatKimi}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg shadow-sm"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/18 text-lg text-white shadow-sm"
                   aria-label="Read aloud"
                   title="Read aloud"
                 >
@@ -686,7 +722,7 @@ export default function WorkspacePage() {
                 <button
                   type="button"
                   onClick={saveDocument}
-                  className="rounded-full bg-white px-4 py-3 text-sm font-medium shadow-sm"
+                  className="rounded-full bg-white/90 px-4 py-3 text-sm font-medium text-[#4e3b2d] shadow-sm"
                 >
                   Save
                 </button>
@@ -695,7 +731,7 @@ export default function WorkspacePage() {
               <button
                 type="button"
                 onClick={finishTask}
-                className="rounded-full bg-[#5f4938] px-5 py-3 text-sm font-medium text-white shadow-sm"
+                className="rounded-full bg-[#2f3f35] px-5 py-3 text-sm font-medium text-white shadow-sm"
               >
                 Finish
               </button>
