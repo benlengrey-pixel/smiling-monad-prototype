@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useState } from "react";
 
 import OfficeBackground from "./OfficeBackground";
 import OfficeBackButton from "./OfficeBackButton";
@@ -11,6 +14,15 @@ type OfficeEnvironmentProps = {
 export default function OfficeEnvironment({
   children,
 }: OfficeEnvironmentProps) {
+  const [officeActivated, setOfficeActivated] =
+    useState(false);
+
+  function activateOffice() {
+    if (officeActivated) return;
+
+    setOfficeActivated(true);
+  }
+
   return (
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
@@ -151,9 +163,93 @@ export default function OfficeEnvironment({
         </span>
       </Link>
 
+      {/* Kimi activates the Office */}
+      <button
+        type="button"
+        onClick={activateOffice}
+        aria-label={
+          officeActivated
+            ? "The Office is active"
+            : "Activate the Office with Kimi"
+        }
+        title={
+          officeActivated
+            ? "Office active"
+            : "Kimi"
+        }
+        className="
+          group
+          absolute
+          left-[46%]
+          top-[39%]
+          z-20
+          h-[31%]
+          w-[43%]
+          cursor-pointer
+          rounded-t-[48%]
+          rounded-b-[28px]
+          border-0
+          bg-transparent
+          outline-none
+          transition
+          focus-visible:ring-4
+          focus-visible:ring-[rgba(255,244,218,0.75)]
+          sm:left-[43%]
+          sm:top-[35%]
+          sm:h-[40%]
+          sm:w-[29%]
+        "
+      >
+        {!officeActivated && (
+          <span
+            className="
+              pointer-events-none
+              absolute
+              left-1/2
+              top-[-3.5rem]
+              -translate-x-1/2
+              whitespace-nowrap
+              rounded-[18px]
+              border
+              border-[rgba(255,248,235,0.55)]
+              bg-[rgba(83,57,39,0.86)]
+              px-4
+              py-2.5
+              text-sm
+              font-medium
+              text-[#fffaf1]
+              shadow-[0_10px_25px_rgba(48,29,17,0.22)]
+              backdrop-blur-sm
+              transition
+              group-hover:bg-[rgba(72,48,33,0.92)]
+            "
+          >
+            Welcome home, Ben.
+          </span>
+        )}
+
+        {!officeActivated && (
+          <span
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              rounded-t-[48%]
+              rounded-b-[28px]
+              border
+              border-transparent
+              transition
+              group-hover:border-[rgba(255,244,218,0.42)]
+              group-hover:bg-[rgba(255,244,218,0.035)]
+              group-hover:shadow-[0_0_30px_rgba(255,239,201,0.2)]
+            "
+          />
+        )}
+      </button>
+
       <OfficeBackButton />
 
-      {children}
+      {officeActivated && children}
     </main>
   );
 }
