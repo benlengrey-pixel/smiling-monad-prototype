@@ -53,6 +53,8 @@ export type TemporaryWorkspaceSession = {
   id: string;
   intent: SmilingMonadIntent;
   createdAt: string;
+  updatedAt: string;
+  lastOpenedAt: string;
   source: "office";
   status: "ready" | "active" | "complete";
   gatewayResult?: WorkspaceGatewayResult;
@@ -61,19 +63,41 @@ export type TemporaryWorkspaceSession = {
 const WORKSPACE_SESSION_KEY =
   "smiling-monad-workspace-session";
 
+const LEGACY_SESSION_KEY =
+  "smiling-monad-workspace-session";
+
+function createId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `workspace-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+function getCurrentTime(): string {
+  return new Date().toISOString();
+}
+
 function createLegacyIntent(
   request: string
 ): SmilingMonadIntent {
+  const trimmedRequest = request.trim();
+
   return {
-    id: crypto.randomUUID(),
-    originalRequest: request.trim(),
+    id: createId(),
+    originalRequest: trimmedRequest,
     destination: "workspace",
     kind: "general",
     title:
-      request.trim() || "Current task",
+      trimmedRequest || "Current task",
     tools: ["companion"],
     shouldStartAutomatically: true,
-    createdAt: new Date().toISOString(),
+    createdAt: getCurrentTime(),
   };
 }
 
@@ -109,6 +133,136 @@ function isGatewayResult(
   );
 }
 
+function isWorkspaceStatus(
+  value: unknown
+): value is TemporaryWorkspaceSession["status"] {
+  return (
+    value === "ready" ||
+    value === "active" ||
+    value === "complete"
+  );
+}
+
+function writeSessionToLocalStorage(
+  session: TemporaryWorkspaceSession
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    WORKSPACE_SESSION_KEY,
+    JSON.stringify(session)
+  );
+}
+
+function removeLegacySessionStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(
+    LEGACY_SESSION_KEY
+  );
+}
+
+function migrateStoredSession(
+  value: unknown
+): TemporaryWorkspaceSession | null {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
+    return null;
+  }
+
+  const parsedSession = value as {
+    id?: string;
+    intent?: SmilingMonadIntent;
+    request?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    lastOpenedAt?: string;
+    source?: "office";
+    status?:
+      | "ready"
+      | "active"
+      | "complete";
+    gatewayResult?: unknown;
+  };
+
+  const now = getCurrentTime();
+
+  let intent: SmilingMonadIntent | null =
+    null;
+
+  if (parsedSession.intent) {
+    intent = parsedSession.intent;
+  } else if (
+    typeof parsedSession.request ===
+      "string" &&
+    parsedSession.request.trim()
+  ) {
+    intent = createLegacyIntent(
+      parsedSession.request
+    );
+  }
+
+  if (!intent) {
+    return null;
+  }
+
+  return {
+    id:
+      parsedSession.id || createId(),
+    intent,
+    createdAt:
+      parsedSession.createdAt || now,
+    updatedAt:
+      parsedSession.updatedAt ||
+      parsedSession.createdAt ||
+      now,
+    lastOpenedAt:
+      parsedSession.lastOpenedAt ||
+      parsedSession.updatedAt ||
+      parsedSession.createdAt ||
+      now,
+    source: "office",
+    status: isWorkspaceStatus(
+      parsedSession.status
+    )
+      ? parsedSession.status
+      : "ready",
+    ...(isGatewayResult(
+      parsedSession.gatewayResult
+    )
+      ? {
+          gatewayResult:
+            parsedSession.gatewayResult,
+        }
+      : {}),
+  };
+}
+
+function readStoredValue(
+  storage: Storage,
+  key: string
+): unknown {
+  const storedValue =
+    storage.getItem(key);
+
+  if (!storedValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedValue);
+  } catch {
+    storage.removeItem(key);
+    return null;
+  }
+}
+
 export function createTemporaryWorkspaceSession(
   intentOrRequest:
     | SmilingMonadIntent
@@ -122,10 +276,14 @@ export function createTemporaryWorkspaceSession(
         )
       : intentOrRequest;
 
+  const now = getCurrentTime();
+
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     intent,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
+    lastOpenedAt: now,
     source: "office",
     status: "ready",
     ...(gatewayResult
@@ -141,10 +299,22 @@ export function saveTemporaryWorkspaceSession(
     return;
   }
 
-  window.sessionStorage.setItem(
-    WORKSPACE_SESSION_KEY,
-    JSON.stringify(session)
+  const now = getCurrentTime();
+
+  const persistentSession: TemporaryWorkspaceSession =
+    {
+      ...session,
+      updatedAt:
+        session.updatedAt || now,
+      lastOpenedAt:
+        session.lastOpenedAt || now,
+    };
+
+  writeSessionToLocalStorage(
+    persistentSession
   );
+
+  removeLegacySessionStorage();
 }
 
 export function readTemporaryWorkspaceSession():
@@ -154,113 +324,47 @@ export function readTemporaryWorkspaceSession():
     return null;
   }
 
-  const storedSession =
-    window.sessionStorage.getItem(
+  const localValue = readStoredValue(
+    window.localStorage,
+    WORKSPACE_SESSION_KEY
+  );
+
+  let migratedSession =
+    migrateStoredSession(localValue);
+
+  if (!migratedSession) {
+    const legacyValue = readStoredValue(
+      window.sessionStorage,
+      LEGACY_SESSION_KEY
+    );
+
+    migratedSession =
+      migrateStoredSession(legacyValue);
+  }
+
+  if (!migratedSession) {
+    window.localStorage.removeItem(
       WORKSPACE_SESSION_KEY
     );
 
-  if (!storedSession) {
+    removeLegacySessionStorage();
+
     return null;
   }
 
-  try {
-    const parsedSession = JSON.parse(
-      storedSession
-    ) as
-      | TemporaryWorkspaceSession
-      | {
-          id?: string;
-          request?: string;
-          createdAt?: string;
-          source?: "office";
-          status?:
-            | "ready"
-            | "active"
-            | "complete";
-          gatewayResult?: unknown;
-        };
+  const openedSession: TemporaryWorkspaceSession =
+    {
+      ...migratedSession,
+      lastOpenedAt: getCurrentTime(),
+    };
 
-    if (
-      "intent" in parsedSession &&
-      parsedSession.intent
-    ) {
-      const migratedSession: TemporaryWorkspaceSession =
-        {
-          id:
-            parsedSession.id ||
-            crypto.randomUUID(),
-          intent:
-            parsedSession.intent,
-          createdAt:
-            parsedSession.createdAt ||
-            new Date().toISOString(),
-          source: "office",
-          status:
-            parsedSession.status ||
-            "ready",
-          ...(isGatewayResult(
-            parsedSession.gatewayResult
-          )
-            ? {
-                gatewayResult:
-                  parsedSession.gatewayResult,
-              }
-            : {}),
-        };
+  writeSessionToLocalStorage(
+    openedSession
+  );
 
-      saveTemporaryWorkspaceSession(
-        migratedSession
-      );
+  removeLegacySessionStorage();
 
-      return migratedSession;
-    }
-
-    if (
-      "request" in parsedSession &&
-      parsedSession.request
-    ) {
-      const migratedSession: TemporaryWorkspaceSession =
-        {
-          id:
-            parsedSession.id ||
-            crypto.randomUUID(),
-          intent: createLegacyIntent(
-            parsedSession.request
-          ),
-          createdAt:
-            parsedSession.createdAt ||
-            new Date().toISOString(),
-          source: "office",
-          status: "ready",
-          ...(isGatewayResult(
-            parsedSession.gatewayResult
-          )
-            ? {
-                gatewayResult:
-                  parsedSession.gatewayResult,
-              }
-            : {}),
-        };
-
-      saveTemporaryWorkspaceSession(
-        migratedSession
-      );
-
-      return migratedSession;
-    }
-
-    window.sessionStorage.removeItem(
-      WORKSPACE_SESSION_KEY
-    );
-
-    return null;
-  } catch {
-    window.sessionStorage.removeItem(
-      WORKSPACE_SESSION_KEY
-    );
-
-    return null;
-  }
+  return openedSession;
 }
 
 export function updateTemporaryWorkspaceSession(
@@ -278,13 +382,17 @@ export function updateTemporaryWorkspaceSession(
     return null;
   }
 
+  const now = getCurrentTime();
+
   const updatedSession: TemporaryWorkspaceSession =
     {
       ...currentSession,
       ...updates,
+      updatedAt: now,
+      lastOpenedAt: now,
     };
 
-  saveTemporaryWorkspaceSession(
+  writeSessionToLocalStorage(
     updatedSession
   );
 
@@ -296,7 +404,9 @@ export function clearTemporaryWorkspaceSession(): void {
     return;
   }
 
-  window.sessionStorage.removeItem(
+  window.localStorage.removeItem(
     WORKSPACE_SESSION_KEY
   );
+
+  removeLegacySessionStorage();
 }
