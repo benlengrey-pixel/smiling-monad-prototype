@@ -21,7 +21,10 @@ type OpenAIResponse = {
 function extractText(data: OpenAIResponse): string {
   for (const output of data.output ?? []) {
     for (const content of output.content ?? []) {
-      if (content.type === "output_text" && content.text) {
+      if (
+        content.type === "output_text" &&
+        typeof content.text === "string"
+      ) {
         return content.text;
       }
     }
@@ -31,54 +34,154 @@ function extractText(data: OpenAIResponse): string {
 }
 
 const GATEWAY_RULES = `
-=== GATEWAY RESPONSE CONTRACT ===
+=== COMPANION CONTROL RULES ===
 
-Always return JSON matching the supplied schema.
+You are the intelligent controller of the Smiling Monad Space.
 
-Applications:
+The application must not decide what the user means before you do.
 
-- shift-report
-- correspondence
-- notes
-- planning
-- general
+Your responsibility is to:
 
-Actions:
+1. Understand the user's actual intention.
+2. Decide whether to answer, create something, ask one necessary question,
+   or prepare an appropriate tool.
+3. Decide how the result should be presented in the Office.
+4. Decide which physical Office object, if any, should appear.
+5. Return one structured decision for the application to follow.
 
-- answer
-- draft
-- clarify
+Do not mechanically match keywords.
 
-Use:
+Consider the meaning, context, approved memory and likely user goal.
 
-answer
-for explanations, discussion and conversation.
+Do not open a folder, workspace or tool merely because a related word appears.
 
-Use:
+The Office should remain calm and uncluttered.
 
-draft
-when creating reports, emails, letters, agreements, plans, notes or other usable work products.
+Only request an Office object when it genuinely helps the current task.
 
-Use:
+=== ACTIONS ===
 
-clarify
-only when one essential missing fact prevents useful progress.
+answer:
+Use for conversation, guidance, explanations, reflection and direct answers.
 
-Never use clarify simply because additional information would improve the result.
+draft:
+Use when producing a usable work product such as a report, email, letter,
+plan, agreement, case note, meeting document or other finished material.
 
-Title:
-Provide a short meaningful title.
+clarify:
+Use only when one essential missing fact prevents useful progress.
 
-Question:
+Never use clarify merely because more information could improve the result.
+Make reasonable progress whenever possible.
+
+prepare-tool:
+Use when the user clearly wants to begin an interactive workflow that requires
+a dedicated tool, structured form or staged collection of information.
+
+=== APPLICATIONS ===
+
+shift-report:
+Shift reports, support notes and NDIS shift documentation.
+
+correspondence:
+Emails, letters, messages and formal communication.
+
+notes:
+Case notes, meeting notes, observations and general records.
+
+planning:
+Plans, schedules, goals, meetings and organised future actions.
+
+general:
+Conversation, guidance, reflection and tasks that do not fit another application.
+
+=== PRESENTATION ===
+
+conversation:
+Show the response naturally in the existing conversation area.
+
+document:
+Present completed substantial work as a readable document.
+
+folder:
+Place completed or saved formal work inside an appropriate physical folder.
+
+workspace:
+Use the temporary Workspace when the user needs to actively develop,
+review or organise material.
+
+tool:
+Open a dedicated interactive tool only when action is prepare-tool.
+
+=== OFFICE OBJECTS ===
+
+none:
+No physical object should appear.
+
+report-folder:
+Use for formal reports and completed support documentation.
+
+correspondence-folder:
+Use for formal letters, emails and communication drafts.
+
+notebook:
+Use for notes, observations and informal written records.
+
+planner:
+Use for planning, scheduling, goals and organised future work.
+
+workspace:
+Use when active editing, comparison or development is required.
+
+The Office object represents the work.
+
+Do not request both a folder and the Workspace unless there is a genuine reason.
+
+=== TOOLS ===
+
+none:
+No dedicated tool is needed.
+
+shift-report:
+Interactive shift-report workflow.
+
+correspondence:
+Interactive correspondence workflow.
+
+notes:
+Interactive note-taking workflow.
+
+planning:
+Interactive planning workflow.
+
+=== RESPONSE REQUIREMENTS ===
+
+Always return valid JSON matching the supplied schema.
+
+title:
+A short, meaningful title.
+
+question:
 Only populate when action is clarify.
+Otherwise return an empty string.
 
-Content:
-Contains either:
+content:
+The complete answer or complete draft.
 
-- the complete answer
-- the complete draft
+For prepare-tool, briefly explain what will happen when the tool opens.
 
-Leave content empty only for clarification.
+reason:
+A short explanation of why this action and presentation were selected.
+This is for application behaviour, not private chain-of-thought.
+
+nextStep:
+Describe the single next application step.
+
+requiresConfirmation:
+True only when the next step could send, publish, delete, submit,
+share externally or make another consequential change.
+
+Ordinary drafting, answering and opening local tools do not require confirmation.
 `;
 
 export async function POST(request: Request) {
@@ -87,8 +190,12 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "OPENAI_API_KEY is missing from .env.local." },
-        { status: 500 }
+        {
+          error: "OPENAI_API_KEY is missing from .env.local.",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
@@ -99,8 +206,12 @@ export async function POST(request: Request) {
 
     if (!userRequest) {
       return NextResponse.json(
-        { error: "Please enter a request." },
-        { status: 400 }
+        {
+          error: "Please enter a request.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -128,7 +239,7 @@ ${GATEWAY_RULES}
 
 ${memory || "No approved memory available."}
 
-=== CURRENT TASK ===
+=== CURRENT USER REQUEST ===
 
 ${userRequest}
 `,
@@ -136,7 +247,7 @@ ${userRequest}
           text: {
             format: {
               type: "json_schema",
-              name: "smiling_monad_result",
+              name: "smiling_monad_gateway_decision",
               strict: true,
               schema: {
                 type: "object",
@@ -146,9 +257,10 @@ ${userRequest}
                   action: {
                     type: "string",
                     enum: [
+                      "answer",
                       "draft",
                       "clarify",
-                      "answer",
+                      "prepare-tool",
                     ],
                   },
 
@@ -163,6 +275,40 @@ ${userRequest}
                     ],
                   },
 
+                  presentation: {
+                    type: "string",
+                    enum: [
+                      "conversation",
+                      "document",
+                      "folder",
+                      "workspace",
+                      "tool",
+                    ],
+                  },
+
+                  officeObject: {
+                    type: "string",
+                    enum: [
+                      "none",
+                      "report-folder",
+                      "correspondence-folder",
+                      "notebook",
+                      "planner",
+                      "workspace",
+                    ],
+                  },
+
+                  tool: {
+                    type: "string",
+                    enum: [
+                      "none",
+                      "shift-report",
+                      "correspondence",
+                      "notes",
+                      "planning",
+                    ],
+                  },
+
                   title: {
                     type: "string",
                   },
@@ -174,14 +320,32 @@ ${userRequest}
                   content: {
                     type: "string",
                   },
+
+                  reason: {
+                    type: "string",
+                  },
+
+                  nextStep: {
+                    type: "string",
+                  },
+
+                  requiresConfirmation: {
+                    type: "boolean",
+                  },
                 },
 
                 required: [
                   "action",
                   "application",
+                  "presentation",
+                  "officeObject",
+                  "tool",
                   "title",
                   "question",
                   "content",
+                  "reason",
+                  "nextStep",
+                  "requiresConfirmation",
                 ],
               },
             },
@@ -220,7 +384,27 @@ ${userRequest}
       );
     }
 
-    return NextResponse.json(JSON.parse(text));
+    try {
+      const decision = JSON.parse(text);
+
+      return NextResponse.json(decision);
+    } catch (parseError) {
+      console.error(
+        "Gateway JSON parsing error",
+        parseError,
+        text
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "The Companion returned a response that could not be understood.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
   } catch (error) {
     console.error("Gateway error", error);
 
