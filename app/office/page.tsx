@@ -1,47 +1,103 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   type FormEvent,
-  useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
+import ConversationDock from "@/components/companion/ConversationDock";
+import type { ConversationMessage } from "@/components/companion/ConversationThread";
+import Desk from "@/components/office/Desk";
+import DeskTaskObject from "@/components/office/DeskTaskObject";
+import OfficeEnvironment from "@/components/office/OfficeEnvironment";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
 import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
 import {
-  clearTemporaryWorkspaceSession,
-  readTemporaryWorkspaceSession,
-  updateTemporaryWorkspaceSession,
-  type TemporaryWorkspaceSession,
+  createSmilingMonadIntent,
+  type SmilingMonadIntent,
+} from "@/lib/intent/intent-engine";
+import {
+  createTemporaryWorkspaceSession,
+  saveTemporaryWorkspaceSession,
   type WorkspaceGatewayResult,
 } from "@/lib/workspace/session-client";
+import type {
+  WorkspaceAttachment,
+  WorkspaceAttachmentKind,
+} from "@/lib/workspace/types";
+
+type InteractionMode = "voice" | "text";
 
 type GatewayResult = WorkspaceGatewayResult;
 
-type StoredWorkspaceSession =
-  TemporaryWorkspaceSession & {
-    result?: GatewayResult;
-    generatedResult?: GatewayResult;
-    title?: string;
-    content?: string;
-  };
+function getAttachmentKind(
+  file: File
+): WorkspaceAttachmentKind {
+  const name = file.name.toLowerCase();
 
-type WorkspaceMessage = {
-  id: string;
-  speaker: "Ben" | "Kimi";
-  text: string;
-};
+  if (file.type.startsWith("image/")) {
+    return "image";
+  }
+
+  if (file.type === "application/pdf") {
+    return "pdf";
+  }
+
+  if (
+    file.type === "text/plain" ||
+    file.type === "text/csv" ||
+    name.endsWith(".txt") ||
+    name.endsWith(".csv")
+  ) {
+    return "text";
+  }
+
+  if (
+    file.type.includes("spreadsheet") ||
+    file.type.includes("excel") ||
+    name.endsWith(".xls") ||
+    name.endsWith(".xlsx")
+  ) {
+    return "spreadsheet";
+  }
+
+  if (
+    file.type.includes("word") ||
+    file.type.includes("document") ||
+    name.endsWith(".doc") ||
+    name.endsWith(".docx")
+  ) {
+    return "document";
+  }
+
+  return "other";
+}
+
+function createTemporaryAttachment(
+  file: File
+): WorkspaceAttachment {
+  return {
+    id: crypto.randomUUID(),
+    name: file.name,
+    mimeType:
+      file.type || "application/octet-stream",
+    size: file.size,
+    kind: getAttachmentKind(file),
+    status: "selected",
+    storageIntent: "use-once",
+  };
+}
 
 function createMessage(
-  speaker: WorkspaceMessage["speaker"],
+  speaker: "Ben" | "Kimi",
   text: string
-): WorkspaceMessage {
+): ConversationMessage {
   return {
     id: crypto.randomUUID(),
     speaker,
@@ -49,238 +105,307 @@ function createMessage(
   };
 }
 
-function buildMemory(
-  messages: WorkspaceMessage[]
-): string {
-  return messages
-    .map(
-      (message) =>
-        `${message.speaker}: ${message.text}`
-    )
-    .join("\n");
-}
-
-function stopAllSpeech() {
-  stopCompanionSpeech();
-
-  if (
-    typeof window !== "undefined" &&
-    "speechSynthesis" in window
-  ) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-function speakText(text: string) {
-  if (
-    typeof window === "undefined" ||
-    !("speechSynthesis" in window) ||
-    !text.trim()
-  ) {
-    return;
-  }
-
-  stopAllSpeech();
-
-  const utterance =
-    new SpeechSynthesisUtterance(text);
-
-  utterance.rate = 0.98;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-
-  window.speechSynthesis.speak(
-    utterance
-  );
-}
-
-function isApproval(text: string): boolean {
-  const value = text
-    .trim()
-    .toLowerCase();
+function isExpandRequest(
+  text: string
+): boolean {
+  const value = text.toLowerCase();
 
   return [
-    "yes",
-    "confirm",
-    "confirmed",
-    "approve",
-    "approved",
-    "go ahead",
-    "do it",
-    "send it",
-    "submit it",
-    "publish it",
-    "share it",
-    "that's good",
-    "thats good",
-    "that's pretty good",
-    "thats pretty good",
-    "looks good",
-    "that looks good",
-    "good",
-    "perfect",
-    "great",
-    "done",
-    "finished",
-    "leave it",
-    "leave it as it is",
-    "keep it",
-    "keep it as it is",
-    "i'm happy with it",
-    "im happy with it",
-  ].some(
-    (phrase) =>
-      value === phrase ||
-      value.includes(phrase)
+    "expand chat",
+    "expand conversation",
+    "open chat",
+    "show conversation",
+    "show chat",
+  ].some((command) =>
+    value.includes(command)
   );
 }
 
-function safeFilename(title: string): string {
-  const cleaned = title
-    .trim()
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
+function isCollapseRequest(
+  text: string
+): boolean {
+  const value = text.toLowerCase();
 
-  return (
-    cleaned ||
-    "smiling-monad-document"
+  return [
+    "collapse chat",
+    "collapse conversation",
+    "close chat",
+    "hide conversation",
+    "minimise chat",
+    "minimize chat",
+  ].some((command) =>
+    value.includes(command)
   );
 }
 
-function getStoredResult(
-  session: StoredWorkspaceSession
-): GatewayResult | null {
-  if (session.gatewayResult) {
-    return session.gatewayResult;
-  }
+function createIntentFromGateway(
+  result: GatewayResult
+): SmilingMonadIntent | null {
+  switch (result.officeObject) {
+    case "report-folder":
+      return createSmilingMonadIntent(
+        "Create a shift report"
+      );
 
-  if (session.generatedResult) {
-    return session.generatedResult;
-  }
+    case "correspondence-folder":
+      return createSmilingMonadIntent(
+        "Create correspondence"
+      );
 
-  if (session.result) {
-    return session.result;
-  }
+    case "notebook":
+      return createSmilingMonadIntent(
+        "Create meeting notes"
+      );
 
-  if (
-    typeof session.content === "string" &&
-    session.content.trim()
-  ) {
-    return {
-      action: "draft",
-      application: "general",
-      presentation: "workspace",
-      officeObject: "workspace",
-      tool: "none",
-      title:
-        session.title ||
-        session.intent.title ||
-        "Current document",
-      question: "",
-      content: session.content,
-      reason:
-        "The completed document was passed into the Workspace.",
-      nextStep:
-        "Review or edit the document.",
-      requiresConfirmation: false,
-    };
-  }
+    case "planner":
+      return createSmilingMonadIntent(
+        "Create a plan"
+      );
 
-  return null;
+    case "workspace":
+      switch (result.application) {
+        case "shift-report":
+          return createSmilingMonadIntent(
+            "Create a shift report"
+          );
+
+        case "correspondence":
+          return createSmilingMonadIntent(
+            "Create correspondence"
+          );
+
+        case "notes":
+          return createSmilingMonadIntent(
+            "Create meeting notes"
+          );
+
+        case "planning":
+          return createSmilingMonadIntent(
+            "Create a plan"
+          );
+
+        default:
+          return createSmilingMonadIntent(
+            "Create a document"
+          );
+      }
+
+    case "none":
+    default:
+      return null;
+  }
 }
 
-function getResultText(
+function getFolderLabel(
+  result: GatewayResult
+): string {
+  switch (result.officeObject) {
+    case "report-folder":
+      return "REPORTS";
+
+    case "correspondence-folder":
+      return "MAIL";
+
+    case "notebook":
+      return "NOTES";
+
+    case "planner":
+      return "PLANNING";
+
+    case "workspace":
+      return "WORKSPACE";
+
+    default:
+      switch (result.application) {
+        case "shift-report":
+          return "REPORTS";
+
+        case "correspondence":
+          return "MAIL";
+
+        case "notes":
+          return "NOTES";
+
+        case "planning":
+          return "PLANNING";
+
+        default:
+          return "DOCUMENT";
+      }
+  }
+}
+
+function getGatewayResponseText(
   result: GatewayResult
 ): string {
   if (result.action === "clarify") {
-    return result.question;
+    return (
+      result.question ||
+      "What would you like me to clarify?"
+    );
   }
 
   if (result.action === "prepare-tool") {
     return (
       result.content ||
       result.nextStep ||
-      "The tool is ready."
+      "I have prepared the next step."
     );
   }
 
-  return result.content;
+  return (
+    result.content ||
+    "I'm here with you."
+  );
 }
 
-function getToolName(
-  tool: GatewayResult["tool"]
+function getPreparedOfficeMessage(
+  result: GatewayResult
 ): string {
-  switch (tool) {
-    case "shift-report":
-      return "Shift Report";
+  const title =
+    result.title.trim() || "Your task";
 
-    case "correspondence":
-      return "Correspondence";
+  switch (result.officeObject) {
+    case "report-folder":
+      return `${title} is ready in the Reports folder on the desk.`;
 
-    case "notes":
-      return "Notes";
+    case "correspondence-folder":
+      return `${title} is ready in the mail folder on the desk.`;
 
-    case "planning":
-      return "Planning";
+    case "notebook":
+      return `${title} is ready in the notebook on the desk.`;
+
+    case "planner":
+      return `${title} is ready in the planner on the desk.`;
+
+    case "workspace":
+      return `${title} is ready to open in the Workspace.`;
 
     case "none":
     default:
-      return "Workspace";
+      return getGatewayResponseText(result);
   }
 }
 
-export default function WorkspacePage() {
+function getPreviewPlainText(
+  result: GatewayResult
+): string {
+  return [
+    result.title ||
+      "Smiling Monad Document",
+    "",
+    result.content,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export default function OfficePage() {
   const router = useRouter();
 
-  const hasStarted = useRef(false);
-
   const textInputRef =
-    useRef<HTMLTextAreaElement>(null);
+    useRef<HTMLInputElement>(null);
 
-  const [session, setSession] =
-    useState<StoredWorkspaceSession | null>(
-      null
-    );
+  const [request, setRequest] =
+    useState("");
 
-  const [result, setResult] =
-    useState<GatewayResult | null>(null);
-
-  const [messages, setMessages] =
-    useState<WorkspaceMessage[]>([]);
-
-  const [reply, setReply] = useState("");
-
-  const [working, setWorking] =
-    useState(false);
+  const [
+    interactionMode,
+    setInteractionMode,
+  ] = useState<InteractionMode>("text");
 
   const [listening, setListening] =
     useState(false);
 
-  const [showKeyboard, setShowKeyboard] =
+  const [working, setWorking] =
     useState(false);
 
-  const [statusMessage, setStatusMessage] =
+  const [voiceMessage, setVoiceMessage] =
     useState("");
 
-  const [error, setError] = useState("");
+  const [attachments, setAttachments] =
+    useState<WorkspaceAttachment[]>([]);
+
+  const [pendingIntent, setPendingIntent] =
+    useState<SmilingMonadIntent | null>(
+      null
+    );
+
+  const [pendingResult, setPendingResult] =
+    useState<GatewayResult | null>(null);
+
+  const [messages, setMessages] = useState<
+    ConversationMessage[]
+  >([]);
 
   const [
-    confirmationPending,
-    setConfirmationPending,
+    conversationExpanded,
+    setConversationExpanded,
   ] = useState(false);
 
-  async function runCompanion(
-    request: string,
-    memoryMessages: WorkspaceMessage[],
-    currentDocument?: string
-  ) {
-    setWorking(true);
-    setError("");
-    setStatusMessage("");
-    setConfirmationPending(false);
+  const [
+    folderPreviewOpen,
+    setFolderPreviewOpen,
+  ] = useState(false);
 
-    stopAllSpeech();
+  const [
+    useOptionsOpen,
+    setUseOptionsOpen,
+  ] = useState(false);
+
+  function addMessage(
+    speaker: "Ben" | "Kimi",
+    text: string
+  ) {
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createMessage(speaker, text),
+    ]);
+  }
+
+  function clearPendingOfficeWork() {
+    setPendingIntent(null);
+    setPendingResult(null);
+    setFolderPreviewOpen(false);
+    setUseOptionsOpen(false);
+  }
+
+  async function handleRequest(
+    message?: string
+  ) {
+    const currentRequest = (
+      message ?? request
+    ).trim();
+
+    if (!currentRequest || working) {
+      return;
+    }
+
+    if (isExpandRequest(currentRequest)) {
+      setConversationExpanded(true);
+      setRequest("");
+      setVoiceMessage("");
+      return;
+    }
+
+    if (isCollapseRequest(currentRequest)) {
+      setConversationExpanded(false);
+      setRequest("");
+      setVoiceMessage("");
+      return;
+    }
+
+    stopCompanionSpeech();
+
+    addMessage("Ben", currentRequest);
+
+    setConversationExpanded(true);
+    setRequest("");
+    setVoiceMessage("");
+    setListening(false);
+    setWorking(true);
+
+    clearPendingOfficeWork();
 
     try {
       const response = await fetch(
@@ -292,19 +417,8 @@ export default function WorkspacePage() {
               "application/json",
           },
           body: JSON.stringify({
-            request,
-            memory: [
-              buildMemory(memoryMessages),
-              currentDocument?.trim()
-                ? [
-                    "",
-                    "=== CURRENT WORKSPACE DOCUMENT ===",
-                    currentDocument,
-                  ].join("\n")
-                : "",
-            ]
-              .filter(Boolean)
-              .join("\n"),
+            request: currentRequest,
+            memory: "",
           }),
         }
       );
@@ -318,257 +432,108 @@ export default function WorkspacePage() {
         throw new Error(
           "error" in data && data.error
             ? data.error
-            : "Kimi could not complete the task."
+            : "The Companion could not respond."
         );
       }
 
-      const nextResult =
+      const result =
         data as GatewayResult;
 
-      setResult(nextResult);
+      const officeIntent =
+        createIntentFromGateway(result);
 
-      if (
-        nextResult.requiresConfirmation
-      ) {
-        setConfirmationPending(true);
+      const shouldCreateOfficeObject =
+        result.officeObject !== "none" &&
+        officeIntent !== null;
+
+      if (shouldCreateOfficeObject) {
+        setPendingIntent(officeIntent);
+        setPendingResult(result);
+
+        addMessage(
+          "Kimi",
+          getPreparedOfficeMessage(result)
+        );
+
+        return;
       }
 
-      const kimiText =
-        getResultText(nextResult);
-
-      if (kimiText) {
-        setMessages((current) => [
-          ...current,
-          createMessage("Kimi", kimiText),
-        ]);
-
-        if (
-          nextResult.action === "clarify" ||
-          nextResult.action ===
-            "prepare-tool"
-        ) {
-          speakText(kimiText);
-        }
-      }
+      addMessage(
+        "Kimi",
+        getGatewayResponseText(result)
+      );
     } catch (caughtError) {
-      setError(
+      addMessage(
+        "Kimi",
         caughtError instanceof Error
           ? caughtError.message
-          : "Kimi could not complete the task."
+          : "I could not respond just now."
       );
     } finally {
       setWorking(false);
     }
   }
 
-  useEffect(() => {
-    const currentSession =
-      readTemporaryWorkspaceSession() as
-        | StoredWorkspaceSession
-        | null;
-
-    if (!currentSession) {
-      return;
-    }
-
-    const updatedSession =
-      updateTemporaryWorkspaceSession({
-        status: "active",
-      });
-
-    const activeSession =
-      (updatedSession as StoredWorkspaceSession | null) ??
-      currentSession;
-
-    setSession(activeSession);
-
-    if (hasStarted.current) {
-      return;
-    }
-
-    hasStarted.current = true;
-
-    const storedResult =
-      getStoredResult(activeSession);
-
-    const openingMessage = createMessage(
-      "Ben",
-      activeSession.intent.originalRequest
-    );
-
-    setMessages([openingMessage]);
-
-    if (storedResult) {
-      setResult(storedResult);
-
-      if (
-        storedResult.requiresConfirmation
-      ) {
-        setConfirmationPending(true);
-      }
-
-      const kimiText =
-        getResultText(storedResult);
-
-      if (kimiText) {
-        setMessages([
-          openingMessage,
-          createMessage("Kimi", kimiText),
-        ]);
-      }
-
-      return;
-    }
-
-    void runCompanion(
-      activeSession.intent.originalRequest,
-      [openingMessage]
-    );
-  }, []);
-
-  function updateDocument(
-    content: string
-  ) {
-    setResult((currentResult) => {
-      if (!currentResult) {
-        return currentResult;
-      }
-
-      return {
-        ...currentResult,
-        content,
-      };
-    });
-
-    setStatusMessage(
-      "Changes are kept in this temporary Workspace."
-    );
-  }
-
-  function continueTask(answer: string) {
-    const currentAnswer =
-      answer.trim();
-
-    if (
-      !currentAnswer ||
-      working ||
-      !session
-    ) {
-      return;
-    }
-
-    if (
-      confirmationPending &&
-      isApproval(currentAnswer)
-    ) {
-      confirmNextStep();
-      return;
-    }
-
-    if (
-      result?.action !== "clarify" &&
-      !result?.requiresConfirmation &&
-      isApproval(currentAnswer)
-    ) {
-      const confirmation =
-        "Good. I’ll leave it as it is.";
-
-      setReply("");
-      setShowKeyboard(false);
-      setStatusMessage(confirmation);
-      speakText(confirmation);
-
-      return;
-    }
-
-    const benMessage = createMessage(
-      "Ben",
-      currentAnswer
-    );
-
-    const nextMessages = [
-      ...messages,
-      benMessage,
-    ];
-
-    setMessages(nextMessages);
-    setReply("");
-    setShowKeyboard(false);
-
-    const currentDocument =
-      result?.content ?? "";
-
-    const continuedRequest = [
-      session.intent.originalRequest,
-      "",
-      result?.action === "clarify"
-        ? "The user is answering your most recent question."
-        : result?.action ===
-            "prepare-tool"
-          ? "The user is continuing the prepared tool workflow."
-          : "The user is requesting a change to the current document.",
-      "",
-      `The user's response is: ${currentAnswer}`,
-      "",
-      currentDocument
-        ? "Update the existing document rather than starting again."
-        : "Create the document using the available information.",
-      "Use the response directly.",
-      "Do not ask the user to repeat information already provided.",
-      "Ask only one essential question at a time.",
-      "When enough information is available, return the complete updated document.",
-      "Keep conversational comments brief.",
-    ].join("\n");
-
-    void runCompanion(
-      continuedRequest,
-      nextMessages,
-      currentDocument
-    );
-  }
-
-  function submitReply(
+  function submitText(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
-    continueTask(reply);
+    void handleRequest();
+  }
+
+  function chooseText() {
+    setInteractionMode("text");
+    setVoiceMessage("");
+    setConversationExpanded(true);
+
+    window.setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 50);
+  }
+
+  function chooseFiles(files: File[]) {
+    setConversationExpanded(true);
+
+    setAttachments(
+      (currentAttachments) => [
+        ...currentAttachments,
+        ...files.map(
+          createTemporaryAttachment
+        ),
+      ]
+    );
   }
 
   function startVoice() {
-    stopAllSpeech();
-    setStatusMessage("");
+    stopCompanionSpeech();
+
+    setInteractionMode("voice");
+    setConversationExpanded(true);
+    setVoiceMessage("");
 
     if (!isCompanionVoiceAvailable()) {
-      setStatusMessage(
-        "Voice is not available in this browser."
+      setVoiceMessage(
+        "Voice is not available in this browser. Use the keyboard button."
       );
-
       return;
     }
 
     setListening(true);
-    setStatusMessage("Listening…");
+    setVoiceMessage("Listening…");
 
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
-        const spokenAnswer =
-          transcript.trim();
-
-        setListening(false);
-
-        setStatusMessage(
-          `You said: ${spokenAnswer}`
+        setVoiceMessage(
+          `You said: ${transcript}`
         );
 
-        window.setTimeout(() => {
-          continueTask(spokenAnswer);
-        }, 350);
+        void handleRequest(transcript);
       },
 
       onError: () => {
         setListening(false);
 
-        setStatusMessage(
+        setVoiceMessage(
           "I could not hear that. Press the microphone and try again."
         );
       },
@@ -579,513 +544,312 @@ export default function WorkspacePage() {
     });
   }
 
-  function showTextInput() {
-    setShowKeyboard(true);
-
-    window.setTimeout(() => {
-      textInputRef.current?.focus();
-    }, 50);
-  }
-
-  function repeatKimi() {
-    if (!result) {
+  function openPendingTask() {
+    if (!pendingIntent || !pendingResult) {
       return;
     }
 
-    speakText(getResultText(result));
-  }
-
-  function confirmNextStep() {
-    if (
-      !result ||
-      !session ||
-      working
-    ) {
-      return;
-    }
-
-    const confirmationMessage =
-      createMessage(
-        "Ben",
-        "I confirm. Continue with the proposed next step."
+    const session =
+      createTemporaryWorkspaceSession(
+        pendingIntent,
+        pendingResult
       );
 
-    const nextMessages = [
-      ...messages,
-      confirmationMessage,
-    ];
-
-    setMessages(nextMessages);
-    setConfirmationPending(false);
-    setReply("");
-    setShowKeyboard(false);
-
-    const confirmationRequest = [
-      session.intent.originalRequest,
-      "",
-      "The user has explicitly confirmed the proposed consequential next step.",
-      "",
-      `Proposed next step: ${result.nextStep}`,
-      "",
-      "Proceed only as far as the available application capabilities allow.",
-      "Do not claim that an external action was completed unless it was actually completed.",
-      "Return the updated document or a clear description of what is now ready.",
-    ].join("\n");
-
-    void runCompanion(
-      confirmationRequest,
-      nextMessages,
-      result.content
+    saveTemporaryWorkspaceSession(
+      session
     );
+
+    router.push("/workspace");
   }
 
-  function cancelConfirmation() {
-    setConfirmationPending(false);
+  function toggleFolderPreview() {
+    setFolderPreviewOpen((current) => {
+      const nextValue = !current;
 
-    setStatusMessage(
-      "The proposed action was not confirmed. Nothing was sent, published, submitted, deleted or shared."
-    );
-
-    speakText(
-      "Nothing was changed or sent."
-    );
-  }
-
-  function saveDocument() {
-    if (!result?.content) {
-      setStatusMessage(
-        "There is no finished document to save yet."
-      );
-
-      return;
-    }
-
-    const title =
-      result.title ||
-      session?.intent.title ||
-      "Smiling Monad Document";
-
-    const blob = new Blob(
-      [result.content],
-      {
-        type: "text/plain;charset=utf-8",
+      if (!nextValue) {
+        setUseOptionsOpen(false);
       }
-    );
 
-    const url =
-      URL.createObjectURL(blob);
-
-    const link =
-      document.createElement("a");
-
-    link.href = url;
-    link.download =
-      `${safeFilename(title)}.txt`;
-
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    URL.revokeObjectURL(url);
-
-    setStatusMessage("Saved.");
-    speakText("Saved.");
+      return nextValue;
+    });
   }
 
-  function finishTask() {
-    stopAllSpeech();
-    clearTemporaryWorkspaceSession();
-    router.push("/office");
+  async function copyPreview() {
+    if (!pendingResult) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        getPreviewPlainText(
+          pendingResult
+        )
+      );
+
+      addMessage(
+        "Kimi",
+        "The document has been copied."
+      );
+
+      setConversationExpanded(true);
+    } catch {
+      addMessage(
+        "Kimi",
+        "I could not copy that just now."
+      );
+
+      setConversationExpanded(true);
+    }
   }
 
-  function clearWorkspace() {
-    stopAllSpeech();
-    clearTemporaryWorkspaceSession();
+  async function sharePreview() {
+    if (!pendingResult) {
+      return;
+    }
 
-    setSession(null);
-    setResult(null);
-    setMessages([]);
-    setReply("");
-    setStatusMessage("");
-    setError("");
-    setConfirmationPending(false);
+    const text =
+      getPreviewPlainText(
+        pendingResult
+      );
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title:
+            pendingResult.title ||
+            "Smiling Monad Document",
+          text,
+        });
+
+        addMessage(
+          "Kimi",
+          "The document is ready to share."
+        );
+      } else {
+        await navigator.clipboard.writeText(
+          text
+        );
+
+        addMessage(
+          "Kimi",
+          "Sharing is not available here, so I copied the document instead."
+        );
+      }
+
+      setConversationExpanded(true);
+    } catch {
+      addMessage(
+        "Kimi",
+        "Sharing was cancelled."
+      );
+
+      setConversationExpanded(true);
+    }
   }
 
-  const isClarifying =
-    result?.action === "clarify";
+  const previewParagraphs =
+    useMemo(() => {
+      if (!pendingResult?.content) {
+        return [];
+      }
 
-  const isPreparingTool =
-    result?.action === "prepare-tool";
-
-  const hasEditableDocument =
-    Boolean(
-      result?.content &&
-        result.action !== "clarify" &&
-        result.action !==
-          "prepare-tool"
-    );
-
-  const documentTitle =
-    result?.title ||
-    session?.intent.title ||
-    "Current task";
+      return pendingResult.content
+        .split(/\n{2,}/)
+        .map((paragraph) =>
+          paragraph.trim()
+        )
+        .filter(Boolean);
+    }, [pendingResult]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#dfe8df] text-[#34271f]">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.92),rgba(232,239,228,0.82)_34%,rgba(179,196,177,0.78)_100%)]" />
+    <OfficeEnvironment>
+      {pendingIntent &&
+        pendingResult &&
+        folderPreviewOpen && (
+          <div className="pointer-events-none absolute inset-x-0 top-[6.5%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
+            <div className="pointer-events-auto relative w-full max-w-[35rem] sm:max-w-[39rem]">
+              <div className="relative mx-auto w-[94%]">
+                <div className="absolute left-[5%] right-[5%] top-[10%] h-[90%] rounded-t-[28px] rounded-b-[34px] border border-[#3c2417] bg-[linear-gradient(135deg,#70482f_0%,#3d2619_46%,#765036_100%)] shadow-[0_25px_45px_rgba(34,18,8,0.38)]">
+                  <div className="absolute inset-[7px] rounded-t-[22px] rounded-b-[28px] border border-[rgba(226,180,125,0.25)]" />
 
-        <div className="absolute left-[-8%] top-[10%] h-72 w-72 rounded-full bg-[#7f9b79]/18 blur-3xl" />
+                  <div className="absolute inset-x-[7%] top-[10%] h-[76%] rounded-t-[18px] bg-[linear-gradient(180deg,#d7bd91_0%,#bea174_100%)] shadow-inner" />
 
-        <div className="absolute right-[-10%] top-[18%] h-80 w-80 rounded-full bg-[#d8c29f]/24 blur-3xl" />
+                  <div className="absolute left-[18%] top-[5%] h-8 w-[34%] rotate-[-2deg] rounded-t-lg bg-[#caa877]" />
 
-        <div className="absolute inset-x-0 bottom-0 h-[34%] bg-[linear-gradient(to_top,rgba(91,65,43,0.34),rgba(155,118,78,0.18),transparent)]" />
-      </div>
-
-      <header className="relative z-30 flex items-center justify-between px-4 py-4 sm:px-6">
-        <Link
-          href="/office"
-          onClick={stopAllSpeech}
-          className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
-        >
-          Back to Office
-        </Link>
-
-        <button
-          type="button"
-          onClick={clearWorkspace}
-          className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
-        >
-          Clear
-        </button>
-      </header>
-
-      {!session && (
-        <section className="relative z-10 flex min-h-[75vh] items-center justify-center px-5 text-center">
-          <div className="rounded-[2rem] border border-white/50 bg-white/72 px-8 py-10 shadow-xl backdrop-blur-md">
-            <h1 className="text-3xl font-semibold">
-              Workspace
-            </h1>
-
-            <p className="mt-3 text-[#75675c]">
-              No current task is open.
-            </p>
-
-            <Link
-              href="/office"
-              className="mt-6 inline-block rounded-full bg-[#5f4938] px-5 py-3 text-white shadow-sm"
-            >
-              Return to Office
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {session && (
-        <section className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-4 pb-36 pt-3 sm:px-6 sm:pt-8">
-          <div className="relative w-full max-w-4xl">
-            <div className="absolute -inset-4 rounded-[2.4rem] bg-white/28 blur-xl" />
-
-            <article className="relative min-h-[67vh] rounded-[2rem] border border-white/60 bg-[#fffdf8]/88 px-6 py-8 shadow-[0_28px_70px_rgba(63,48,34,0.18)] backdrop-blur-xl sm:px-12 sm:py-12">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#8a7767]">
-                    {isClarifying
-                      ? "Working together"
-                      : isPreparingTool
-                        ? `${getToolName(
-                            result?.tool ??
-                              "none"
-                          )} tool`
-                        : "Current document"}
-                  </p>
-
-                  <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
-                    {documentTitle}
-                  </h1>
-
-                  <p className="mt-3 text-sm leading-6 text-[#817267]">
-                    {
-                      session.intent
-                        .originalRequest
-                    }
-                  </p>
+                  <div className="absolute right-[15%] top-[7%] h-8 w-[31%] rotate-[2deg] rounded-t-lg bg-[#d9bd91]" />
                 </div>
 
-                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#765f4b]/20 bg-[#efe5d7] sm:flex">
-                  <div className="h-5 w-5 rounded-full border border-[#765f4b]/55" />
-                </div>
-              </div>
-
-              <div className="my-8 h-px bg-black/10" />
-
-              {working && !result && (
-                <div className="flex min-h-[35vh] items-center justify-center text-[#75675c]">
-                  Kimi is preparing the Workspace…
-                </div>
-              )}
-
-              {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50/90 p-5">
-                  <p className="font-medium text-red-700">
-                    Kimi could not complete the task.
+                <article className="relative z-10 mx-auto max-h-[69vh] min-h-[32rem] w-[82%] overflow-y-auto border border-[#d8cdbb] bg-[linear-gradient(105deg,#fffdf7_0%,#f8f1e5_50%,#fffdf8_100%)] px-7 pb-8 pt-7 text-[#3d3027] shadow-[0_20px_38px_rgba(39,22,10,0.26)] sm:min-h-[37rem] sm:px-10 sm:pb-10 sm:pt-9">
+                  <p className="text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-[#75695f] sm:text-xs">
+                    Preview
                   </p>
 
-                  <p className="mt-2 text-sm text-red-600">
-                    {error}
-                  </p>
-                </div>
-              )}
+                  <h2 className="mt-3 text-center font-serif text-[2rem] leading-tight sm:text-[2.5rem]">
+                    {pendingResult.title ||
+                      "Smiling Monad Document"}
+                  </h2>
 
-              {hasEditableDocument && (
-                <textarea
-                  value={
-                    result?.content ?? ""
-                  }
-                  onChange={(event) =>
-                    updateDocument(
-                      event.target.value
-                    )
-                  }
-                  aria-label="Working document"
-                  className="min-h-[45vh] w-full resize-y rounded-2xl border border-black/10 bg-white/45 px-5 py-5 text-[1.05rem] leading-8 text-[#3e332c] outline-none transition focus:border-[#8a6b52]/50 focus:bg-white/65 focus:ring-4 focus:ring-[#8a6b52]/10 sm:px-7 sm:py-6"
-                />
-              )}
+                  <div className="mt-5 flex items-center justify-center gap-3 sm:mt-6">
+                    <div className="h-px flex-1 bg-[#958777]" />
 
-              {isClarifying && result && (
-                <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/60 bg-[#f5eee3]/88 p-6 shadow-[0_16px_34px_rgba(73,53,36,0.12)] backdrop-blur-md sm:p-8">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7767]">
-                        Kimi
-                      </p>
+                    <div className="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#4e4035] sm:h-12 sm:w-12">
+                      <div className="absolute top-[8px] h-2 w-2 rounded-full bg-[#4e4035]" />
 
-                      <p className="mt-1 text-sm text-[#847469]">
-                        One detail before we continue
-                      </p>
+                      <div className="absolute bottom-[7px] h-5 w-7 rounded-b-full border-b-2 border-l-2 border-r-2 border-[#4e4035]" />
+
+                      <div className="absolute left-[8px] top-[15px] h-2 w-2 rounded-full bg-[#4e4035]" />
+
+                      <div className="absolute right-[8px] top-[15px] h-2 w-2 rounded-full bg-[#4e4035]" />
                     </div>
+
+                    <div className="h-px flex-1 bg-[#958777]" />
+                  </div>
+
+                  <div className="mt-7 space-y-5 font-serif text-[16px] leading-7 sm:text-[18px]">
+                    {previewParagraphs.length >
+                    0 ? (
+                      previewParagraphs.map(
+                        (paragraph, index) => (
+                          <p
+                            key={`${index}-${paragraph.slice(
+                              0,
+                              30
+                            )}`}
+                            className="whitespace-pre-wrap"
+                          >
+                            {paragraph}
+                          </p>
+                        )
+                      )
+                    ) : (
+                      <p>
+                        This document is ready
+                        for review.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-7 grid grid-cols-3 gap-3 font-serif text-sm sm:mt-8 sm:text-base">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUseOptionsOpen(
+                          (current) =>
+                            !current
+                        )
+                      }
+                      className="border border-[#63442e] bg-[#64432d] px-2 py-3 text-[#fffaf2] shadow-sm transition hover:bg-[#543824]"
+                    >
+                      Use
+                    </button>
 
                     <button
                       type="button"
-                      onClick={repeatKimi}
-                      aria-label="Repeat Kimi's question"
-                      title="Repeat Kimi's question"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/85 text-lg shadow-sm"
+                      onClick={openPendingTask}
+                      className="border border-[#9b8d7c] bg-[rgba(255,255,255,0.35)] px-2 py-3 transition hover:bg-[#f5ecdf]"
                     >
-                      🔊
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFolderPreviewOpen(
+                          false
+                        );
+
+                        setUseOptionsOpen(
+                          false
+                        );
+                      }}
+                      className="border border-[#9b8d7c] bg-[rgba(255,255,255,0.35)] px-2 py-3 transition hover:bg-[#f5ecdf]"
+                    >
+                      Cancel
                     </button>
                   </div>
 
-                  <p className="mt-5 text-xl leading-8">
-                    {result.question}
-                  </p>
-                </div>
-              )}
+                  {useOptionsOpen && (
+                    <div className="mt-4 border border-[#cbbca8] bg-[#f1e7d7] p-3">
+                      <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.25em] text-[#77695d]">
+                        Use document
+                      </p>
 
-              {isPreparingTool && result && (
-                <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/60 bg-[#f5eee3]/88 p-6 shadow-[0_16px_34px_rgba(73,53,36,0.12)] backdrop-blur-md sm:p-8">
-                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7767]">
-                    {getToolName(
-                      result.tool
-                    )}
-                  </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={copyPreview}
+                          className="border border-[#aa9b89] bg-[#fffaf2] px-3 py-2 text-sm transition hover:bg-white"
+                        >
+                          Copy
+                        </button>
 
-                  <p className="mt-4 text-xl leading-8">
-                    {result.content ||
-                      result.nextStep ||
-                      "The tool is ready."}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={showTextInput}
-                    className="mt-6 rounded-full bg-[#5f4938] px-5 py-3 text-sm font-medium text-white shadow-sm"
-                  >
-                    Continue
-                  </button>
-                </div>
-              )}
-
-              {confirmationPending &&
-                result && (
-                  <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-[#b4936f]/35 bg-[#f3e7d5] p-6 shadow-[0_16px_34px_rgba(73,53,36,0.12)] sm:p-8">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#80664f]">
-                      Confirmation required
-                    </p>
-
-                    <p className="mt-4 text-lg leading-8">
-                      {result.nextStep ||
-                        "Kimi needs your confirmation before continuing."}
-                    </p>
-
-                    <p className="mt-3 text-sm leading-6 text-[#77675a]">
-                      Nothing consequential will happen until you confirm.
-                    </p>
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={
-                          confirmNextStep
-                        }
-                        disabled={working}
-                        className="rounded-full bg-[#5f4938] px-5 py-3 text-sm font-medium text-white shadow-sm disabled:opacity-50"
-                      >
-                        Confirm
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={
-                          cancelConfirmation
-                        }
-                        disabled={working}
-                        className="rounded-full border border-[#8b735f]/30 bg-white/70 px-5 py-3 text-sm font-medium text-[#5f4938] disabled:opacity-50"
-                      >
-                        Not now
-                      </button>
+                        <button
+                          type="button"
+                          onClick={sharePreview}
+                          className="border border-[#aa9b89] bg-[#fffaf2] px-3 py-2 text-sm transition hover:bg-white"
+                        >
+                          Share
+                        </button>
+                      </div>
                     </div>
+                  )}
+                </article>
+
+                <div className="relative z-20 mx-auto -mt-7 h-[8.5rem] w-full rounded-b-[34px] border border-[#3c2417] bg-[linear-gradient(165deg,#795238_0%,#41291c_50%,#6a452f_100%)] shadow-[0_18px_35px_rgba(35,18,8,0.4)] sm:-mt-9 sm:h-[10rem]">
+                  <div className="absolute inset-[7px] rounded-b-[27px] border border-[rgba(229,183,129,0.24)]" />
+
+                  <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border-2 border-[#382319] bg-[radial-gradient(circle,#c3924c_0%,#7b4f24_45%,#3f2819_100%)] shadow-md">
+                    <div className="absolute inset-[7px] rounded-full bg-[#21140e]" />
                   </div>
-                )}
 
-              {working && result && (
-                <p className="mt-8 text-center text-sm text-[#75675c]">
-                  Kimi is updating the Workspace…
-                </p>
-              )}
-            </article>
-
-            {showKeyboard && (
-              <form
-                onSubmit={submitReply}
-                className="relative mt-5 rounded-[1.5rem] border border-white/55 bg-white/84 p-4 shadow-lg backdrop-blur-md sm:p-5"
-              >
-                <textarea
-                  ref={textInputRef}
-                  value={reply}
-                  onChange={(event) =>
-                    setReply(
-                      event.target.value
-                    )
-                  }
-                  placeholder={
-                    isClarifying
-                      ? "Answer Kimi’s question…"
-                      : isPreparingTool
-                        ? "Continue the task…"
-                        : "Tell Kimi what to change…"
-                  }
-                  rows={3}
-                  disabled={working}
-                  className="w-full resize-none rounded-2xl border border-black/10 bg-[#fbf8f3]/90 px-4 py-3 text-base outline-none focus:border-[#8a6b52]"
-                />
-
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowKeyboard(false);
-                      setReply("");
-                    }}
-                    className="rounded-full px-4 py-2 text-sm text-[#6f6157]"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={
-                      working ||
-                      !reply.trim()
-                    }
-                    className="rounded-full bg-[#5f4938] px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
-                  >
-                    Send
-                  </button>
+                  <div className="absolute left-[13%] top-[-1.4rem] rounded-t-lg border border-[#9b774f] bg-[#c8a372] px-5 py-2 font-serif text-sm tracking-[0.1em] text-[#4a3424] shadow-sm">
+                    {getFolderLabel(
+                      pendingResult
+                    )}
+                  </div>
                 </div>
-              </form>
-            )}
-
-            {statusMessage && (
-              <p className="mt-4 text-center text-sm text-[#5f554e]">
-                {statusMessage}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {session && (
-        <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 rounded-[1.5rem] border border-white/45 bg-[#6f5642]/84 px-3 py-3 shadow-[0_16px_40px_rgba(45,31,21,0.2)] backdrop-blur-xl">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={startVoice}
-                disabled={
-                  working || listening
-                }
-                className={`flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-sm transition ${
-                  listening
-                    ? "animate-pulse bg-white text-[#5f4938]"
-                    : "bg-white/18 text-white"
-                } disabled:opacity-50`}
-                aria-label={
-                  listening
-                    ? "Listening"
-                    : "Speak to Kimi"
-                }
-                title="Speak to Kimi"
-              >
-                🎤
-              </button>
-
-              <button
-                type="button"
-                onClick={showTextInput}
-                disabled={working}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/18 text-lg text-white shadow-sm disabled:opacity-50"
-                aria-label="Type to Kimi"
-                title="Type to Kimi"
-              >
-                ⌨️
-              </button>
-
-              {result && (
-                <button
-                  type="button"
-                  onClick={repeatKimi}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/18 text-lg text-white shadow-sm"
-                  aria-label="Read aloud"
-                  title="Read aloud"
-                >
-                  🔊
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {result?.content && (
-                <button
-                  type="button"
-                  onClick={saveDocument}
-                  className="rounded-full bg-white/90 px-4 py-3 text-sm font-medium text-[#4e3b2d] shadow-sm"
-                >
-                  Save
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={finishTask}
-                className="rounded-full bg-[#2f3f35] px-5 py-3 text-sm font-medium text-white shadow-sm"
-              >
-                Finish
-              </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </main>
+        )}
+
+      <Desk>
+        {pendingIntent &&
+          pendingResult &&
+          !folderPreviewOpen && (
+            <div className="pointer-events-auto absolute bottom-[4%] left-[34%] -translate-x-1/2 sm:bottom-[6%] sm:left-[33%]">
+              <DeskTaskObject
+                intent={pendingIntent}
+                previewOpen={
+                  folderPreviewOpen
+                }
+                onTogglePreview={
+                  toggleFolderPreview
+                }
+              />
+            </div>
+          )}
+      </Desk>
+
+      <ConversationDock
+        messages={messages}
+        mode={interactionMode}
+        inputRef={textInputRef}
+        request={request}
+        working={working}
+        listening={listening}
+        voiceMessage={voiceMessage}
+        expanded={conversationExpanded}
+        attachments={attachments}
+        onExpandedChange={
+          setConversationExpanded
+        }
+        onRequestChange={setRequest}
+        onSubmit={submitText}
+        onChooseText={chooseText}
+        onStartVoice={startVoice}
+        onChooseFiles={chooseFiles}
+      />
+    </OfficeEnvironment>
   );
 }
