@@ -692,14 +692,12 @@ export default function OfficePage() {
                   <div className="mt-5 flex items-center justify-center gap-3 sm:mt-6">
                     <div className="h-px flex-1 bg-[#958777]" />
 
-                    <div className="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#4e4035] sm:h-12 sm:w-12">
-                      <div className="absolute top-[8px] h-2 w-2 rounded-full bg-[#4e4035]" />
-
-                      <div className="absolute bottom-[7px] h-5 w-7 rounded-b-full border-b-2 border-l-2 border-r-2 border-[#4e4035]" />
-
-                      <div className="absolute left-[8px] top-[15px] h-2 w-2 rounded-full bg-[#4e4035]" />
-
-                      <div className="absolute right-[8px] top-[15px] h-2 w-2 rounded-full bg-[#4e4035]" />
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center sm:h-16 sm:w-16">
+                      <img
+                        src="/branding/logo.png"
+                        alt="The Smiling Monad"
+                        className="h-full w-full object-contain"
+                      />
                     </div>
 
                     <div className="h-px flex-1 bg-[#958777]" />
