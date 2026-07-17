@@ -885,7 +885,7 @@ export default function WorkspacePage() {
 
               {hasEditableDocument && (
                 <textarea
-                  value={result.content}
+                  value={result?.content ?? ""}
                   onChange={(event) =>
                     updateDocument(
                       event.target.value
