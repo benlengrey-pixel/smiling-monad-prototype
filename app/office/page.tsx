@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/intent/intent-engine";
 import {
   createTemporaryWorkspaceSession,
+  readTemporaryWorkspaceSession,
   saveTemporaryWorkspaceSession,
   type WorkspaceGatewayResult,
 } from "@/lib/workspace/session-client";
@@ -306,6 +308,9 @@ export default function OfficePage() {
   const textInputRef =
     useRef<HTMLInputElement>(null);
 
+  const restoredTaskRef =
+    useRef(false);
+
   const [request, setRequest] =
     useState("");
 
@@ -352,6 +357,42 @@ export default function OfficePage() {
     useOptionsOpen,
     setUseOptionsOpen,
   ] = useState(false);
+
+  useEffect(() => {
+    if (restoredTaskRef.current) {
+      return;
+    }
+
+    restoredTaskRef.current = true;
+
+    const savedSession =
+      readTemporaryWorkspaceSession();
+
+    if (
+      !savedSession ||
+      savedSession.status === "complete" ||
+      !savedSession.gatewayResult
+    ) {
+      return;
+    }
+
+    setPendingIntent(
+      savedSession.intent
+    );
+
+    setPendingResult(
+      savedSession.gatewayResult
+    );
+
+    setConversationExpanded(false);
+
+    setMessages([
+      createMessage(
+        "Kimi",
+        `${savedSession.gatewayResult.title || "Your unfinished task"} is still here when you are ready to continue.`
+      ),
+    ]);
+  }, []);
 
   function addMessage(
     speaker: "Ben" | "Kimi",
@@ -447,6 +488,16 @@ export default function OfficePage() {
         officeIntent !== null;
 
       if (shouldCreateOfficeObject) {
+        const session =
+          createTemporaryWorkspaceSession(
+            officeIntent,
+            result
+          );
+
+        saveTemporaryWorkspaceSession(
+          session
+        );
+
         setPendingIntent(officeIntent);
         setPendingResult(result);
 
@@ -454,6 +505,8 @@ export default function OfficePage() {
           "Kimi",
           getPreparedOfficeMessage(result)
         );
+
+        setConversationExpanded(false);
 
         return;
       }
@@ -549,20 +602,34 @@ export default function OfficePage() {
       return;
     }
 
+    const existingSession =
+      readTemporaryWorkspaceSession();
+
     const session =
-      createTemporaryWorkspaceSession(
-        pendingIntent,
-        pendingResult
-      );
+      existingSession &&
+      existingSession.gatewayResult &&
+      existingSession.status !== "complete"
+        ? existingSession
+        : createTemporaryWorkspaceSession(
+            pendingIntent,
+            pendingResult
+          );
 
     saveTemporaryWorkspaceSession(
-      session
+      {
+        ...session,
+        status: "active",
+        gatewayResult:
+          pendingResult,
+      }
     );
 
     router.push("/workspace");
   }
 
   function toggleFolderPreview() {
+    setConversationExpanded(false);
+
     setFolderPreviewOpen((current) => {
       const nextValue = !current;
 
@@ -666,7 +733,7 @@ export default function OfficePage() {
       {pendingIntent &&
         pendingResult &&
         folderPreviewOpen && (
-          <div className="pointer-events-none absolute inset-x-0 top-[6.5%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
+          <div className="pointer-events-none absolute inset-x-0 top-[3%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
             <div className="pointer-events-auto relative w-full max-w-[35rem] sm:max-w-[39rem]">
               <div className="relative mx-auto w-[94%]">
                 <div className="absolute left-[5%] right-[5%] top-[10%] h-[90%] rounded-t-[28px] rounded-b-[34px] border border-[#3c2417] bg-[linear-gradient(135deg,#70482f_0%,#3d2619_46%,#765036_100%)] shadow-[0_25px_45px_rgba(34,18,8,0.38)]">
@@ -679,7 +746,7 @@ export default function OfficePage() {
                   <div className="absolute right-[15%] top-[7%] h-8 w-[31%] rotate-[2deg] rounded-t-lg bg-[#d9bd91]" />
                 </div>
 
-                <article className="relative z-10 mx-auto max-h-[69vh] min-h-[32rem] w-[82%] overflow-y-auto border border-[#d8cdbb] bg-[linear-gradient(105deg,#fffdf7_0%,#f8f1e5_50%,#fffdf8_100%)] px-7 pb-8 pt-7 text-[#3d3027] shadow-[0_20px_38px_rgba(39,22,10,0.26)] sm:min-h-[37rem] sm:px-10 sm:pb-10 sm:pt-9">
+                <article className="relative z-10 mx-auto max-h-[65vh] min-h-[29rem] w-[82%] overflow-y-auto border border-[#d8cdbb] bg-[linear-gradient(105deg,#fffdf7_0%,#f8f1e5_50%,#fffdf8_100%)] px-7 pb-8 pt-7 text-[#3d3027] shadow-[0_20px_38px_rgba(39,22,10,0.26)] sm:max-h-[69vh] sm:min-h-[37rem] sm:px-10 sm:pb-10 sm:pt-9">
                   <p className="text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-[#75695f] sm:text-xs">
                     Preview
                   </p>
@@ -692,7 +759,7 @@ export default function OfficePage() {
                   <div className="mt-5 flex items-center justify-center gap-3 sm:mt-6">
                     <div className="h-px flex-1 bg-[#958777]" />
 
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center sm:h-16 sm:w-16">
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center sm:h-28 sm:w-28">
                       <img
                         src="/branding/logo.png"
                         alt="The Smiling Monad"
@@ -730,12 +797,7 @@ export default function OfficePage() {
                   <div className="mt-7 grid grid-cols-3 gap-3 font-serif text-sm sm:mt-8 sm:text-base">
                     <button
                       type="button"
-                      onClick={() =>
-                        setUseOptionsOpen(
-                          (current) =>
-                            !current
-                        )
-                      }
+                      onClick={openPendingTask}
                       className="border border-[#63442e] bg-[#64432d] px-2 py-3 text-[#fffaf2] shadow-sm transition hover:bg-[#543824]"
                     >
                       Use
@@ -762,16 +824,25 @@ export default function OfficePage() {
                       }}
                       className="border border-[#9b8d7c] bg-[rgba(255,255,255,0.35)] px-2 py-3 transition hover:bg-[#f5ecdf]"
                     >
-                      Cancel
+                      Close
                     </button>
                   </div>
 
-                  {useOptionsOpen && (
-                    <div className="mt-4 border border-[#cbbca8] bg-[#f1e7d7] p-3">
-                      <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.25em] text-[#77695d]">
-                        Use document
-                      </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setUseOptionsOpen(
+                        (current) =>
+                          !current
+                      )
+                    }
+                    className="mt-4 w-full border border-[#b4a592] bg-[#f3eadc] px-3 py-2 font-serif text-sm transition hover:bg-[#fffaf2]"
+                  >
+                    Copy or share
+                  </button>
 
+                  {useOptionsOpen && (
+                    <div className="mt-3 border border-[#cbbca8] bg-[#f1e7d7] p-3">
                       <div className="grid grid-cols-2 gap-3">
                         <button
                           type="button"
@@ -793,7 +864,7 @@ export default function OfficePage() {
                   )}
                 </article>
 
-                <div className="relative z-20 mx-auto -mt-7 h-[8.5rem] w-full rounded-b-[34px] border border-[#3c2417] bg-[linear-gradient(165deg,#795238_0%,#41291c_50%,#6a452f_100%)] shadow-[0_18px_35px_rgba(35,18,8,0.4)] sm:-mt-9 sm:h-[10rem]">
+                <div className="relative z-20 mx-auto -mt-7 h-[8rem] w-full rounded-b-[34px] border border-[#3c2417] bg-[linear-gradient(165deg,#795238_0%,#41291c_50%,#6a452f_100%)] shadow-[0_18px_35px_rgba(35,18,8,0.4)] sm:-mt-9 sm:h-[10rem]">
                   <div className="absolute inset-[7px] rounded-b-[27px] border border-[rgba(229,183,129,0.24)]" />
 
                   <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border-2 border-[#382319] bg-[radial-gradient(circle,#c3924c_0%,#7b4f24_45%,#3f2819_100%)] shadow-md">
@@ -815,7 +886,7 @@ export default function OfficePage() {
         {pendingIntent &&
           pendingResult &&
           !folderPreviewOpen && (
-            <div className="pointer-events-auto absolute bottom-[4%] left-[34%] -translate-x-1/2 sm:bottom-[6%] sm:left-[33%]">
+            <div className="pointer-events-auto absolute bottom-[22%] left-[34%] -translate-x-1/2 sm:bottom-[6%] sm:left-[33%]">
               <DeskTaskObject
                 intent={pendingIntent}
                 previewOpen={
