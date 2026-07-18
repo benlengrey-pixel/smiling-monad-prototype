@@ -13,6 +13,7 @@ import {
   readCircleCentreMemory,
 } from "@/lib/circle/circle-memory-client";
 import ConversationDock from "@/components/companion/ConversationDock";
+import LiveAvatarControl from "@/components/companion/LiveAvatarControl";
 import type { ConversationMessage } from "@/components/companion/ConversationThread";
 import Desk from "@/components/office/Desk";
 import DeskTaskObject from "@/components/office/DeskTaskObject";
@@ -45,6 +46,9 @@ import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
+import {
+  useLiveAvatarSession,
+} from "@/lib/access/use-live-avatar-session";
 import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
@@ -437,6 +441,10 @@ export default function OfficePage() {
   ] = useState<CompanionState>(
     createEmptyCompanionState,
   );
+
+  const liveAvatarSession =
+    useLiveAvatarSession();
+
 
   useEffect(() => {
     if (stateRestoredRef.current) {
@@ -886,6 +894,31 @@ export default function OfficePage() {
     speakCompanionResponse(greeting);
   }
 
+  function startFaceToFaceSession() {
+    const session =
+      liveAvatarSession.start();
+
+    addMessage("Kimi", session.message);
+    setConversationExpanded(true);
+
+    if (session.state === "active") {
+      setAvatarStatus("idle");
+    }
+  }
+
+  function finishFaceToFaceSession() {
+    const session =
+      liveAvatarSession.finish();
+
+    if (!session) {
+      return;
+    }
+
+    addMessage("Kimi", session.message);
+    setConversationExpanded(true);
+    setAvatarStatus("idle");
+  }
+
   async function sharePreview() {
     if (!primaryDeskObject) {
       return;
@@ -1099,6 +1132,14 @@ export default function OfficePage() {
             </div>
           )}
       </Desk>
+
+      <LiveAvatarControl
+        active={liveAvatarSession.active}
+        blocked={liveAvatarSession.blocked}
+        message={liveAvatarSession.message}
+        onStart={startFaceToFaceSession}
+        onFinish={finishFaceToFaceSession}
+      />
 
       <ConversationDock
         messages={messages}
