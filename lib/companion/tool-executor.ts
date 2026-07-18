@@ -1,3 +1,8 @@
+import {
+  updateSmilingMonadState,
+  type SmilingMonadState,
+} from "@/lib/platform/smiling-monad-state";
+
 export type DeskObjectStatus =
   | "active"
   | "complete"
@@ -57,6 +62,16 @@ export type CompanionToolName =
   | "task.create"
   | "task.complete"
   | "task.remove"
+  | "circle.member.add"
+  | "circle.goal.add"
+  | "circle.document.add"
+  | "circle.meeting.add"
+  | "circle.responsibility.add"
+  | "community.post.add"
+  | "connections.profile.add"
+  | "connections.work.add"
+  | "school.lesson.add"
+  | "shop.item.add"
   | "none";
 
 export type CompanionToolAction = {
@@ -401,11 +416,726 @@ const findBestDocumentForDeskObject = (
   return matchingDocument ?? null;
 };
 
+const requireContentObject = (
+  action: CompanionToolAction,
+): Record<string, unknown> => {
+  if (!action.content?.trim()) {
+    throw new Error(
+      `${action.tool} requires structured JSON content.`,
+    );
+  }
+
+  try {
+    const parsed = JSON.parse(
+      action.content,
+    ) as unknown;
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error(
+        "The content must be a JSON object.",
+      );
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    throw new Error(
+      error instanceof Error &&
+        error.message ===
+          "The content must be a JSON object."
+        ? error.message
+        : `${action.tool} content must be valid JSON.`,
+    );
+  }
+};
+
+const readString = (
+  value: unknown,
+  fallback = "",
+): string =>
+  typeof value === "string"
+    ? value.trim()
+    : fallback;
+
+const readStringArray = (
+  value: unknown,
+): string[] =>
+  Array.isArray(value)
+    ? value
+        .filter(
+          (item): item is string =>
+            typeof item === "string",
+        )
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : typeof value === "string"
+      ? value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+
+const readNumberOrNull = (
+  value: unknown,
+): number | null => {
+  if (value === null || value === "") {
+    return null;
+  }
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+      return Math.round(parsed);
+    }
+  }
+
+  return null;
+};
+
+const requireValue = (
+  value: string,
+  fieldName: string,
+  toolName: CompanionToolName,
+): string => {
+  if (!value) {
+    throw new Error(
+      `${toolName} requires ${fieldName}.`,
+    );
+  }
+
+  return value;
+};
+
+const syncLegacyCircleState = (
+  state: SmilingMonadState,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      "smiling-monad-circle-centre-v2",
+      JSON.stringify(state.circle),
+    );
+  } catch {
+    // The shared platform state remains authoritative.
+  }
+};
+
+const executePlatformAction = (
+  action: CompanionToolAction,
+): boolean => {
+  switch (action.tool) {
+    case "circle.member.add": {
+      const content =
+        requireContentObject(action);
+
+      const name = requireValue(
+        readString(content.name) ||
+          action.title?.trim() ||
+          "",
+        "a member name",
+        action.tool,
+      );
+
+      const nextState =
+        updateSmilingMonadState(
+          (current) => ({
+            ...current,
+            circle: {
+              ...current.circle,
+              members: [
+                ...current.circle.members,
+                {
+                  id:
+                    action.targetId?.trim() ||
+                    createId("circle-member"),
+                  name,
+                  role:
+                    readString(
+                      content.role,
+                    ) || "Circle member",
+                  relationship:
+                    readString(
+                      content.relationship,
+                    ) ||
+                    "Support relationship",
+                },
+              ],
+            },
+          }),
+        );
+
+      syncLegacyCircleState(nextState);
+      return true;
+    }
+
+    case "circle.goal.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a goal title",
+        action.tool,
+      );
+
+      const nextState =
+        updateSmilingMonadState(
+          (current) => ({
+            ...current,
+            circle: {
+              ...current.circle,
+              goals: [
+                ...current.circle.goals,
+                {
+                  id:
+                    action.targetId?.trim() ||
+                    createId("circle-goal"),
+                  title,
+                  owner:
+                    readString(
+                      content.owner,
+                    ) || "Whole circle",
+                  status:
+                    readString(
+                      content.status,
+                    ) === "Active"
+                      ? "Active"
+                      : "Planning",
+                },
+              ],
+            },
+          }),
+        );
+
+      syncLegacyCircleState(nextState);
+      return true;
+    }
+
+    case "circle.document.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a document title",
+        action.tool,
+      );
+
+      const categoryValue =
+        readString(content.category);
+
+      const category =
+        categoryValue === "Agreement" ||
+        categoryValue === "Report" ||
+        categoryValue === "Meeting" ||
+        categoryValue === "Other"
+          ? categoryValue
+          : "Plan";
+
+      const nextState =
+        updateSmilingMonadState(
+          (current) => ({
+            ...current,
+            circle: {
+              ...current.circle,
+              documents: [
+                ...current.circle.documents,
+                {
+                  id:
+                    action.targetId?.trim() ||
+                    createId(
+                      "circle-document",
+                    ),
+                  title,
+                  category,
+                  status: "Draft",
+                },
+              ],
+            },
+          }),
+        );
+
+      syncLegacyCircleState(nextState);
+      return true;
+    }
+
+    case "circle.meeting.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a meeting title",
+        action.tool,
+      );
+
+      const nextState =
+        updateSmilingMonadState(
+          (current) => ({
+            ...current,
+            circle: {
+              ...current.circle,
+              meetings: [
+                ...current.circle.meetings,
+                {
+                  id:
+                    action.targetId?.trim() ||
+                    createId(
+                      "circle-meeting",
+                    ),
+                  title,
+                  date: readString(
+                    content.date,
+                  ),
+                  purpose:
+                    readString(
+                      content.purpose,
+                    ) ||
+                    "Circle coordination",
+                },
+              ],
+            },
+          }),
+        );
+
+      syncLegacyCircleState(nextState);
+      return true;
+    }
+
+    case "circle.responsibility.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a responsibility title",
+        action.tool,
+      );
+
+      const nextState =
+        updateSmilingMonadState(
+          (current) => ({
+            ...current,
+            circle: {
+              ...current.circle,
+              responsibilities: [
+                ...current.circle
+                  .responsibilities,
+                {
+                  id:
+                    action.targetId?.trim() ||
+                    createId(
+                      "circle-responsibility",
+                    ),
+                  title,
+                  owner:
+                    readString(
+                      content.owner,
+                    ) || "Whole circle",
+                  status: "Open",
+                },
+              ],
+            },
+          }),
+        );
+
+      syncLegacyCircleState(nextState);
+      return true;
+    }
+
+    case "community.post.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a post title",
+        action.tool,
+      );
+
+      const body = requireValue(
+        readString(content.body),
+        "post details",
+        action.tool,
+      );
+
+      const typeValue =
+        readString(content.type);
+
+      const type =
+        typeValue === "event" ||
+        typeValue === "opportunity" ||
+        typeValue === "request"
+          ? typeValue
+          : "announcement";
+
+      const requestedStatus =
+        readString(content.status);
+
+      const status =
+        requestedStatus === "submitted"
+          ? "submitted"
+          : "draft";
+
+      updateSmilingMonadState(
+        (current) => {
+          const timestamp =
+            new Date().toISOString();
+
+          return {
+            ...current,
+            communityPosts: [
+              ...current.communityPosts,
+              {
+                id:
+                  action.targetId?.trim() ||
+                  createId(
+                    "community-post",
+                  ),
+                title,
+                body,
+                type,
+                status,
+                author:
+                  readString(
+                    content.author,
+                  ) || "Community member",
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+            ],
+          };
+        },
+      );
+
+      return true;
+    }
+
+    case "connections.profile.add": {
+      const content =
+        requireContentObject(action);
+
+      const name = requireValue(
+        readString(content.name) ||
+          action.title?.trim() ||
+          "",
+        "a profile name",
+        action.tool,
+      );
+
+      const summary = requireValue(
+        readString(content.summary),
+        "a profile summary",
+        action.tool,
+      );
+
+      const profileTypeValue =
+        readString(
+          content.profileType,
+        );
+
+      const profileType =
+        profileTypeValue ===
+          "participant" ||
+        profileTypeValue === "family" ||
+        profileTypeValue ===
+          "support-worker" ||
+        profileTypeValue === "provider" ||
+        profileTypeValue ===
+          "professional"
+          ? profileTypeValue
+          : "community-member";
+
+      const requestedStatus =
+        readString(content.status);
+
+      const status =
+        requestedStatus === "submitted"
+          ? "submitted"
+          : "draft";
+
+      updateSmilingMonadState(
+        (current) => {
+          const timestamp =
+            new Date().toISOString();
+
+          return {
+            ...current,
+            connectionProfiles: [
+              ...current.connectionProfiles,
+              {
+                id:
+                  action.targetId?.trim() ||
+                  createId(
+                    "connection-profile",
+                  ),
+                name,
+                profileType,
+                summary,
+                location: readString(
+                  content.location,
+                ),
+                interests:
+                  readStringArray(
+                    content.interests,
+                  ),
+                offers:
+                  readStringArray(
+                    content.offers,
+                  ),
+                lookingFor:
+                  readStringArray(
+                    content.lookingFor,
+                  ),
+                status,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+            ],
+          };
+        },
+      );
+
+      return true;
+    }
+
+    case "connections.work.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "an opportunity title",
+        action.tool,
+      );
+
+      const description =
+        requireValue(
+          readString(
+            content.description,
+          ),
+          "an opportunity description",
+          action.tool,
+        );
+
+      const requestedStatus =
+        readString(content.status);
+
+      const status =
+        requestedStatus === "submitted"
+          ? "submitted"
+          : "draft";
+
+      updateSmilingMonadState(
+        (current) => {
+          const timestamp =
+            new Date().toISOString();
+
+          return {
+            ...current,
+            workOpportunities: [
+              ...current.workOpportunities,
+              {
+                id:
+                  action.targetId?.trim() ||
+                  createId(
+                    "work-opportunity",
+                  ),
+                title,
+                description,
+                location: readString(
+                  content.location,
+                ),
+                contactName:
+                  readString(
+                    content.contactName,
+                  ) || "Community member",
+                status,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+            ],
+          };
+        },
+      );
+
+      return true;
+    }
+
+    case "school.lesson.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "a lesson title",
+        action.tool,
+      );
+
+      const summary = requireValue(
+        readString(content.summary),
+        "a lesson summary",
+        action.tool,
+      );
+
+      const areaValue =
+        readString(content.area);
+
+      const area =
+        areaValue === "communication" ||
+        areaValue === "behaviour" ||
+        areaValue === "circles" ||
+        areaValue === "development"
+          ? areaValue
+          : "support";
+
+      const requestedStatus =
+        readString(content.status);
+
+      const status =
+        requestedStatus === "review"
+          ? "review"
+          : "draft";
+
+      updateSmilingMonadState(
+        (current) => {
+          const timestamp =
+            new Date().toISOString();
+
+          return {
+            ...current,
+            schoolLessons: [
+              ...current.schoolLessons,
+              {
+                id:
+                  action.targetId?.trim() ||
+                  createId(
+                    "school-lesson",
+                  ),
+                area,
+                title,
+                summary,
+                content: readString(
+                  content.content,
+                ),
+                status,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+            ],
+          };
+        },
+      );
+
+      return true;
+    }
+
+    case "shop.item.add": {
+      const content =
+        requireContentObject(action);
+
+      const title = requireValue(
+        action.title?.trim() ||
+          readString(content.title),
+        "an item title",
+        action.tool,
+      );
+
+      const description =
+        requireValue(
+          readString(
+            content.description,
+          ),
+          "an item description",
+          action.tool,
+        );
+
+      const areaValue =
+        readString(content.area);
+
+      const area =
+        areaValue === "templates" ||
+        areaValue === "training" ||
+        areaValue === "merchandise" ||
+        areaValue === "digital"
+          ? areaValue
+          : "resources";
+
+      const requestedStatus =
+        readString(content.status);
+
+      const status =
+        requestedStatus === "review"
+          ? "review"
+          : "draft";
+
+      updateSmilingMonadState(
+        (current) => {
+          const timestamp =
+            new Date().toISOString();
+
+          return {
+            ...current,
+            shopItems: [
+              ...current.shopItems,
+              {
+                id:
+                  action.targetId?.trim() ||
+                  createId("shop-item"),
+                area,
+                title,
+                description,
+                priceInCents:
+                  readNumberOrNull(
+                    content.priceInCents,
+                  ),
+                status,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+            ],
+          };
+        },
+      );
+
+      return true;
+    }
+
+    default:
+      return false;
+  }
+};
+
 const executeAction = (
   state: CompanionState,
   action: CompanionToolAction,
 ): CompanionState => {
   const nextState = copyState(state);
+
+  if (executePlatformAction(action)) {
+    return nextState;
+  }
 
   switch (action.tool) {
     case "desk.add": {
@@ -836,11 +1566,8 @@ const executeAction = (
       return nextState;
 
     default: {
-      const unsupportedTool: never =
-        action.tool;
-
       throw new Error(
-        `Unsupported Companion tool: ${unsupportedTool}`,
+        `Unsupported Companion tool: ${action.tool}`,
       );
     }
   }
