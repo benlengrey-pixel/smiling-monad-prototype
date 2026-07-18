@@ -113,6 +113,122 @@ export type ShopItem = {
   updatedAt: string;
 };
 
+export type WorkerApplicationStatus =
+  | "draft"
+  | "training"
+  | "evidence-review"
+  | "profile-review"
+  | "approved"
+  | "changes-requested"
+  | "suspended"
+  | "archived";
+
+export type WorkerModuleStatus =
+  | "not-started"
+  | "in-progress"
+  | "completed"
+  | "needs-review";
+
+export type WorkerAssessmentStatus =
+  | "not-attempted"
+  | "passed"
+  | "needs-review";
+
+export type WorkerEvidenceType =
+  | "identity"
+  | "ndis-worker-screening"
+  | "worker-orientation-module"
+  | "first-aid"
+  | "working-with-children"
+  | "qualification"
+  | "experience"
+  | "insurance"
+  | "other";
+
+export type WorkerEvidenceStatus =
+  | "not-provided"
+  | "provided"
+  | "verified"
+  | "rejected"
+  | "expired";
+
+export type WorkerBadgeStatus =
+  | "not-eligible"
+  | "eligible"
+  | "active"
+  | "suspended"
+  | "expired";
+
+export type WorkerTrainingModuleProgress = {
+  moduleId: string;
+  title: string;
+  status: WorkerModuleStatus;
+  completedAt: string | null;
+  knowledgeCheckScore: number | null;
+  knowledgeCheckStatus: WorkerAssessmentStatus;
+  reflectionResponse: string;
+  reviewerNote: string;
+};
+
+export type WorkerEvidenceRecord = {
+  id: string;
+  type: WorkerEvidenceType;
+  label: string;
+  status: WorkerEvidenceStatus;
+  documentReference: string;
+  issuedBy: string;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  reviewerNote: string;
+  verifiedAt: string | null;
+};
+
+export type WorkerPrivateDetails = {
+  legalName: string;
+  email: string;
+  phone: string;
+  address: string;
+  dateOfBirth: string;
+  emergencyContact: string;
+  screeningNumber: string;
+  privateNotes: string;
+};
+
+export type WorkerPublicProfileDraft = {
+  displayName: string;
+  photoReference: string;
+  headline: string;
+  summary: string;
+  generalLocation: string;
+  travelAreas: string[];
+  experience: string[];
+  supportInterests: string[];
+  communicationApproach: string;
+  availability: string;
+  languages: string[];
+  publicTrainingStatements: string[];
+};
+
+export type WorkerApplication = {
+  id: string;
+  userId: string | null;
+  status: WorkerApplicationStatus;
+  trainingProgress: WorkerTrainingModuleProgress[];
+  evidence: WorkerEvidenceRecord[];
+  privateDetails: WorkerPrivateDetails;
+  publicProfile: WorkerPublicProfileDraft;
+  reviewNotes: string[];
+  badgeStatus: WorkerBadgeStatus;
+  badgeLabel: "Smiling Monad Trained";
+  connectionProfileId: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  lastReviewedAt: string | null;
+  renewalDueAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CircleProfile = {
   personName: string;
   preferredName: string;
@@ -176,6 +292,7 @@ export type SmilingMonadState = {
   workOpportunities: WorkOpportunity[];
   schoolLessons: SchoolLesson[];
   shopItems: ShopItem[];
+  workerApplications: WorkerApplication[];
   circle: CircleCentreState;
 };
 
@@ -257,6 +374,164 @@ function createDefaultCommunityPosts(): CommunityPost[] {
   ];
 }
 
+export function createDefaultWorkerTrainingProgress(): WorkerTrainingModuleProgress[] {
+  return [
+    {
+      moduleId: "smiling-monad-foundations",
+      title: "The Smiling Monad Way",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "whole-person-support",
+      title: "Understanding the Whole Person",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "communication-beyond-speech",
+      title: "Communication Beyond Speech",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "behaviour-as-communication",
+      title: "Behaviour as Communication",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "choice-consent-decisions",
+      title: "Choice, Consent and Supported Decision-Making",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "professional-boundaries",
+      title: "Professional Boundaries",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "documentation",
+      title: "Reliable Shift Notes and Documentation",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "families-and-circles",
+      title: "Working with Families and Circles of Support",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "safety-and-escalation",
+      title: "Safety, Escalation and Reporting Concerns",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+    {
+      moduleId: "reflective-practice",
+      title: "Reflective Practice and Worker Wellbeing",
+      status: "not-started",
+      completedAt: null,
+      knowledgeCheckScore: null,
+      knowledgeCheckStatus: "not-attempted",
+      reflectionResponse: "",
+      reviewerNote: "",
+    },
+  ];
+}
+
+export function createEmptyWorkerApplication(
+  input: {
+    userId?: string | null;
+    legalName?: string;
+    email?: string;
+  } = {},
+): WorkerApplication {
+  const timestamp = now();
+
+  return {
+    id: createId("worker-application"),
+    userId: input.userId ?? null,
+    status: "draft",
+    trainingProgress:
+      createDefaultWorkerTrainingProgress(),
+    evidence: [],
+    privateDetails: {
+      legalName: input.legalName?.trim() || "",
+      email: input.email?.trim() || "",
+      phone: "",
+      address: "",
+      dateOfBirth: "",
+      emergencyContact: "",
+      screeningNumber: "",
+      privateNotes: "",
+    },
+    publicProfile: {
+      displayName: "",
+      photoReference: "",
+      headline: "",
+      summary: "",
+      generalLocation: "",
+      travelAreas: [],
+      experience: [],
+      supportInterests: [],
+      communicationApproach: "",
+      availability: "",
+      languages: [],
+      publicTrainingStatements: [],
+    },
+    reviewNotes: [],
+    badgeStatus: "not-eligible",
+    badgeLabel: "Smiling Monad Trained",
+    connectionProfileId: null,
+    submittedAt: null,
+    approvedAt: null,
+    lastReviewedAt: null,
+    renewalDueAt: null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export function createDefaultSmilingMonadState(): SmilingMonadState {
   return {
     version: 1,
@@ -265,6 +540,7 @@ export function createDefaultSmilingMonadState(): SmilingMonadState {
     workOpportunities: [],
     schoolLessons: [],
     shopItems: [],
+    workerApplications: [],
     circle: createDefaultCircleState(),
   };
 }
@@ -386,6 +662,12 @@ function normaliseState(
 
     shopItems: Array.isArray(value.shopItems)
       ? (value.shopItems as ShopItem[])
+      : [],
+
+    workerApplications: Array.isArray(
+      value.workerApplications,
+    )
+      ? (value.workerApplications as WorkerApplication[])
       : [],
 
     circle: {
@@ -727,4 +1009,201 @@ export function addShopItem(
   );
 
   return item;
+}
+
+export function addWorkerApplication(
+  input: {
+    userId?: string | null;
+    legalName?: string;
+    email?: string;
+  } = {},
+): WorkerApplication {
+  const application =
+    createEmptyWorkerApplication(input);
+
+  updateSmilingMonadState(
+    (current) => ({
+      ...current,
+      workerApplications: [
+        ...current.workerApplications,
+        application,
+      ],
+    }),
+  );
+
+  return application;
+}
+
+export function updateWorkerApplication(
+  applicationId: string,
+  updater: (
+    current: WorkerApplication,
+  ) => WorkerApplication,
+): WorkerApplication {
+  let updatedApplication:
+    | WorkerApplication
+    | null = null;
+
+  updateSmilingMonadState(
+    (current) => ({
+      ...current,
+      workerApplications:
+        current.workerApplications.map(
+          (application) => {
+            if (
+              application.id !==
+              applicationId
+            ) {
+              return application;
+            }
+
+            updatedApplication = {
+              ...updater(application),
+              id: application.id,
+              badgeLabel:
+                "Smiling Monad Trained",
+              updatedAt: now(),
+            };
+
+            return updatedApplication;
+          },
+        ),
+    }),
+  );
+
+  if (!updatedApplication) {
+    throw new Error(
+      `Worker application "${applicationId}" was not found.`,
+    );
+  }
+
+  return updatedApplication;
+}
+
+export function isWorkerTrainingComplete(
+  application: WorkerApplication,
+): boolean {
+  return (
+    application.trainingProgress.length > 0 &&
+    application.trainingProgress.every(
+      (module) =>
+        module.status === "completed" &&
+        module.knowledgeCheckStatus ===
+          "passed" &&
+        Boolean(
+          module.reflectionResponse.trim(),
+        ),
+    )
+  );
+}
+
+export function isWorkerEvidenceReady(
+  application: WorkerApplication,
+): boolean {
+  const requiredEvidence: WorkerEvidenceType[] =
+    [
+      "identity",
+      "ndis-worker-screening",
+      "worker-orientation-module",
+    ];
+
+  return requiredEvidence.every(
+    (type) =>
+      application.evidence.some(
+        (record) =>
+          record.type === type &&
+          record.status === "verified",
+      ),
+  );
+}
+
+export function isWorkerProfileReady(
+  application: WorkerApplication,
+): boolean {
+  const profile =
+    application.publicProfile;
+
+  return Boolean(
+    profile.displayName.trim() &&
+      profile.headline.trim() &&
+      profile.summary.trim() &&
+      profile.generalLocation.trim() &&
+      profile.communicationApproach.trim(),
+  );
+}
+
+export function isWorkerEligibleForApproval(
+  application: WorkerApplication,
+): boolean {
+  return (
+    isWorkerTrainingComplete(
+      application,
+    ) &&
+    isWorkerEvidenceReady(application) &&
+    isWorkerProfileReady(application)
+  );
+}
+
+export function createApprovedWorkerConnectionProfile(
+  applicationId: string,
+): ConnectionProfile {
+  const state =
+    readSmilingMonadState();
+
+  const application =
+    state.workerApplications.find(
+      (item) =>
+        item.id === applicationId,
+    );
+
+  if (!application) {
+    throw new Error(
+      `Worker application "${applicationId}" was not found.`,
+    );
+  }
+
+  if (
+    application.status !== "approved" ||
+    application.badgeStatus !== "active" ||
+    !isWorkerEligibleForApproval(
+      application,
+    )
+  ) {
+    throw new Error(
+      "The worker must be trained, verified and approved before a public profile can be created.",
+    );
+  }
+
+  const profile = addConnectionProfile({
+    name:
+      application.publicProfile.displayName,
+    profileType: "support-worker",
+    summary:
+      application.publicProfile.summary,
+    location:
+      application.publicProfile
+        .generalLocation,
+    interests:
+      application.publicProfile
+        .supportInterests,
+    offers: [
+      ...application.publicProfile
+        .experience,
+      ...application.publicProfile
+        .publicTrainingStatements,
+      "Smiling Monad Trained",
+    ],
+    lookingFor: [],
+    status: "approved",
+  });
+
+  updateWorkerApplication(
+    application.id,
+    (current) => ({
+      ...current,
+      connectionProfileId: profile.id,
+    }),
+  );
+
+  return profile;
 }
