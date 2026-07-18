@@ -2,10 +2,22 @@
 
 import type { FormEvent } from "react";
 
-import type { GatewayResponse } from "@/lib/companion/gateway-client";
+import type { CompanionDecision } from "@/lib/companion/tool-executor";
+
+type LegacyGatewayResponse = {
+  action: "draft" | "clarify" | "answer";
+  application: string;
+  title: string;
+  question: string;
+  content: string;
+};
+
+export type CompanionWorkspaceResult =
+  | CompanionDecision
+  | LegacyGatewayResponse;
 
 type CompanionWorkspaceProps = {
-  result: GatewayResponse;
+  result: CompanionWorkspaceResult;
   request: string;
   working: boolean;
   listening: boolean;
@@ -19,6 +31,60 @@ type CompanionWorkspaceProps = {
   onApprove: () => void;
   onClose: () => void;
 };
+
+function isCompanionDecision(
+  result: CompanionWorkspaceResult,
+): result is CompanionDecision {
+  return "message" in result && "actions" in result;
+}
+
+function getWorkspacePresentation(
+  result: CompanionWorkspaceResult,
+) {
+  if (!isCompanionDecision(result)) {
+    return {
+      isDocument: result.action === "draft",
+      needsClarification: result.action === "clarify",
+      application:
+        result.application.replaceAll("-", " ") ||
+        "companion",
+      title: result.title || "Smiling Monad Companion",
+      question: result.question,
+      content: result.content,
+    };
+  }
+
+  const documentAction = result.actions.find(
+    (action) =>
+      action.tool === "document.create" ||
+      action.tool === "document.update" ||
+      action.tool === "document.complete",
+  );
+
+  const applicationAction = result.actions.find(
+    (action) => action.tool !== "none",
+  );
+
+  const isDocument = Boolean(documentAction);
+
+  return {
+    isDocument,
+    needsClarification: result.needsClarification,
+    application:
+      applicationAction?.tool.replaceAll(".", " ") ||
+      "companion",
+    title:
+      documentAction?.title ||
+      applicationAction?.title ||
+      "Smiling Monad Companion",
+    question:
+      result.clarificationQuestion ||
+      result.message,
+    content:
+      documentAction?.content ||
+      result.message,
+  };
+}
 
 export default function CompanionWorkspace({
   result,
@@ -35,29 +101,33 @@ export default function CompanionWorkspace({
   onApprove,
   onClose,
 }: CompanionWorkspaceProps) {
-  const isDocument = result.action === "draft";
+  const presentation = getWorkspacePresentation(result);
 
-  function submitAnswer(event: FormEvent<HTMLFormElement>) {
+  function submitAnswer(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     onAnswerQuestion();
   }
 
-  function submitContinuation(event: FormEvent<HTMLFormElement>) {
+  function submitContinuation(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     onContinueConversation?.();
   }
 
-  if (isDocument) {
+  if (presentation.isDocument) {
     return (
       <section className="fixed inset-2 z-40 flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:inset-y-[4%] sm:left-auto sm:right-[3%] sm:w-[72%] lg:inset-y-[6%] lg:right-[4%] lg:w-[60%]">
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
           <div className="min-w-0">
             <p className="text-xs capitalize text-[#74695f] sm:text-sm">
-              {result.application.replace("-", " ")}
+              {presentation.application}
             </p>
 
             <h1 className="mt-1 text-xl font-semibold text-[#211d19] sm:text-2xl">
-              {result.title || "Smiling Monad Companion"}
+              {presentation.title}
             </h1>
           </div>
 
@@ -89,7 +159,9 @@ export default function CompanionWorkspace({
             >
               <input
                 value={request}
-                onChange={(event) => onRequestChange(event.target.value)}
+                onChange={(event) =>
+                  onRequestChange(event.target.value)
+                }
                 placeholder="Ask for a change"
                 aria-label="Continue the conversation"
                 enterKeyHint="send"
@@ -163,11 +235,11 @@ export default function CompanionWorkspace({
       <header className="flex shrink-0 items-start justify-between gap-3 border-b border-black/8 px-4 py-3 sm:px-5 sm:py-4">
         <div className="min-w-0">
           <p className="text-[11px] capitalize text-[#74695f] sm:text-xs">
-            {result.application.replace("-", " ")}
+            {presentation.application}
           </p>
 
           <h1 className="mt-0.5 truncate text-base font-semibold text-[#211d19] sm:text-lg">
-            {result.title || "Smiling Monad Companion"}
+            {presentation.title}
           </h1>
         </div>
 
@@ -183,10 +255,10 @@ export default function CompanionWorkspace({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-        {result.action === "clarify" ? (
+        {presentation.needsClarification ? (
           <div>
             <p className="text-base leading-7 text-[#302a25]">
-              {result.question}
+              {presentation.question}
             </p>
 
             <form
@@ -195,7 +267,9 @@ export default function CompanionWorkspace({
             >
               <input
                 value={request}
-                onChange={(event) => onRequestChange(event.target.value)}
+                onChange={(event) =>
+                  onRequestChange(event.target.value)
+                }
                 placeholder="Your answer"
                 aria-label="Answer the Companion's question"
                 enterKeyHint="send"
@@ -234,66 +308,69 @@ export default function CompanionWorkspace({
           </div>
         ) : (
           <div className="whitespace-pre-wrap text-base leading-7 text-[#302a25]">
-            {result.content}
+            {presentation.content}
           </div>
         )}
       </div>
 
-      {result.action !== "clarify" && onContinueConversation && (
-        <div className="shrink-0 border-t border-black/8 px-3 py-3 sm:px-4">
-          <form
-            onSubmit={submitContinuation}
-            className="flex overflow-hidden rounded-2xl border border-black/10 bg-white"
-          >
-            <input
-              value={request}
-              onChange={(event) => onRequestChange(event.target.value)}
-              placeholder="Continue"
-              aria-label="Continue the conversation"
-              enterKeyHint="send"
-              className="min-w-0 flex-1 px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/20"
-            />
-
-            {onStartVoice && (
-              <button
-                type="button"
-                onClick={onStartVoice}
-                disabled={working || listening}
-                aria-label={
-                  listening
-                    ? "The Companion is listening"
-                    : "Continue using your voice"
+      {!presentation.needsClarification &&
+        onContinueConversation && (
+          <div className="shrink-0 border-t border-black/8 px-3 py-3 sm:px-4">
+            <form
+              onSubmit={submitContinuation}
+              className="flex overflow-hidden rounded-2xl border border-black/10 bg-white"
+            >
+              <input
+                value={request}
+                onChange={(event) =>
+                  onRequestChange(event.target.value)
                 }
-                title="Continue using your voice"
-                className={`touch-manipulation flex w-12 shrink-0 items-center justify-center text-lg transition disabled:opacity-50 ${
-                  listening
-                    ? "animate-pulse bg-[#6d513a] text-white"
-                    : "bg-[#efe8df] text-[#6d513a]"
-                }`}
+                placeholder="Continue"
+                aria-label="Continue the conversation"
+                enterKeyHint="send"
+                className="min-w-0 flex-1 px-4 py-3 text-base outline-none focus:ring-4 focus:ring-[#6d513a]/20"
+              />
+
+              {onStartVoice && (
+                <button
+                  type="button"
+                  onClick={onStartVoice}
+                  disabled={working || listening}
+                  aria-label={
+                    listening
+                      ? "The Companion is listening"
+                      : "Continue using your voice"
+                  }
+                  title="Continue using your voice"
+                  className={`touch-manipulation flex w-12 shrink-0 items-center justify-center text-lg transition disabled:opacity-50 ${
+                    listening
+                      ? "animate-pulse bg-[#6d513a] text-white"
+                      : "bg-[#efe8df] text-[#6d513a]"
+                  }`}
+                >
+                  <span aria-hidden="true">🎤</span>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                disabled={working || !request.trim()}
+                className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-sm text-white disabled:opacity-60"
               >
-                <span aria-hidden="true">🎤</span>
+                {working ? "Working…" : "Send"}
               </button>
+            </form>
+
+            {voiceMessage && (
+              <p
+                aria-live="polite"
+                className="mt-2 px-2 text-xs text-[#74695f]"
+              >
+                {voiceMessage}
+              </p>
             )}
-
-            <button
-              type="submit"
-              disabled={working || !request.trim()}
-              className="touch-manipulation shrink-0 bg-[#6d513a] px-4 text-sm text-white disabled:opacity-60"
-            >
-              {working ? "Working…" : "Send"}
-            </button>
-          </form>
-
-          {voiceMessage && (
-            <p
-              aria-live="polite"
-              className="mt-2 px-2 text-xs text-[#74695f]"
-            >
-              {voiceMessage}
-            </p>
-          )}
-        </div>
-      )}
+          </div>
+        )}
     </section>
   );
 }
