@@ -374,6 +374,18 @@ export default function WorkspacePage() {
 
       setResult(nextResult);
 
+      const persistedSession =
+        updateTemporaryWorkspaceSession({
+          status: "active",
+          gatewayResult: nextResult,
+        });
+
+      if (persistedSession) {
+        setSession(
+          persistedSession as StoredWorkspaceSession
+        );
+      }
+
       if (
         nextResult.requiresConfirmation
       ) {
@@ -476,19 +488,31 @@ export default function WorkspacePage() {
   function updateDocument(
     content: string
   ) {
-    setResult((currentResult) => {
-      if (!currentResult) {
-        return currentResult;
-      }
+    if (!result) {
+      return;
+    }
 
-      return {
-        ...currentResult,
-        content,
-      };
-    });
+    const updatedResult: GatewayResult = {
+      ...result,
+      content,
+    };
+
+    setResult(updatedResult);
+
+    const persistedSession =
+      updateTemporaryWorkspaceSession({
+        status: "active",
+        gatewayResult: updatedResult,
+      });
+
+    if (persistedSession) {
+      setSession(
+        persistedSession as StoredWorkspaceSession
+      );
+    }
 
     setStatusMessage(
-      "Changes are kept in this temporary Workspace."
+      "Changes saved automatically."
     );
   }
 
@@ -698,6 +722,46 @@ export default function WorkspacePage() {
     );
   }
 
+  function returnToOffice() {
+    stopAllSpeech();
+
+    const persistedSession =
+      updateTemporaryWorkspaceSession({
+        status: "ready",
+        ...(result
+          ? { gatewayResult: result }
+          : {}),
+      });
+
+    if (persistedSession) {
+      setSession(
+        persistedSession as StoredWorkspaceSession
+      );
+    }
+
+    router.push("/office");
+  }
+
+  function saveForLater() {
+    stopAllSpeech();
+
+    const persistedSession =
+      updateTemporaryWorkspaceSession({
+        status: "ready",
+        ...(result
+          ? { gatewayResult: result }
+          : {}),
+      });
+
+    if (persistedSession) {
+      setSession(
+        persistedSession as StoredWorkspaceSession
+      );
+    }
+
+    router.push("/office");
+  }
+
   function saveDocument() {
     if (!result?.content) {
       setStatusMessage(
@@ -745,7 +809,7 @@ export default function WorkspacePage() {
     router.push("/office");
   }
 
-  function clearWorkspace() {
+  function discardWorkspace() {
     stopAllSpeech();
     clearTemporaryWorkspaceSession();
 
@@ -756,6 +820,8 @@ export default function WorkspacePage() {
     setStatusMessage("");
     setError("");
     setConfirmationPending(false);
+
+    router.push("/office");
   }
 
   const isClarifying =
@@ -790,20 +856,20 @@ export default function WorkspacePage() {
       </div>
 
       <header className="relative z-30 flex items-center justify-between px-4 py-4 sm:px-6">
-        <Link
-          href="/office"
-          onClick={stopAllSpeech}
+        <button
+          type="button"
+          onClick={returnToOffice}
           className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
         >
           Back to Office
-        </Link>
+        </button>
 
         <button
           type="button"
-          onClick={clearWorkspace}
+          onClick={discardWorkspace}
           className="rounded-full border border-white/50 bg-white/72 px-4 py-2 text-sm shadow-sm backdrop-blur-md"
         >
-          Clear
+          Discard
         </button>
       </header>
 
@@ -1115,9 +1181,17 @@ export default function WorkspacePage() {
                   onClick={saveDocument}
                   className="rounded-full bg-white/90 px-4 py-3 text-sm font-medium text-[#4e3b2d] shadow-sm"
                 >
-                  Save
+                  Download
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={saveForLater}
+                className="rounded-full bg-white/18 px-4 py-3 text-sm font-medium text-white shadow-sm"
+              >
+                Save for later
+              </button>
 
               <button
                 type="button"
