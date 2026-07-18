@@ -16,12 +16,14 @@ type OfficeEnvironmentProps = {
   children: ReactNode;
   avatarStatus?: CompanionAvatarStatus;
   avatarExpression?: CompanionAvatarExpression;
+  onOfficeActivated?: () => void;
 };
 
 export default function OfficeEnvironment({
   children,
   avatarStatus = "idle",
   avatarExpression = "warm",
+  onOfficeActivated,
 }: OfficeEnvironmentProps) {
   const [officeActivated, setOfficeActivated] =
     useState(false);
@@ -32,6 +34,7 @@ export default function OfficeEnvironment({
     }
 
     setOfficeActivated(true);
+    onOfficeActivated?.();
   }
 
   return (
