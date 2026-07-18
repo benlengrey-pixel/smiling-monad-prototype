@@ -41,18 +41,18 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
-      {/* Poster behind Kimi: Circle of Support Centre */}
+      {/* Poster behind Kimi: Circle of Support Meeting Room */}
       <Link
         href="/circle"
-        aria-label="Open the Circle of Support Centre"
-        title="Circle of Support Centre"
+        aria-label="Enter the Circle of Support Meeting Room"
+        title="Circle of Support Meeting Room"
         className="
           group
           absolute
           right-[12%]
           top-[22%]
           z-30
-          h-[21%]
+          h-[25%]
           w-[25%]
           cursor-pointer
           rounded-[10px]
@@ -62,7 +62,7 @@ export default function OfficeEnvironment({
           focus-visible:ring-[rgba(255,248,230,0.8)]
           sm:right-[17%]
           sm:top-[20%]
-          sm:h-[25%]
+          sm:h-[30%]
           sm:w-[17%]
         "
       >
@@ -70,14 +70,19 @@ export default function OfficeEnvironment({
           className="
             pointer-events-none
             absolute
-            inset-0
+            inset-x-0
+            top-0
+            h-[76%]
             rounded-[10px]
             border
-            border-transparent
+            border-[rgba(255,248,230,0.18)]
+            bg-[rgba(255,248,230,0.025)]
             transition
-            group-hover:border-[rgba(255,248,230,0.8)]
+            group-hover:border-[rgba(255,248,230,0.82)]
             group-hover:bg-[rgba(255,248,230,0.08)]
             group-hover:shadow-[0_0_28px_rgba(255,244,215,0.45)]
+            group-focus-visible:border-[rgba(255,248,230,0.82)]
+            group-focus-visible:shadow-[0_0_28px_rgba(255,244,215,0.45)]
           "
         />
 
@@ -85,12 +90,44 @@ export default function OfficeEnvironment({
           className="
             pointer-events-none
             absolute
-            bottom-[-2.6rem]
+            bottom-0
+            left-1/2
+            w-[92%]
+            -translate-x-1/2
+            rounded-[12px]
+            border
+            border-[rgba(91,65,43,0.28)]
+            bg-[rgba(250,241,222,0.9)]
+            px-2
+            py-1.5
+            text-center
+            font-serif
+            text-[10px]
+            font-semibold
+            leading-tight
+            tracking-[0.08em]
+            text-[#60432f]
+            shadow-[0_6px_16px_rgba(65,45,30,0.16)]
+            backdrop-blur-sm
+            transition
+            group-hover:bg-[#fff8ed]
+            group-focus-visible:bg-[#fff8ed]
+            sm:text-xs
+          "
+        >
+          Circle of Support
+        </span>
+
+        <span
+          className="
+            pointer-events-none
+            absolute
+            bottom-[-2.9rem]
             left-1/2
             -translate-x-1/2
             whitespace-nowrap
             rounded-full
-            bg-[rgba(55,38,26,0.9)]
+            bg-[rgba(55,38,26,0.92)]
             px-4
             py-2
             text-xs
@@ -104,7 +141,7 @@ export default function OfficeEnvironment({
             group-focus-visible:opacity-100
           "
         >
-          Circle of Support Centre
+          Enter the meeting room
         </span>
       </Link>
 

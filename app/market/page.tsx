@@ -26,7 +26,6 @@ function MarketEntrance({
         group
         absolute
         z-20
-        rounded-[24px]
         outline-none
         transition
         focus-visible:ring-2
@@ -39,7 +38,6 @@ function MarketEntrance({
           pointer-events-none
           absolute
           inset-0
-          rounded-[24px]
           border
           border-white/0
           bg-white/0
@@ -94,7 +92,7 @@ export default function MarketPage() {
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#526644] text-[#3f3127]">
       <img
         src="/smiling-monad-community-market.png"
-        alt="The Smiling Monad courtyard with the Community Centre and Training Centre beside the waterfall"
+        alt="The Smiling Monad courtyard with the Community Centre on the left, the Wellbeing Centre beyond the waterfall and steps, and the Training Centre on the right"
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
 
@@ -140,14 +138,23 @@ export default function MarketPage() {
         label="Community Centre"
         description="People, circles, posts, events and community trading"
         className="
-          left-[2%]
-          top-[34%]
-          h-[47%]
-          w-[46%]
-          sm:left-[3%]
-          sm:top-[28%]
-          sm:h-[55%]
-          sm:w-[43%]
+          left-0
+          top-0
+          h-full
+          w-1/3
+        "
+      />
+
+      <MarketEntrance
+        href="/wellbeing"
+        ariaLabel="Enter the Smiling Monad Wellbeing Centre"
+        label="Wellbeing Centre"
+        description="Relaxation, meditation, yoga, music and gentle play"
+        className="
+          left-1/3
+          top-0
+          h-full
+          w-1/3
         "
       />
 
@@ -157,14 +164,10 @@ export default function MarketPage() {
         label="Training Centre"
         description="Learning, worker pathways, training packs and resources"
         className="
-          right-[2%]
-          top-[34%]
-          h-[47%]
-          w-[46%]
-          sm:right-[3%]
-          sm:top-[28%]
-          sm:h-[55%]
-          sm:w-[43%]
+          right-0
+          top-0
+          h-full
+          w-1/3
         "
       />
     </main>
