@@ -174,6 +174,45 @@ export default function SchoolPage() {
   const [workerPanel, setWorkerPanel] =
     useState<WorkerPanel>("overview");
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        window.location.search,
+      );
+
+    const panel = params.get("panel");
+    const workerPanelParam =
+      params.get("workerPanel");
+
+    if (panel === "worker-pathway") {
+      setWorkerOpen(true);
+    }
+
+    const validWorkerPanels: WorkerPanel[] = [
+      "overview",
+      "training",
+      "evidence",
+      "profile",
+      "review",
+    ];
+
+    if (
+      workerPanelParam &&
+      validWorkerPanels.includes(
+        workerPanelParam as WorkerPanel,
+      )
+    ) {
+      setWorkerOpen(true);
+      setWorkerPanel(
+        workerPanelParam as WorkerPanel,
+      );
+    }
+  }, []);
+
   const [activeApplicationId, setActiveApplicationId] =
     useState<string | null>(null);
 

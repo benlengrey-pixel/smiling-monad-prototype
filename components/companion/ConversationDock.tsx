@@ -24,6 +24,10 @@ type ConversationDockProps = {
   voiceMessage: string;
   expanded: boolean;
   attachments?: WorkspaceAttachment[];
+  pendingConfirmationCount?: number;
+  confirmationMessage?: string;
+  onConfirmActions?: () => void;
+  onCancelActions?: () => void;
   onExpandedChange: (expanded: boolean) => void;
   onRequestChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -60,6 +64,10 @@ export default function ConversationDock({
   voiceMessage,
   expanded,
   attachments = [],
+  pendingConfirmationCount = 0,
+  confirmationMessage = "",
+  onConfirmActions,
+  onCancelActions,
   onExpandedChange,
   onRequestChange,
   onSubmit,
@@ -84,6 +92,9 @@ export default function ConversationDock({
   const hasAttachments =
     attachments.length > 0;
 
+  const confirmationPending =
+    pendingConfirmationCount > 0;
+
   useEffect(() => {
     if (collapseTimerRef.current) {
       clearTimeout(collapseTimerRef.current);
@@ -93,6 +104,7 @@ export default function ConversationDock({
     if (
       listening ||
       working ||
+      confirmationPending ||
       request.trim().length > 0
     ) {
       onExpandedChange(true);
@@ -113,6 +125,7 @@ export default function ConversationDock({
       }
     };
   }, [
+    confirmationPending,
     expanded,
     listening,
     onExpandedChange,
@@ -291,6 +304,41 @@ export default function ConversationDock({
           <div className="border-b border-white/10 px-3 py-1 text-[10px] text-white/60">
             📎 {attachmentLabel}
           </div>
+        )}
+
+        {confirmationPending && (
+          <section className="border-b border-white/12 bg-[#5e3f2b]/45 px-3 py-3 sm:px-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+              Confirmation required
+            </p>
+
+            <p className="mt-1.5 text-[12px] leading-5 text-white/90">
+              {confirmationMessage ||
+                `${pendingConfirmationCount} consequential action${
+                  pendingConfirmationCount === 1 ? "" : "s"
+                } waiting for your approval.`}
+            </p>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onCancelActions}
+                disabled={!onCancelActions || working}
+                className="rounded-full border border-white/22 bg-white/10 px-3 py-2 text-[11px] font-medium text-white transition hover:bg-white/18 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={onConfirmActions}
+                disabled={!onConfirmActions || working}
+                className="rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-[#60432f] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Confirm
+              </button>
+            </div>
+          </section>
         )}
 
         {!expanded &&

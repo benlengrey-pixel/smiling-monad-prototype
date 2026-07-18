@@ -72,6 +72,8 @@ export type CompanionToolName =
   | "connections.work.add"
   | "school.lesson.add"
   | "shop.item.add"
+  | "app.navigate"
+  | "app.open"
   | "none";
 
 export type CompanionToolAction = {
@@ -92,13 +94,52 @@ export type CompanionDecision = {
   actions: CompanionToolAction[];
 };
 
+export type CompanionPermission =
+  | "navigate"
+  | "read"
+  | "create"
+  | "update"
+  | "publish"
+  | "delete"
+  | "manage-access"
+  | "financial";
+
+export type CompanionActionSafety =
+  | "safe"
+  | "confirmation-required"
+  | "blocked";
+
+export type CompanionExecutionContext = {
+  permissions?: CompanionPermission[];
+  confirmedActionKeys?: string[];
+  navigate?: (href: string) => void;
+};
+
+export type CompanionNavigationResult = {
+  destinationId: string;
+  href: string;
+};
+
 export type ToolExecutionResult = {
   state: CompanionState;
   completedActions: CompanionToolAction[];
+
+  /**
+   * Optional for compatibility with older gateway fallback results.
+   * The executor always supplies this field.
+   */
+  pendingConfirmationActions?: CompanionToolAction[];
+
   failedActions: Array<{
     action: CompanionToolAction;
     error: string;
   }>;
+
+  /**
+   * Optional for compatibility with older gateway fallback results.
+   * The executor always supplies this field.
+   */
+  navigation?: CompanionNavigationResult | null;
 };
 
 export const createEmptyCompanionState =
@@ -110,6 +151,198 @@ export const createEmptyCompanionState =
     activeDocumentId: null,
     workspaceOpen: false,
   });
+
+export type AppDestination = {
+  id: string;
+  href: string;
+  label: string;
+  permission: CompanionPermission;
+};
+
+export const APP_DESTINATIONS: readonly AppDestination[] = [
+  { id: "front-door", href: "/", label: "Front door", permission: "navigate" },
+  { id: "office", href: "/office", label: "Smiling Monad Space", permission: "navigate" },
+  { id: "market", href: "/market", label: "Community Market", permission: "navigate" },
+  { id: "community", href: "/community", label: "Community Centre", permission: "navigate" },
+  { id: "community-noticeboard", href: "/community?panel=noticeboard", label: "Community noticeboard", permission: "navigate" },
+  { id: "community-connections", href: "/community?panel=connections", label: "People and Circles", permission: "navigate" },
+  { id: "wellbeing", href: "/wellbeing", label: "Wellbeing Centre", permission: "navigate" },
+  { id: "wellbeing-relaxation", href: "/wellbeing?activity=relax", label: "Relaxation", permission: "navigate" },
+  { id: "wellbeing-meditation", href: "/wellbeing?activity=meditate", label: "Guided meditation", permission: "navigate" },
+  { id: "wellbeing-yoga", href: "/wellbeing?activity=yoga", label: "Yoga basics", permission: "navigate" },
+  { id: "wellbeing-cards", href: "/wellbeing?activity=cards", label: "Cards and gentle play", permission: "navigate" },
+  { id: "wellbeing-music", href: "/wellbeing?activity=music", label: "Music", permission: "navigate" },
+  { id: "training", href: "/school", label: "Training Centre", permission: "navigate" },
+  { id: "worker-training", href: "/school?panel=worker-pathway", label: "Worker training pathway", permission: "navigate" },
+  { id: "workers", href: "/school/workers", label: "Workers", permission: "navigate" },
+  { id: "circle", href: "/circle", label: "Circle of Support Centre", permission: "navigate" },
+  { id: "circle-overview", href: "/circle?panel=overview", label: "Circle overview", permission: "navigate" },
+  { id: "circle-person", href: "/circle?panel=person", label: "Person profile", permission: "navigate" },
+  { id: "circle-members", href: "/circle?panel=members", label: "Circle members", permission: "navigate" },
+  { id: "circle-goals", href: "/circle?panel=goals", label: "Circle goals", permission: "navigate" },
+  { id: "circle-documents", href: "/circle?panel=documents", label: "Circle documents", permission: "navigate" },
+  { id: "circle-meetings", href: "/circle?panel=meetings", label: "Circle meetings", permission: "navigate" },
+  { id: "circle-responsibilities", href: "/circle?panel=responsibilities", label: "Circle responsibilities", permission: "navigate" },
+  { id: "circle-budget", href: "/circle?panel=budget", label: "Circle budget and funding", permission: "navigate" },
+  { id: "circle-training", href: "/circle?panel=training", label: "Circle training", permission: "navigate" },
+  { id: "profiles", href: "/profiles", label: "Profiles", permission: "navigate" },
+  { id: "connections", href: "/connections", label: "Connections", permission: "navigate" },
+  { id: "project", href: "/project", label: "Projects", permission: "navigate" },
+  { id: "workspace", href: "/workspace", label: "Workspace", permission: "navigate" },
+  { id: "notes", href: "/notes", label: "Notes", permission: "navigate" },
+  { id: "timeline", href: "/timeline", label: "Timeline", permission: "navigate" },
+  { id: "sign-in", href: "/sign-in", label: "Sign in", permission: "navigate" },
+] as const;
+
+const DEFAULT_COMPANION_PERMISSIONS: CompanionPermission[] = [
+  "navigate",
+  "read",
+  "create",
+  "update",
+  "publish",
+  "delete",
+  "manage-access",
+  "financial",
+];
+
+export const getCompanionActionKey = (
+  action: CompanionToolAction,
+): string =>
+  [
+    action.tool,
+    action.targetId ?? "",
+    action.title ?? "",
+    action.content ?? "",
+  ].join("|");
+
+const getRequiredPermission = (
+  action: CompanionToolAction,
+): CompanionPermission => {
+  if (
+    action.tool === "app.navigate" ||
+    action.tool === "app.open"
+  ) {
+    return "navigate";
+  }
+
+  if (
+    action.tool.endsWith(".remove") ||
+    action.tool.endsWith(".archive")
+  ) {
+    return "delete";
+  }
+
+  if (
+    action.tool === "community.post.add" &&
+    action.content?.includes('"status":"submitted"')
+  ) {
+    return "publish";
+  }
+
+  if (
+    action.tool.includes("responsibility") ||
+    action.tool.includes("meeting") ||
+    action.tool.includes("member")
+  ) {
+    return "manage-access";
+  }
+
+  if (
+    action.tool.endsWith(".add") ||
+    action.tool.endsWith(".create")
+  ) {
+    return "create";
+  }
+
+  if (
+    action.tool.endsWith(".update") ||
+    action.tool.endsWith(".complete")
+  ) {
+    return "update";
+  }
+
+  return "read";
+};
+
+export const getCompanionActionSafety = (
+  action: CompanionToolAction,
+): CompanionActionSafety => {
+  if (action.tool === "none") {
+    return "safe";
+  }
+
+  if (
+    action.tool === "app.navigate" ||
+    action.tool === "app.open" ||
+    action.tool === "desk.open" ||
+    action.tool === "desk.close" ||
+    action.tool === "workspace.open" ||
+    action.tool === "workspace.close"
+  ) {
+    return "safe";
+  }
+
+  if (
+    action.tool.endsWith(".remove") ||
+    action.tool.endsWith(".archive") ||
+    action.tool === "community.post.add" &&
+      action.content?.includes('"status":"submitted"') ||
+    action.tool === "circle.member.add" ||
+    action.tool === "circle.responsibility.add"
+  ) {
+    return "confirmation-required";
+  }
+
+  return "safe";
+};
+
+const resolveDestination = (
+  action: CompanionToolAction,
+): AppDestination => {
+  const content =
+    action.content?.trim()
+      ? requireContentObject(action)
+      : {};
+
+  const destinationId =
+    readString(content.destinationId) ||
+    action.targetId?.trim() ||
+    "";
+
+  const explicitHref =
+    readString(content.href);
+
+  if (explicitHref) {
+    if (!explicitHref.startsWith("/")) {
+      throw new Error(
+        "App navigation must use an internal route.",
+      );
+    }
+
+    return {
+      id: destinationId || explicitHref,
+      href: explicitHref,
+      label:
+        action.title?.trim() ||
+        destinationId ||
+        explicitHref,
+      permission: "navigate",
+    };
+  }
+
+  const destination =
+    APP_DESTINATIONS.find(
+      (item) => item.id === destinationId,
+    );
+
+  if (!destination) {
+    throw new Error(
+      `Unknown app destination "${destinationId}".`,
+    );
+  }
+
+  return destination;
+};
 
 const createId = (
   prefix: string,
@@ -1562,6 +1795,11 @@ const executeAction = (
       return nextState;
     }
 
+    case "app.navigate":
+    case "app.open": {
+      return nextState;
+    }
+
     case "none":
       return nextState;
 
@@ -1576,11 +1814,23 @@ const executeAction = (
 export const executeCompanionActions = (
   currentState: CompanionState,
   actions: CompanionToolAction[],
+  context: CompanionExecutionContext = {},
 ): ToolExecutionResult => {
-  let nextState =
-    copyState(currentState);
+  let nextState = copyState(currentState);
+
+  const permissions =
+    context.permissions ??
+    DEFAULT_COMPANION_PERMISSIONS;
+
+  const confirmedActionKeys =
+    new Set(
+      context.confirmedActionKeys ?? [],
+    );
 
   const completedActions:
+    CompanionToolAction[] = [];
+
+  const pendingConfirmationActions:
     CompanionToolAction[] = [];
 
   const failedActions: Array<{
@@ -1588,8 +1838,78 @@ export const executeCompanionActions = (
     error: string;
   }> = [];
 
+  let navigation:
+    CompanionNavigationResult | null =
+    null;
+
   for (const action of actions) {
     try {
+      const requiredPermission =
+        getRequiredPermission(action);
+
+      if (
+        !permissions.includes(
+          requiredPermission,
+        )
+      ) {
+        throw new Error(
+          `Permission "${requiredPermission}" is required for ${action.tool}.`,
+        );
+      }
+
+      const safety =
+        getCompanionActionSafety(action);
+
+      if (safety === "blocked") {
+        throw new Error(
+          `${action.tool} is blocked by the application safety policy.`,
+        );
+      }
+
+      const actionKey =
+        getCompanionActionKey(action);
+
+      if (
+        safety ===
+          "confirmation-required" &&
+        !confirmedActionKeys.has(actionKey)
+      ) {
+        pendingConfirmationActions.push(
+          action,
+        );
+        continue;
+      }
+
+      if (
+        action.tool === "app.navigate" ||
+        action.tool === "app.open"
+      ) {
+        const destination =
+          resolveDestination(action);
+
+        navigation = {
+          destinationId: destination.id,
+          href: destination.href,
+        };
+
+        const navigate =
+          context.navigate ??
+          ((href: string) => {
+            if (
+              typeof window !==
+              "undefined"
+            ) {
+              window.location.assign(
+                href,
+              );
+            }
+          });
+
+        navigate(destination.href);
+        completedActions.push(action);
+        continue;
+      }
+
       nextState = executeAction(
         nextState,
         action,
@@ -1604,14 +1924,14 @@ export const executeCompanionActions = (
             ? error.message
             : "The action could not be completed.",
       });
-
-      break;
     }
   }
 
   return {
     state: nextState,
     completedActions,
+    pendingConfirmationActions,
     failedActions,
+    navigation,
   };
 };

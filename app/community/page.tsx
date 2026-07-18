@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -53,6 +54,12 @@ function getTypeLabel(
 }
 
 export default function CommunityPage() {
+  const connectionsSectionRef =
+    useRef<HTMLElement>(null);
+
+  const noticeboardSectionRef =
+    useRef<HTMLElement>(null);
+
   const [posts, setPosts] =
     useState<CommunityPost[]>([]);
 
@@ -72,6 +79,33 @@ export default function CommunityPage() {
     useState<CommunityPostType>(
       "announcement",
     );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const panel =
+      new URLSearchParams(
+        window.location.search,
+      ).get("panel");
+
+    window.setTimeout(() => {
+      if (panel === "connections") {
+        connectionsSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+
+      if (panel === "noticeboard") {
+        noticeboardSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 50);
+  }, []);
 
   useEffect(() => {
     const state =
@@ -168,7 +202,10 @@ export default function CommunityPage() {
       </header>
 
 
-        <section className="mx-auto mt-6 grid w-full max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section
+          ref={connectionsSectionRef}
+          className="mx-auto mt-6 grid w-full max-w-6xl scroll-mt-6 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           <Link
             href="/connections"
             className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
@@ -219,7 +256,10 @@ export default function CommunityPage() {
         </section>
 
 
-      <section className="mx-auto mt-8 grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_20rem]">
+      <section
+        ref={noticeboardSectionRef}
+        className="mx-auto mt-8 grid w-full max-w-6xl scroll-mt-6 gap-6 lg:grid-cols-[1fr_20rem]"
+      >
         <div className="rounded-[30px] border border-white/70 bg-white/60 p-5 shadow-[0_22px_65px_rgba(74,55,36,0.12)] backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>

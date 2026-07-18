@@ -263,6 +263,40 @@ export default function CirclePage() {
       null,
     );
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const panel =
+      new URLSearchParams(
+        window.location.search,
+      ).get("panel");
+
+    const validPanels: ActivePanel[] = [
+      "overview",
+      "person",
+      "members",
+      "goals",
+      "documents",
+      "meetings",
+      "responsibilities",
+      "budget",
+      "training",
+    ];
+
+    if (
+      panel &&
+      validPanels.includes(
+        panel as ActivePanel,
+      )
+    ) {
+      setActivePanel(
+        panel as ActivePanel,
+      );
+    }
+  }, []);
+
   const [
     activeTrainingModule,
     setActiveTrainingModule,

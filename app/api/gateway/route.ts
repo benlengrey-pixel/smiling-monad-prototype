@@ -68,6 +68,8 @@ type CompanionToolName =
   | "connections.work.add"
   | "school.lesson.add"
   | "shop.item.add"
+  | "app.navigate"
+  | "app.open"
   | "none";
 
 type CompanionToolAction = {
@@ -156,6 +158,8 @@ const companionDecisionSchema = {
               "connections.work.add",
               "school.lesson.add",
               "shop.item.add",
+              "app.navigate",
+              "app.open",
               "none",
             ],
           },
@@ -177,7 +181,7 @@ const companionDecisionSchema = {
           content: {
             type: ["string", "null"],
             description:
-              "For document actions, the complete document text. For Circle, Community, Connections, School and Shop actions, a valid JSON object encoded as a string using the exact fields described in the platform tool rules. Use null when irrelevant.",
+              "For document actions, the complete document text. For Circle, Community, Connections, School and Shop actions, a valid JSON object encoded as a string. For app.navigate and app.open, use a JSON object containing destinationId and optionally href. Use null when irrelevant.",
           },
           reason: {
             type: "string",
@@ -403,6 +407,191 @@ task.complete
 task.remove
 - Remove a completed temporary task when it no longer needs to remain active.
 
+
+APP-WIDE NAVIGATION AUTHORITY
+
+Kimi may navigate directly to any registered internal destination when doing so
+helps complete the user's request or avoids unnecessary manual input.
+
+Navigation is an ordinary safe action. It does not require confirmation.
+
+Use app.navigate when moving the user to another page or section.
+Use app.open when opening a specific app area, panel or activity.
+
+For both tools:
+
+- targetId must be one exact destination ID from the registry below;
+- title should be the human-readable destination label;
+- kind must be null;
+- content must be a JSON object encoded as a string:
+  {
+    "destinationId": "exact-destination-id"
+  }
+- reason must explain why the destination supports the user's request;
+- do not invent routes or destination IDs;
+- do not ask the user to click through menus when a registered destination can
+  be opened directly;
+- navigation may be combined with safe creation, update, workspace or desk
+  actions when the user's request requires both;
+- navigation never bypasses permissions, validation or confirmation rules.
+
+REGISTERED APP DESTINATIONS
+
+front-door
+- Front door
+- /
+
+office
+- Smiling Monad Space
+- /office
+
+market
+- Community Market
+- /market
+
+community
+- Community Centre
+- /community
+
+community-noticeboard
+- Community noticeboard
+- /community?panel=noticeboard
+
+community-connections
+- People and Circles
+- /community?panel=connections
+
+wellbeing
+- Wellbeing Centre
+- /wellbeing
+
+wellbeing-relaxation
+- Relaxation
+- /wellbeing?activity=relax
+
+wellbeing-meditation
+- Guided meditation
+- /wellbeing?activity=meditate
+
+wellbeing-yoga
+- Yoga basics
+- /wellbeing?activity=yoga
+
+wellbeing-cards
+- Cards and gentle play
+- /wellbeing?activity=cards
+
+wellbeing-music
+- Music
+- /wellbeing?activity=music
+
+training
+- Training Centre
+- /school
+
+worker-training
+- Worker training pathway
+- /school?panel=worker-pathway
+
+workers
+- Workers
+- /school/workers
+
+circle
+- Circle of Support Centre
+- /circle
+
+circle-overview
+- Circle overview
+- /circle?panel=overview
+
+circle-person
+- Person profile
+- /circle?panel=person
+
+circle-members
+- Circle members
+- /circle?panel=members
+
+circle-goals
+- Circle goals
+- /circle?panel=goals
+
+circle-documents
+- Circle documents
+- /circle?panel=documents
+
+circle-meetings
+- Circle meetings
+- /circle?panel=meetings
+
+circle-responsibilities
+- Circle responsibilities
+- /circle?panel=responsibilities
+
+circle-budget
+- Circle budget and funding
+- /circle?panel=budget
+
+circle-training
+- Circle training
+- /circle?panel=training
+
+profiles
+- Profiles
+- /profiles
+
+connections
+- Connections
+- /connections
+
+project
+- Projects
+- /project
+
+workspace
+- Workspace
+- /workspace
+
+notes
+- Notes
+- /notes
+
+timeline
+- Timeline
+- /timeline
+
+sign-in
+- Sign in
+- /sign-in
+
+NAVIGATION EXAMPLES
+
+User:
+"Take me to the Circle budget."
+
+Action:
+{
+  "tool": "app.navigate",
+  "targetId": "circle-budget",
+  "title": "Circle budget and funding",
+  "kind": null,
+  "content": "{\"destinationId\":\"circle-budget\"}",
+  "reason": "The user asked to open the Circle budget directly."
+}
+
+User:
+"Open a five-minute meditation."
+
+Action:
+{
+  "tool": "app.open",
+  "targetId": "wellbeing-meditation",
+  "title": "Guided meditation",
+  "kind": null,
+  "content": "{\"destinationId\":\"wellbeing-meditation\"}",
+  "reason": "The user asked to open guided meditation directly."
+}
 
 PLATFORM ACTION FORMAT
 
@@ -638,6 +827,7 @@ CONFIRMATION RULES
 
 These ordinary application actions do not require confirmation:
 
+- navigating to or opening any registered internal app destination;
 - opening or closing a desk object;
 - adding or removing a temporary desk object;
 - opening, closing or clearing the temporary workspace;
@@ -896,6 +1086,14 @@ export async function POST(
         matchingTitlesLinkNewDocumentsAndDeskObjects:
           true,
         deskRemovalDoesNotArchiveDocument:
+          true,
+        kimiChoosesAppDestinations:
+          true,
+        navigationUsesRegisteredInternalRoutes:
+          true,
+        navigationDoesNotRequireConfirmation:
+          true,
+        consequentialActionsRequireAppConfirmation:
           true,
       },
     };

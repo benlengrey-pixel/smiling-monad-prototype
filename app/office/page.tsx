@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   createCircleMemoryPrompt,
@@ -370,6 +371,8 @@ function getPreviewPlainText(
 }
 
 export default function OfficePage() {
+  const router = useRouter();
+
   const textInputRef =
     useRef<HTMLInputElement>(null);
 
@@ -648,6 +651,14 @@ export default function OfficePage() {
 
       setAvatarStatus("idle");
       speakCompanionResponse(companionReply);
+
+      const navigation =
+        result.execution.navigation;
+
+      if (navigation?.href) {
+        router.push(navigation.href);
+        return;
+      }
 
       const deskChanged =
         JSON.stringify(

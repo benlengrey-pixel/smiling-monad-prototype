@@ -234,6 +234,36 @@ export default function WellbeingPage() {
   const [activeActivity, setActiveActivity] =
     useState<WellbeingActivity | null>(null);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const activity =
+      new URLSearchParams(
+        window.location.search,
+      ).get("activity");
+
+    const validActivities: WellbeingActivity[] = [
+      "relax",
+      "meditate",
+      "yoga",
+      "cards",
+      "music",
+    ];
+
+    if (
+      activity &&
+      validActivities.includes(
+        activity as WellbeingActivity,
+      )
+    ) {
+      setActiveActivity(
+        activity as WellbeingActivity,
+      );
+    }
+  }, []);
+
   const [breathingActive, setBreathingActive] =
     useState(false);
 

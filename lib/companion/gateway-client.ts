@@ -1,6 +1,8 @@
 import {
   executeCompanionActions,
   type CompanionDecision,
+  type CompanionExecutionContext,
+  type CompanionPermission,
   type CompanionState,
   type ToolExecutionResult,
 } from "@/lib/companion/tool-executor";
@@ -15,6 +17,7 @@ export type CompanionGatewayRequest = {
   memory?: string;
   conversation?: CompanionConversationMessage[];
   state: CompanionState;
+  confirmedActionKeys?: string[];
 };
 
 type CompanionGatewayErrorResponse = {
@@ -25,6 +28,17 @@ export type CompanionGatewayResult = {
   decision: CompanionDecision;
   execution: ToolExecutionResult;
 };
+
+const OFFICE_COMPANION_PERMISSIONS: CompanionPermission[] = [
+  "navigate",
+  "read",
+  "create",
+  "update",
+  "publish",
+  "delete",
+  "manage-access",
+  "financial",
+];
 
 const isRecord = (
   value: unknown,
@@ -150,23 +164,33 @@ export const runCompanionTurn = async (
     signal,
   );
 
-  if (
-    decision.needsClarification ||
-    decision.requiresConfirmation
-  ) {
+  if (decision.needsClarification) {
     return {
       decision,
       execution: {
         state: input.state,
         completedActions: [],
+        pendingConfirmationActions: [],
         failedActions: [],
+        navigation: null,
       },
     };
   }
 
+  const executionContext: CompanionExecutionContext = {
+    permissions: OFFICE_COMPANION_PERMISSIONS,
+    confirmedActionKeys:
+      input.confirmedActionKeys ?? [],
+
+    // Navigation is returned as execution metadata.
+    // The Office performs the visual route change with Next.js.
+    navigate: () => undefined,
+  };
+
   const execution = executeCompanionActions(
     input.state,
     decision.actions,
+    executionContext,
   );
 
   return {
@@ -187,7 +211,11 @@ export const getCompanionReply = (
     return decision.clarificationQuestion;
   }
 
-  if (decision.requiresConfirmation) {
+  const pendingConfirmationCount =
+    execution.pendingConfirmationActions?.length ??
+    0;
+
+  if (pendingConfirmationCount > 0) {
     return decision.message;
   }
 
