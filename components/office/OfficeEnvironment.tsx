@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useState } from "react";
 
+import CompanionPresence from "@/components/companion/CompanionPresence";
 import OfficeBackground from "./OfficeBackground";
 import OfficeBackButton from "./OfficeBackButton";
 
@@ -18,7 +19,9 @@ export default function OfficeEnvironment({
     useState(false);
 
   function activateOffice() {
-    if (officeActivated) return;
+    if (officeActivated) {
+      return;
+    }
 
     setOfficeActivated(true);
   }
@@ -163,40 +166,9 @@ export default function OfficeEnvironment({
         </span>
       </Link>
 
-      {/* Kimi activates the Office */}
-      <button
-        type="button"
-        onClick={activateOffice}
-        aria-label={
-          officeActivated
-            ? "The Office is active"
-            : "Activate the Office with Kimi"
-        }
-        title={
-          officeActivated
-            ? "Office active"
-            : "Kimi"
-        }
-        className="
-          absolute
-          left-[46%]
-          top-[39%]
-          z-20
-          h-[31%]
-          w-[43%]
-          cursor-pointer
-          rounded-t-[48%]
-          rounded-b-[28px]
-          border-0
-          bg-transparent
-          outline-none
-          focus-visible:ring-4
-          focus-visible:ring-[rgba(255,244,218,0.75)]
-          sm:left-[43%]
-          sm:top-[35%]
-          sm:h-[40%]
-          sm:w-[29%]
-        "
+      <CompanionPresence
+        active={officeActivated}
+        onActivate={activateOffice}
       />
 
       <OfficeBackButton />
