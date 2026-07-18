@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  addShopItem,
+  readSmilingMonadState,
+  subscribeToSmilingMonadState,
+  type ShopItem,
+} from "@/lib/platform/smiling-monad-state";
 
 type ShopArea =
   | "resources"
@@ -86,13 +97,140 @@ const shopAreas: Record<
   },
 };
 
+function formatPrice(
+  priceInCents: number | null,
+): string {
+  if (priceInCents === null) {
+    return "Price not set";
+  }
+
+  return new Intl.NumberFormat(
+    "en-AU",
+    {
+      style: "currency",
+      currency: "AUD",
+    },
+  ).format(priceInCents / 100);
+}
+
 export default function ShopPage() {
   const [activeArea, setActiveArea] =
     useState<ShopArea | null>(null);
 
+  const [items, setItems] =
+    useState<ShopItem[]>([]);
+
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [composerOpen, setComposerOpen] =
+    useState(false);
+
+  const [itemArea, setItemArea] =
+    useState<ShopArea>("resources");
+
+  const [itemTitle, setItemTitle] =
+    useState("");
+
+  const [itemDescription, setItemDescription] =
+    useState("");
+
+  const [itemPrice, setItemPrice] =
+    useState("");
+
+  useEffect(() => {
+    const state =
+      readSmilingMonadState();
+
+    setItems(state.shopItems);
+    setLoaded(true);
+
+    return subscribeToSmilingMonadState(
+      (nextState) => {
+        setItems(nextState.shopItems);
+      },
+    );
+  }, []);
+
+  const publishedItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.status === "published",
+      ),
+    [items],
+  );
+
+  const reviewItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.status === "review",
+      ),
+    [items],
+  );
+
+  const draftItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.status === "draft",
+      ),
+    [items],
+  );
+
   const selectedArea = activeArea
     ? shopAreas[activeArea]
     : null;
+
+  const selectedPublishedItems =
+    useMemo(
+      () =>
+        activeArea
+          ? publishedItems.filter(
+              (item) =>
+                item.area === activeArea,
+            )
+          : [],
+      [activeArea, publishedItems],
+    );
+
+  function saveItemForReview() {
+    const title = itemTitle.trim();
+    const description =
+      itemDescription.trim();
+
+    if (!title || !description) {
+      return;
+    }
+
+    const parsedPrice =
+      itemPrice.trim() === ""
+        ? null
+        : Number.parseFloat(
+            itemPrice,
+          );
+
+    addShopItem({
+      area: itemArea,
+      title,
+      description,
+      priceInCents:
+        parsedPrice === null ||
+        Number.isNaN(parsedPrice)
+          ? null
+          : Math.round(
+              parsedPrice * 100,
+            ),
+      status: "review",
+    });
+
+    setItemArea("resources");
+    setItemTitle("");
+    setItemDescription("");
+    setItemPrice("");
+    setComposerOpen(false);
+  }
 
   return (
     <main className="min-h-[100svh] bg-[linear-gradient(180deg,#edf1e7_0%,#f8f1e5_52%,#ead6bc_100%)] px-4 pb-14 pt-5 text-[#40352c] sm:px-8 sm:pt-8">
@@ -136,6 +274,16 @@ export default function ShopPage() {
             focus is on saving time and reducing
             unnecessary administration.
           </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              setComposerOpen(true)
+            }
+            className="mt-6 rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+          >
+            Prepare a shop item
+          </button>
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -172,29 +320,44 @@ export default function ShopPage() {
           ))}
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
           <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
             <p className="font-serif text-2xl">
-              Buy only what is useful
+              Published
             </p>
 
             <p className="mt-3 leading-7 text-[#6c5e51]">
-              The Shop should not create dependency or
-              lock people into unnecessary subscriptions.
-              Resources should solve clear problems and
-              remain useful after purchase.
+              {loaded
+                ? `${publishedItems.length} item${publishedItems.length === 1 ? "" : "s"} available.`
+                : "Loading shop items…"}
             </p>
           </section>
 
           <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
             <p className="font-serif text-2xl">
-              Kimi can help you choose
+              Awaiting review
             </p>
 
             <p className="mt-3 leading-7 text-[#6c5e51]">
-              Kimi can explain products, help users
-              compare options and identify what may be
-              useful without pressuring anyone to buy.
+              {reviewItems.length} item
+              {reviewItems.length === 1
+                ? ""
+                : "s"}{" "}
+              waiting to be checked.
+            </p>
+          </section>
+
+          <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
+            <p className="font-serif text-2xl">
+              Drafts
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              {draftItems.length} item
+              {draftItems.length === 1
+                ? ""
+                : "s"}{" "}
+              being prepared.
             </p>
           </section>
         </div>
@@ -202,7 +365,7 @@ export default function ShopPage() {
 
       {selectedArea && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
-          <section className="relative w-full max-w-xl rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
+          <section className="relative max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
             <button
               type="button"
               onClick={() =>
@@ -229,21 +392,59 @@ export default function ShopPage() {
             <div className="mt-6 space-y-3">
               {selectedArea.products.map(
                 (product) => (
-                  <button
+                  <div
                     key={product}
-                    type="button"
-                    className="block w-full rounded-[16px] border border-[#dfd1bf] bg-[#f6eee2] px-4 py-3 text-left transition hover:bg-white"
+                    className="block w-full rounded-[16px] border border-[#dfd1bf] bg-[#f6eee2] px-4 py-3 text-left"
                   >
                     {product}
-                  </button>
+                  </div>
                 ),
               )}
             </div>
 
+            {selectedPublishedItems.length > 0 && (
+              <div className="mt-7">
+                <p className="font-serif text-2xl">
+                  Available items
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  {selectedPublishedItems.map(
+                    (item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-[18px] border border-[#dfd1bf] bg-white p-5"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-serif text-xl">
+                              {item.title}
+                            </p>
+
+                            <p className="mt-2 leading-7 text-[#6c5e51]">
+                              {item.description}
+                            </p>
+                          </div>
+
+                          <span className="shrink-0 rounded-full bg-[#efe3d2] px-3 py-1 text-sm text-[#60432f]">
+                            {formatPrice(
+                              item.priceInCents,
+                            )}
+                          </span>
+                        </div>
+                      </article>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+
             <p className="mt-6 rounded-[16px] border border-[#d9c9b5] bg-[#efe3d3] px-4 py-3 text-sm leading-6 text-[#6b5c4f]">
-              Product pages, pricing and checkout will
-              be connected later. This page establishes
-              the permanent Shop structure first.
+              Purchasing and checkout are not connected
+              yet. Kimi can prepare and explain items,
+              but cannot publish, purchase or take
+              payment without confirmation and the
+              appropriate secure tools.
             </p>
 
             <button
@@ -254,6 +455,115 @@ export default function ShopPage() {
               className="mt-7 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728]"
             >
               Return to the Shop
+            </button>
+          </section>
+        </div>
+      )}
+
+      {composerOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
+          <section className="relative max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
+            <button
+              type="button"
+              onClick={() =>
+                setComposerOpen(false)
+              }
+              aria-label="Close shop item form"
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#eee2d2] text-xl transition hover:bg-[#e4d4bf]"
+            >
+              ×
+            </button>
+
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#846e58]">
+              Shop content
+            </p>
+
+            <h2 className="mt-3 pr-12 font-serif text-3xl">
+              Prepare a shop item
+            </h2>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              New items are saved for review before
+              they become publicly available.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <select
+                value={itemArea}
+                onChange={(event) =>
+                  setItemArea(
+                    event.target
+                      .value as ShopArea,
+                  )
+                }
+                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              >
+                {(
+                  Object.entries(
+                    shopAreas,
+                  ) as Array<
+                    [
+                      ShopArea,
+                      ShopAreaDetails,
+                    ]
+                  >
+                ).map(([value, area]) => (
+                  <option
+                    key={value}
+                    value={value}
+                  >
+                    {area.title}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                value={itemTitle}
+                onChange={(event) =>
+                  setItemTitle(
+                    event.target.value,
+                  )
+                }
+                placeholder="Item title"
+                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+
+              <textarea
+                value={itemDescription}
+                onChange={(event) =>
+                  setItemDescription(
+                    event.target.value,
+                  )
+                }
+                placeholder="Item description"
+                className="min-h-36 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={itemPrice}
+                onChange={(event) =>
+                  setItemPrice(
+                    event.target.value,
+                  )
+                }
+                placeholder="Price in AUD, optional"
+                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={saveItemForReview}
+              disabled={
+                !itemTitle.trim() ||
+                !itemDescription.trim()
+              }
+              className="mt-6 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save item for review
             </button>
           </section>
         </div>
