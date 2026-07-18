@@ -38,7 +38,11 @@ import {
   subscribeToCompanionSpeechStatus,
 } from "@/lib/companion/speech-client";
 import {
+  executeCompanionActions,
+  getCompanionActionKey,
+  type CompanionPermission,
   type CompanionState,
+  type CompanionToolAction,
   createEmptyCompanionState,
   type DeskObject,
   type WorkspaceDocument,
@@ -59,6 +63,17 @@ type InteractionMode = "voice" | "text";
 
 const COMPANION_STATE_STORAGE_KEY =
   "smiling-monad-companion-state-v1";
+
+const OFFICE_COMPANION_PERMISSIONS: CompanionPermission[] = [
+  "navigate",
+  "read",
+  "create",
+  "update",
+  "publish",
+  "delete",
+  "manage-access",
+  "financial",
+];
 
 function getAttachmentKind(
   file: File,
@@ -445,6 +460,16 @@ export default function OfficePage() {
     createEmptyCompanionState,
   );
 
+  const [
+    pendingConfirmationActions,
+    setPendingConfirmationActions,
+  ] = useState<CompanionToolAction[]>([]);
+
+  const [
+    confirmationMessage,
+    setConfirmationMessage,
+  ] = useState("");
+
   const liveAvatarSession =
     useLiveAvatarSession();
 
@@ -603,6 +628,9 @@ export default function OfficePage() {
 
     stopCompanionSpeech();
 
+    setPendingConfirmationActions([]);
+    setConfirmationMessage("");
+
     const rememberedConversation =
       readConversationMemory();
 
@@ -651,6 +679,20 @@ export default function OfficePage() {
 
       setAvatarStatus("idle");
       speakCompanionResponse(companionReply);
+
+      const pendingActions =
+        result.execution
+          .pendingConfirmationActions ?? [];
+
+      if (pendingActions.length > 0) {
+        setPendingConfirmationActions(
+          pendingActions,
+        );
+        setConfirmationMessage(
+          companionReply,
+        );
+        setConversationExpanded(true);
+      }
 
       const navigation =
         result.execution.navigation;
@@ -722,6 +764,89 @@ export default function OfficePage() {
     } finally {
       setWorking(false);
     }
+  }
+
+  function confirmPendingActions() {
+    if (
+      pendingConfirmationActions.length === 0 ||
+      working
+    ) {
+      return;
+    }
+
+    setWorking(true);
+    setAvatarStatus("thinking");
+
+    try {
+      const confirmedActionKeys =
+        pendingConfirmationActions.map(
+          getCompanionActionKey,
+        );
+
+      const execution =
+        executeCompanionActions(
+          companionState,
+          pendingConfirmationActions,
+          {
+            permissions:
+              OFFICE_COMPANION_PERMISSIONS,
+            confirmedActionKeys,
+            navigate: () => undefined,
+          },
+        );
+
+      setCompanionState(execution.state);
+      setPendingConfirmationActions([]);
+      setConfirmationMessage("");
+
+      if (execution.navigation?.href) {
+        addMessage(
+          "Kimi",
+          "Confirmed. I’m opening that now.",
+        );
+        router.push(
+          execution.navigation.href,
+        );
+        return;
+      }
+
+      if (execution.failedActions.length > 0) {
+        addMessage(
+          "Kimi",
+          execution.failedActions[0]?.error ||
+            "I could not complete the confirmed action.",
+        );
+        setAvatarStatus("error");
+        return;
+      }
+
+      addMessage(
+        "Kimi",
+        "Confirmed. The action has been completed.",
+      );
+      setAvatarStatus("idle");
+      setConversationExpanded(true);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function cancelPendingActions() {
+    if (
+      pendingConfirmationActions.length === 0
+    ) {
+      return;
+    }
+
+    setPendingConfirmationActions([]);
+    setConfirmationMessage("");
+    setAvatarStatus("idle");
+    setConversationExpanded(true);
+
+    addMessage(
+      "Kimi",
+      "Cancelled. I have not carried out that action.",
+    );
   }
 
   function submitText(
@@ -1162,6 +1287,18 @@ export default function OfficePage() {
         voiceMessage={voiceMessage}
         expanded={conversationExpanded}
         attachments={attachments}
+        pendingConfirmationCount={
+          pendingConfirmationActions.length
+        }
+        confirmationMessage={
+          confirmationMessage
+        }
+        onConfirmActions={
+          confirmPendingActions
+        }
+        onCancelActions={
+          cancelPendingActions
+        }
         onExpandedChange={
           setConversationExpanded
         }
