@@ -26,6 +26,10 @@ import {
   runCompanionTurn,
   type CompanionConversationMessage,
 } from "@/lib/companion/gateway-client";
+import type {
+  CompanionAvatarExpression,
+  CompanionAvatarStatus,
+} from "@/lib/companion/avatar/types";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
 import {
   type CompanionState,
@@ -378,6 +382,26 @@ export default function OfficePage() {
   const [working, setWorking] =
     useState(false);
 
+  const [avatarStatus, setAvatarStatus] =
+    useState<CompanionAvatarStatus>("idle");
+
+  const avatarExpression =
+    useMemo<CompanionAvatarExpression>(() => {
+      if (avatarStatus === "error") {
+        return "concerned";
+      }
+
+      if (avatarStatus === "thinking") {
+        return "focused";
+      }
+
+      if (avatarStatus === "listening") {
+        return "encouraging";
+      }
+
+      return "warm";
+    }, [avatarStatus]);
+
   const [voiceMessage, setVoiceMessage] =
     useState("");
 
@@ -549,6 +573,7 @@ export default function OfficePage() {
     setRequest("");
     setVoiceMessage("");
     setListening(false);
+    setAvatarStatus("thinking");
     setWorking(true);
 
     try {
@@ -575,6 +600,8 @@ export default function OfficePage() {
         "Kimi",
         getCompanionReply(result),
       );
+
+      setAvatarStatus("idle");
 
       const deskChanged =
         JSON.stringify(
@@ -627,6 +654,8 @@ export default function OfficePage() {
         setConversationExpanded(false);
       }
     } catch (caughtError) {
+      setAvatarStatus("error");
+
       addMessage(
         "Kimi",
         caughtError instanceof Error
@@ -648,6 +677,7 @@ export default function OfficePage() {
   function chooseText() {
     setInteractionMode("text");
     setVoiceMessage("");
+    setAvatarStatus("idle");
     setConversationExpanded(true);
 
     window.setTimeout(() => {
@@ -678,6 +708,8 @@ export default function OfficePage() {
     setVoiceMessage("");
 
     if (!isCompanionVoiceAvailable()) {
+      setAvatarStatus("error");
+
       setVoiceMessage(
         "Voice is not available in this browser. Use the keyboard button.",
       );
@@ -685,6 +717,7 @@ export default function OfficePage() {
     }
 
     setListening(true);
+    setAvatarStatus("listening");
     setVoiceMessage("Listening…");
 
     startCompanionVoiceRecognition({
@@ -698,6 +731,7 @@ export default function OfficePage() {
 
       onError: () => {
         setListening(false);
+        setAvatarStatus("error");
 
         setVoiceMessage(
           "I could not hear that. Press the microphone and try again.",
@@ -706,6 +740,11 @@ export default function OfficePage() {
 
       onEnd: () => {
         setListening(false);
+        setAvatarStatus((currentStatus) =>
+          currentStatus === "listening"
+            ? "idle"
+            : currentStatus,
+        );
       },
     });
   }
@@ -847,7 +886,10 @@ export default function OfficePage() {
   }
 
   return (
-    <OfficeEnvironment>
+    <OfficeEnvironment
+      avatarStatus={avatarStatus}
+      avatarExpression={avatarExpression}
+    >
       {primaryDeskObject &&
         folderPreviewOpen && (
           <div className="pointer-events-none absolute inset-x-0 top-[3%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
