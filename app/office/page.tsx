@@ -14,6 +14,10 @@ import type { ConversationMessage } from "@/components/companion/ConversationThr
 import Desk from "@/components/office/Desk";
 import DeskTaskObject from "@/components/office/DeskTaskObject";
 import OfficeEnvironment from "@/components/office/OfficeEnvironment";
+import {
+  appendConversationMessage,
+  readConversationMemory,
+} from "@/lib/companion/conversation-memory-client";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
 import {
   isCompanionVoiceAvailable,
@@ -394,9 +398,14 @@ export default function OfficePage() {
     speaker: "Ben" | "Kimi",
     text: string
   ) {
+    const message =
+      createMessage(speaker, text);
+
+    appendConversationMessage(message);
+
     setMessages((currentMessages) => [
       ...currentMessages,
-      createMessage(speaker, text),
+      message,
     ]);
   }
 
@@ -434,11 +443,17 @@ export default function OfficePage() {
 
     stopCompanionSpeech();
 
+    const rememberedConversation =
+      readConversationMemory();
+
     const conversationForGateway = [
-      ...messages.map((message) => ({
-        speaker: message.speaker,
-        text: message.text,
-      })),
+      ...rememberedConversation.map(
+        (rememberedMessage) => ({
+          speaker:
+            rememberedMessage.speaker,
+          text: rememberedMessage.text,
+        })
+      ),
       {
         speaker: "Ben" as const,
         text: currentRequest,
