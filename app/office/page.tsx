@@ -434,6 +434,43 @@ export default function OfficePage() {
 
     stopCompanionSpeech();
 
+    const conversationForGateway = [
+      ...messages.map((message) => ({
+        speaker: message.speaker,
+        text: message.text,
+      })),
+      {
+        speaker: "Ben" as const,
+        text: currentRequest,
+      },
+    ];
+
+    const savedSession =
+      readTemporaryWorkspaceSession();
+
+    const activeTaskResult =
+      savedSession?.gatewayResult ??
+      pendingResult;
+
+    const taskMemory = activeTaskResult
+      ? {
+          title:
+            activeTaskResult.title,
+          originalRequest:
+            savedSession?.intent
+              .originalRequest ??
+            pendingIntent?.originalRequest ??
+            "",
+          content:
+            activeTaskResult.content,
+          status:
+            savedSession?.status ??
+            "active",
+          nextStep:
+            activeTaskResult.nextStep,
+        }
+      : null;
+
     addMessage("Ben", currentRequest);
 
     setConversationExpanded(true);
@@ -456,6 +493,9 @@ export default function OfficePage() {
           body: JSON.stringify({
             request: currentRequest,
             memory: "",
+            conversation:
+              conversationForGateway,
+            taskMemory,
           }),
         }
       );
