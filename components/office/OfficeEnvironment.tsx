@@ -27,29 +27,29 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
-      {/* Poster behind Kimi: Circles of Support Centre */}
+      {/* Poster behind Kimi: Circle of Support Centre */}
       <Link
         href="/circle"
-        aria-label="Open the Circles of Support Centre"
-        title="Circles of Support Centre"
+        aria-label="Open the Circle of Support Centre"
+        title="Circle of Support Centre"
         className="
           group
           absolute
-          right-[14%]
-          top-[25%]
-          z-20
-          h-[17%]
-          w-[22%]
+          right-[12%]
+          top-[22%]
+          z-30
+          h-[21%]
+          w-[25%]
           cursor-pointer
           rounded-[10px]
           outline-none
           transition
           focus-visible:ring-4
           focus-visible:ring-[rgba(255,248,230,0.8)]
-          sm:right-[18%]
-          sm:top-[22%]
-          sm:h-[22%]
-          sm:w-[15%]
+          sm:right-[17%]
+          sm:top-[20%]
+          sm:h-[25%]
+          sm:w-[17%]
         "
       >
         <span
@@ -90,7 +90,7 @@ export default function OfficeEnvironment({
             group-focus-visible:opacity-100
           "
         >
-          Circles of Support Centre
+          Circle of Support Centre
         </span>
       </Link>
 

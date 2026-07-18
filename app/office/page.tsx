@@ -8,6 +8,10 @@ import {
   useState,
 } from "react";
 
+import {
+  createCircleMemoryPrompt,
+  readCircleCentreMemory,
+} from "@/lib/circle/circle-memory-client";
 import ConversationDock from "@/components/companion/ConversationDock";
 import type { ConversationMessage } from "@/components/companion/ConversationThread";
 import Desk from "@/components/office/Desk";
@@ -548,10 +552,15 @@ export default function OfficePage() {
     setWorking(true);
 
     try {
+      const circleMemory =
+        createCircleMemoryPrompt(
+          readCircleCentreMemory(),
+        );
+
       const result =
         await runCompanionTurn({
           request: currentRequest,
-          memory: "",
+          memory: circleMemory,
           conversation:
             conversationForGateway,
           state: companionState,
