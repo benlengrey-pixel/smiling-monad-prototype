@@ -1,7 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  addConnectionProfile,
+  addWorkOpportunity,
+  readSmilingMonadState,
+  subscribeToSmilingMonadState,
+  type ConnectionProfile,
+  type ConnectionProfileType,
+  type WorkOpportunity,
+} from "@/lib/platform/smiling-monad-state";
 
 type ConnectionArea =
   | "people"
@@ -68,13 +82,211 @@ const connectionAreas: Record<
   },
 };
 
+const profileTypeLabels: Record<
+  ConnectionProfileType,
+  string
+> = {
+  participant: "Participant",
+  family: "Family member",
+  "support-worker": "Support worker",
+  provider: "Provider",
+  professional: "Professional",
+  "community-member": "Community member",
+};
+
+function splitList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function ConnectionsPage() {
   const [activeArea, setActiveArea] =
     useState<ConnectionArea | null>(null);
 
+  const [profiles, setProfiles] =
+    useState<ConnectionProfile[]>([]);
+
+  const [opportunities, setOpportunities] =
+    useState<WorkOpportunity[]>([]);
+
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [profileName, setProfileName] =
+    useState("");
+
+  const [profileType, setProfileType] =
+    useState<ConnectionProfileType>(
+      "community-member",
+    );
+
+  const [profileSummary, setProfileSummary] =
+    useState("");
+
+  const [profileLocation, setProfileLocation] =
+    useState("");
+
+  const [profileInterests, setProfileInterests] =
+    useState("");
+
+  const [profileOffers, setProfileOffers] =
+    useState("");
+
+  const [profileLookingFor, setProfileLookingFor] =
+    useState("");
+
+  const [workTitle, setWorkTitle] =
+    useState("");
+
+  const [workDescription, setWorkDescription] =
+    useState("");
+
+  const [workLocation, setWorkLocation] =
+    useState("");
+
+  const [workContactName, setWorkContactName] =
+    useState("");
+
+  useEffect(() => {
+    const state =
+      readSmilingMonadState();
+
+    setProfiles(state.connectionProfiles);
+    setOpportunities(
+      state.workOpportunities,
+    );
+    setLoaded(true);
+
+    return subscribeToSmilingMonadState(
+      (nextState) => {
+        setProfiles(
+          nextState.connectionProfiles,
+        );
+        setOpportunities(
+          nextState.workOpportunities,
+        );
+      },
+    );
+  }, []);
+
+  const approvedProfiles = useMemo(
+    () =>
+      profiles.filter(
+        (profile) =>
+          profile.status === "approved",
+      ),
+    [profiles],
+  );
+
+  const submittedProfiles = useMemo(
+    () =>
+      profiles.filter(
+        (profile) =>
+          profile.status === "submitted",
+      ),
+    [profiles],
+  );
+
+  const draftProfiles = useMemo(
+    () =>
+      profiles.filter(
+        (profile) =>
+          profile.status === "draft",
+      ),
+    [profiles],
+  );
+
+  const approvedOpportunities = useMemo(
+    () =>
+      opportunities.filter(
+        (opportunity) =>
+          opportunity.status === "approved",
+      ),
+    [opportunities],
+  );
+
+  const submittedOpportunities = useMemo(
+    () =>
+      opportunities.filter(
+        (opportunity) =>
+          opportunity.status === "submitted",
+      ),
+    [opportunities],
+  );
+
+  const draftOpportunities = useMemo(
+    () =>
+      opportunities.filter(
+        (opportunity) =>
+          opportunity.status === "draft",
+      ),
+    [opportunities],
+  );
+
   const selectedArea = activeArea
     ? connectionAreas[activeArea]
     : null;
+
+  function submitProfile() {
+    const name = profileName.trim();
+    const summary = profileSummary.trim();
+
+    if (!name || !summary) {
+      return;
+    }
+
+    addConnectionProfile({
+      name,
+      profileType,
+      summary,
+      location: profileLocation.trim(),
+      interests: splitList(
+        profileInterests,
+      ),
+      offers: splitList(profileOffers),
+      lookingFor: splitList(
+        profileLookingFor,
+      ),
+      status: "submitted",
+    });
+
+    setProfileName("");
+    setProfileType("community-member");
+    setProfileSummary("");
+    setProfileLocation("");
+    setProfileInterests("");
+    setProfileOffers("");
+    setProfileLookingFor("");
+    setActiveArea(null);
+  }
+
+  function submitOpportunity() {
+    const title = workTitle.trim();
+    const description =
+      workDescription.trim();
+
+    if (!title || !description) {
+      return;
+    }
+
+    addWorkOpportunity({
+      title,
+      description,
+      location: workLocation.trim(),
+      contactName:
+        workContactName.trim() ||
+        "Community member",
+      status: "submitted",
+    });
+
+    setWorkTitle("");
+    setWorkDescription("");
+    setWorkLocation("");
+    setWorkContactName("");
+    setActiveArea(null);
+  }
 
   return (
     <main className="min-h-[100svh] bg-[linear-gradient(180deg,#edf3e9_0%,#f8f2e8_55%,#eadac5_100%)] px-4 pb-12 pt-5 text-[#40352c] sm:px-8 sm:pt-8">
@@ -152,26 +364,51 @@ export default function ConnectionsPage() {
           ))}
         </div>
 
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
+            <p className="font-serif text-xl">
+              Public profiles
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              {loaded
+                ? `${approvedProfiles.length} approved, ${submittedProfiles.length} awaiting review and ${draftProfiles.length} draft profile${draftProfiles.length === 1 ? "" : "s"}.`
+                : "Loading profile information…"}
+            </p>
+          </section>
+
+          <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
+            <p className="font-serif text-xl">
+              Work opportunities
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              {loaded
+                ? `${approvedOpportunities.length} approved, ${submittedOpportunities.length} awaiting review and ${draftOpportunities.length} draft opportunit${draftOpportunities.length === 1 ? "y" : "ies"}.`
+                : "Loading work opportunities…"}
+            </p>
+          </section>
+        </div>
+
         <div className="mt-8 rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
           <p className="font-serif text-xl">
             Safe community connections
           </p>
 
           <p className="mt-3 leading-7 text-[#6c5e51]">
-            Public profiles and posts should be reviewed
-            before becoming visible. Private contact
-            details should only be shared after both
-            people choose to connect. Kimi can help users
-            prepare profiles, compare options and build
-            Circles of Support without making decisions
-            for them.
+            Public profiles and posts are reviewed before
+            becoming visible. Private contact details
+            should only be shared after both people choose
+            to connect. Kimi can help prepare profiles,
+            opportunities and Circle connections without
+            making decisions for the person.
           </p>
         </div>
       </section>
 
       {selectedArea && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
-          <section className="relative w-full max-w-xl rounded-[28px] border border-[#d9c9b4] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.4)] sm:p-8">
+          <section className="relative max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#d9c9b4] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.4)] sm:p-8">
             <button
               type="button"
               onClick={() =>
@@ -191,25 +428,243 @@ export default function ConnectionsPage() {
               {selectedArea.description}
             </p>
 
-            <div className="mt-6 space-y-3">
-              {selectedArea.examples.map(
-                (example) => (
-                  <div
-                    key={example}
-                    className="rounded-[16px] border border-[#e0d3c3] bg-[#f6eee2] px-4 py-3"
-                  >
-                    {example}
+            {activeArea === "profile" && (
+              <div className="mt-6 space-y-4">
+                <input
+                  value={profileName}
+                  onChange={(event) =>
+                    setProfileName(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Name or profile title"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <select
+                  value={profileType}
+                  onChange={(event) =>
+                    setProfileType(
+                      event.target
+                        .value as ConnectionProfileType,
+                    )
+                  }
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                >
+                  {(
+                    Object.entries(
+                      profileTypeLabels,
+                    ) as Array<
+                      [
+                        ConnectionProfileType,
+                        string,
+                      ]
+                    >
+                  ).map(([value, label]) => (
+                    <option
+                      key={value}
+                      value={value}
+                    >
+                      {label}
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  value={profileSummary}
+                  onChange={(event) =>
+                    setProfileSummary(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="A respectful public summary"
+                  className="min-h-32 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={profileLocation}
+                  onChange={(event) =>
+                    setProfileLocation(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="General location only"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={profileInterests}
+                  onChange={(event) =>
+                    setProfileInterests(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Interests, separated by commas"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={profileOffers}
+                  onChange={(event) =>
+                    setProfileOffers(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="What you offer, separated by commas"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={profileLookingFor}
+                  onChange={(event) =>
+                    setProfileLookingFor(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="What you are looking for, separated by commas"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <button
+                  type="button"
+                  onClick={submitProfile}
+                  disabled={
+                    !profileName.trim() ||
+                    !profileSummary.trim()
+                  }
+                  className="w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Submit profile for review
+                </button>
+              </div>
+            )}
+
+            {activeArea === "work" && (
+              <div className="mt-6 space-y-4">
+                <input
+                  value={workTitle}
+                  onChange={(event) =>
+                    setWorkTitle(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Opportunity title"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <textarea
+                  value={workDescription}
+                  onChange={(event) =>
+                    setWorkDescription(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Describe the opportunity without including private contact details"
+                  className="min-h-36 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={workLocation}
+                  onChange={(event) =>
+                    setWorkLocation(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="General location"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <input
+                  value={workContactName}
+                  onChange={(event) =>
+                    setWorkContactName(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Public contact name"
+                  className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+                />
+
+                <button
+                  type="button"
+                  onClick={submitOpportunity}
+                  disabled={
+                    !workTitle.trim() ||
+                    !workDescription.trim()
+                  }
+                  className="w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Submit opportunity for review
+                </button>
+              </div>
+            )}
+
+            {activeArea === "people" && (
+              <div className="mt-6 space-y-3">
+                {approvedProfiles.length === 0 ? (
+                  <div className="rounded-[16px] border border-dashed border-[#ccbba6] bg-[#f6eee2] px-4 py-4 text-[#75685b]">
+                    No approved profiles are visible yet.
                   </div>
-                ),
-              )}
-            </div>
+                ) : (
+                  approvedProfiles.map(
+                    (profile) => (
+                      <article
+                        key={profile.id}
+                        className="rounded-[18px] border border-[#e0d3c3] bg-[#f6eee2] p-4"
+                      >
+                        <p className="font-serif text-xl">
+                          {profile.name}
+                        </p>
+
+                        <p className="mt-1 text-sm text-[#7a6a5b]">
+                          {
+                            profileTypeLabels[
+                              profile.profileType
+                            ]
+                          }
+                          {profile.location
+                            ? ` · ${profile.location}`
+                            : ""}
+                        </p>
+
+                        <p className="mt-3 leading-7 text-[#67594d]">
+                          {profile.summary}
+                        </p>
+                      </article>
+                    ),
+                  )
+                )}
+              </div>
+            )}
+
+            {activeArea === "circles" && (
+              <div className="mt-6 space-y-3">
+                {selectedArea.examples.map(
+                  (example) => (
+                    <div
+                      key={example}
+                      className="rounded-[16px] border border-[#e0d3c3] bg-[#f6eee2] px-4 py-3"
+                    >
+                      {example}
+                    </div>
+                  ),
+                )}
+
+                <Link
+                  href="/circle"
+                  className="mt-4 block w-full rounded-full bg-[#60432f] px-5 py-3 text-center font-medium text-white transition hover:bg-[#4f3728]"
+                >
+                  Open the Circle Centre
+                </Link>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={() =>
                 setActiveArea(null)
               }
-              className="mt-7 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+              className="mt-7 w-full rounded-full border border-[#cdbda8] bg-[#f3eadc] px-5 py-3 font-medium text-[#5c4737] transition hover:bg-white"
             >
               Close
             </button>
