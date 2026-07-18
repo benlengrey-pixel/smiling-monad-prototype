@@ -1,14 +1,40 @@
 "use client";
 
+import type {
+  CompanionAvatarExpression,
+  CompanionAvatarStatus,
+} from "@/lib/companion/avatar/types";
+
 type CompanionPresenceProps = {
   active: boolean;
+  status?: CompanionAvatarStatus;
+  expression?: CompanionAvatarExpression;
   onActivate: () => void;
+};
+
+const STATUS_LABELS: Record<
+  CompanionAvatarStatus,
+  string
+> = {
+  idle: "Kimi is ready",
+  listening: "Kimi is listening",
+  thinking: "Kimi is thinking",
+  speaking: "Kimi is speaking",
+  offline: "Kimi is offline",
+  error: "Kimi needs attention",
 };
 
 export default function CompanionPresence({
   active,
+  status = "idle",
+  expression = "warm",
   onActivate,
 }: CompanionPresenceProps) {
+  const isEngaged =
+    status === "listening" ||
+    status === "thinking" ||
+    status === "speaking";
+
   return (
     <div
       className="
@@ -25,6 +51,9 @@ export default function CompanionPresence({
       "
       data-companion-presence
       data-active={active}
+      data-status={status}
+      data-expression={expression}
+      aria-live="polite"
     >
       <div
         aria-hidden="true"
@@ -41,19 +70,43 @@ export default function CompanionPresence({
           id="kimi-avatar-stage"
           className="h-full w-full"
         />
+
+        <div
+          className={`
+            absolute
+            inset-[8%]
+            rounded-[45%]
+            transition-all
+            duration-700
+            ${
+              isEngaged
+                ? "bg-[radial-gradient(circle,rgba(255,244,218,0.18)_0%,rgba(255,244,218,0.06)_48%,transparent_74%)] opacity-100"
+                : "opacity-0"
+            }
+            ${
+              status === "thinking"
+                ? "animate-pulse"
+                : ""
+            }
+          `}
+        />
       </div>
+
+      <span className="sr-only">
+        {STATUS_LABELS[status]}
+      </span>
 
       <button
         type="button"
         onClick={onActivate}
         aria-label={
           active
-            ? "The Office is active"
+            ? STATUS_LABELS[status]
             : "Activate the Office with Kimi"
         }
         title={
           active
-            ? "Office active"
+            ? STATUS_LABELS[status]
             : "Kimi"
         }
         className="
