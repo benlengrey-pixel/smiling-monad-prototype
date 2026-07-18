@@ -141,6 +141,21 @@ export default function SchoolPage() {
   const [activeArea, setActiveArea] =
     useState<LearningArea | null>(null);
 
+  const [activeLesson, setActiveLesson] =
+    useState<SchoolLesson | null>(null);
+
+  const [lessonAnswers, setLessonAnswers] =
+    useState<Record<string, string>>({});
+
+  const [lessonSubmitted, setLessonSubmitted] =
+    useState(false);
+
+  const [learnerReflection, setLearnerReflection] =
+    useState("");
+
+  const [moduleCompletionSaved, setModuleCompletionSaved] =
+    useState(false);
+
   const [lessons, setLessons] =
     useState<SchoolLesson[]>([]);
 
@@ -172,6 +187,49 @@ export default function SchoolPage() {
     useState("");
 
   const [lessonContent, setLessonContent] =
+    useState("");
+
+  const [lessonOutcomes, setLessonOutcomes] =
+    useState("");
+
+  const [lessonReflection, setLessonReflection] =
+    useState("");
+
+  const [lessonCompletion, setLessonCompletion] =
+    useState("");
+
+  const [lessonMinutes, setLessonMinutes] =
+    useState("15");
+
+  const [lessonPassMark, setLessonPassMark] =
+    useState("80");
+
+  const [
+    lessonParticipantSpecific,
+    setLessonParticipantSpecific,
+  ] = useState(false);
+
+  const [
+    lessonParticipantReference,
+    setLessonParticipantReference,
+  ] = useState("");
+
+  const [knowledgeQuestion, setKnowledgeQuestion] =
+    useState("");
+
+  const [knowledgeOptionOne, setKnowledgeOptionOne] =
+    useState("");
+
+  const [knowledgeOptionTwo, setKnowledgeOptionTwo] =
+    useState("");
+
+  const [knowledgeOptionThree, setKnowledgeOptionThree] =
+    useState("");
+
+  const [knowledgeCorrectOption, setKnowledgeCorrectOption] =
+    useState("1");
+
+  const [knowledgeExplanation, setKnowledgeExplanation] =
     useState("");
 
   const [applicantName, setApplicantName] =
@@ -278,11 +336,46 @@ export default function SchoolPage() {
       [activeArea, publishedLessons],
     );
 
+  const activeLessonQuestions =
+    activeLesson?.knowledgeCheck ?? [];
+
+  const activeLessonCorrectAnswers =
+    activeLessonQuestions.filter(
+      (question) =>
+        lessonAnswers[question.id] ===
+        question.correctOptionId,
+    ).length;
+
+  const activeLessonScore =
+    activeLessonQuestions.length > 0
+      ? Math.round(
+          (activeLessonCorrectAnswers /
+            activeLessonQuestions.length) *
+            100,
+        )
+      : 100;
+
+  const activeLessonPassed =
+    activeLessonScore >=
+    (activeLesson?.passMark ?? 80);
+
   const completedModuleCount =
     activeApplication?.trainingProgress.filter(
       (module) =>
         module.status === "completed",
     ).length ?? 0;
+
+  const totalModuleCount =
+    activeApplication?.trainingProgress.length ?? 0;
+
+  const trainingProgressPercent =
+    totalModuleCount > 0
+      ? Math.round(
+          (completedModuleCount /
+            totalModuleCount) *
+            100,
+        )
+      : 0;
 
   const trainingComplete =
     activeApplication
@@ -316,17 +409,82 @@ export default function SchoolPage() {
     const title = lessonTitle.trim();
     const summary =
       lessonSummary.trim();
+    const content =
+      lessonContent.trim();
 
-    if (!title || !summary) {
+    if (!title || !summary || !content) {
       return;
     }
+
+    const outcomes = lessonOutcomes
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const knowledgeOptions = [
+      knowledgeOptionOne.trim(),
+      knowledgeOptionTwo.trim(),
+      knowledgeOptionThree.trim(),
+    ];
+
+    const hasKnowledgeCheck =
+      knowledgeQuestion.trim() &&
+      knowledgeOptions.every(Boolean);
 
     addSchoolLesson({
       area: lessonArea,
       title,
       summary,
-      content:
-        lessonContent.trim(),
+      content,
+      learningOutcomes: outcomes,
+      contentBlocks: [
+        {
+          id:
+            globalThis.crypto?.randomUUID?.() ??
+            `${Date.now()}-lesson`,
+          type: "lesson",
+          title,
+          body: content,
+          order: 1,
+        },
+      ],
+      scenarios: [],
+      reflectionPrompt:
+        lessonReflection.trim(),
+      knowledgeCheck: hasKnowledgeCheck
+        ? [
+            {
+              id:
+                globalThis.crypto?.randomUUID?.() ??
+                `${Date.now()}-question`,
+              question:
+                knowledgeQuestion.trim(),
+              options: knowledgeOptions.map(
+                (label, index) => ({
+                  id: `${index + 1}`,
+                  label,
+                }),
+              ),
+              correctOptionId:
+                knowledgeCorrectOption,
+              explanation:
+                knowledgeExplanation.trim(),
+            },
+          ]
+        : [],
+      passMark:
+        Number(lessonPassMark) || 80,
+      estimatedMinutes:
+        Number(lessonMinutes) || 15,
+      completionStatement:
+        lessonCompletion.trim(),
+      participantSpecific:
+        lessonParticipantSpecific,
+      participantReference:
+        lessonParticipantSpecific
+          ? lessonParticipantReference.trim() ||
+            null
+          : null,
       status: "review",
     });
 
@@ -334,6 +492,19 @@ export default function SchoolPage() {
     setLessonTitle("");
     setLessonSummary("");
     setLessonContent("");
+    setLessonOutcomes("");
+    setLessonReflection("");
+    setLessonCompletion("");
+    setLessonMinutes("15");
+    setLessonPassMark("80");
+    setLessonParticipantSpecific(false);
+    setLessonParticipantReference("");
+    setKnowledgeQuestion("");
+    setKnowledgeOptionOne("");
+    setKnowledgeOptionTwo("");
+    setKnowledgeOptionThree("");
+    setKnowledgeCorrectOption("1");
+    setKnowledgeExplanation("");
     setComposerOpen(false);
   }
 
@@ -447,6 +618,52 @@ export default function SchoolPage() {
         badgeStatus: "eligible",
       }),
     );
+  }
+
+  function saveCompletedModule() {
+    if (
+      !activeLesson ||
+      !activeApplication ||
+      !activeLessonPassed ||
+      !learnerReflection.trim()
+    ) {
+      return;
+    }
+
+    const matchingModule =
+      activeApplication.trainingProgress.find(
+        (module) =>
+          module.moduleId === activeLesson.id ||
+          module.title === activeLesson.title ||
+          (
+            activeLesson.id ===
+              "smiling-monad-way" &&
+            module.moduleId ===
+              "smiling-monad-foundations"
+          ),
+      );
+
+    if (!matchingModule) {
+      return;
+    }
+
+    updateModule(
+      matchingModule.moduleId,
+      (current) => ({
+        ...current,
+        status: "completed",
+        completedAt:
+          new Date().toISOString(),
+        knowledgeCheckScore:
+          activeLessonScore,
+        knowledgeCheckStatus:
+          "passed",
+        reflectionResponse:
+          learnerReflection.trim(),
+      }),
+    );
+
+    setModuleCompletionSaved(true);
   }
 
   return (
@@ -843,6 +1060,74 @@ export default function SchoolPage() {
 
                 {workerPanel === "training" && (
                   <div className="mt-7 space-y-4">
+                    <section className="rounded-[22px] border border-[#d6c6b2] bg-[#efe4d4] p-5 sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#806b55]">
+                            Core training pathway
+                          </p>
+
+                          <h3 className="mt-2 font-serif text-3xl">
+                            {completedModuleCount}/{totalModuleCount} modules complete
+                          </h3>
+
+                          <p className="mt-3 max-w-2xl leading-7 text-[#6c5e51]">
+                            Complete every published module,
+                            pass its knowledge check and save
+                            a reflection to finish the training
+                            portion of the worker pathway.
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 text-left sm:text-right">
+                          <p className="font-serif text-4xl">
+                            {trainingProgressPercent}%
+                          </p>
+
+                          <p className="mt-1 text-sm text-[#756151]">
+                            Training progress
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/75">
+                        <div
+                          className="h-full rounded-full bg-[#60432f] transition-all"
+                          style={{
+                            width: `${trainingProgressPercent}%`,
+                          }}
+                        />
+                      </div>
+
+                      {trainingComplete ? (
+                        <div className="mt-5 rounded-[18px] border border-[#bfcdb5] bg-[#e5eee0] p-4">
+                          <p className="font-serif text-2xl">
+                            Core training complete
+                          </p>
+
+                          <p className="mt-2 leading-7 text-[#5e6958]">
+                            The training requirement is complete.
+                            Evidence, profile details and human
+                            review are still required before the
+                            Smiling Monad Trained badge can become
+                            active.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm leading-6 text-[#6c5e51]">
+                          {totalModuleCount -
+                            completedModuleCount}{" "}
+                          module
+                          {totalModuleCount -
+                            completedModuleCount ===
+                          1
+                            ? ""
+                            : "s"}{" "}
+                          remaining.
+                        </p>
+                      )}
+                    </section>
+
                     {activeApplication.trainingProgress.map(
                       (module, index) => (
                         <article
@@ -855,9 +1140,66 @@ export default function SchoolPage() {
                             </span>
 
                             <div className="flex-1">
-                              <p className="font-serif text-xl">
-                                {module.title}
-                              </p>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-serif text-xl">
+                                    {module.title}
+                                  </p>
+
+                                  <p className="mt-1 text-sm text-[#756151]">
+                                    {module.status === "completed"
+                                      ? "Completed"
+                                      : "Complete the published module, reflection and knowledge check."}
+                                  </p>
+                                </div>
+
+                                {(() => {
+                                  const publishedModule =
+                                    publishedLessons.find(
+                                      (lesson) =>
+                                        lesson.id ===
+                                          module.moduleId ||
+                                        lesson.title ===
+                                          module.title ||
+                                        (
+                                          module.moduleId ===
+                                            "smiling-monad-foundations" &&
+                                          lesson.id ===
+                                            "smiling-monad-way"
+                                        ),
+                                    );
+
+                                  return publishedModule ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveLesson(
+                                          publishedModule,
+                                        );
+                                        setLessonAnswers({});
+                                        setLessonSubmitted(false);
+                                        setLearnerReflection(
+                                          module.reflectionResponse,
+                                        );
+                                        setModuleCompletionSaved(
+                                          module.status ===
+                                            "completed",
+                                        );
+                                      }}
+                                      className="shrink-0 rounded-full border border-[#60432f]/25 bg-[#f4eadc] px-4 py-2 text-sm font-medium text-[#60432f] transition hover:bg-[#eadbc6]"
+                                    >
+                                      {module.status ===
+                                      "completed"
+                                        ? "Review module"
+                                        : "Open module"}
+                                    </button>
+                                  ) : (
+                                    <span className="shrink-0 rounded-full bg-[#efe3d3] px-4 py-2 text-sm text-[#765f4d]">
+                                      Module unavailable
+                                    </span>
+                                  );
+                                })()}
+                              </div>
 
                               <select
                                 value={module.status}
@@ -925,6 +1267,7 @@ export default function SchoolPage() {
                                     )
                                   }
                                   placeholder="Knowledge score %"
+                                  aria-label="Recorded knowledge score"
                                   className="rounded-xl border border-[#d6c6b1] px-3 py-2"
                                 />
 
@@ -1305,18 +1648,378 @@ export default function SchoolPage() {
 
             {selectedPublishedLessons.map(
               (lesson) => (
-                <article
+                <button
                   key={lesson.id}
-                  className="mt-4 rounded-[18px] border border-[#dfd1bf] bg-white p-5"
+                  type="button"
+                  onClick={() => {
+                    setActiveLesson(lesson);
+                    setLessonAnswers({});
+                    setLessonSubmitted(false);
+                    setLearnerReflection("");
+                    setModuleCompletionSaved(false);
+                  }}
+                  className="mt-4 block w-full rounded-[18px] border border-[#dfd1bf] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <p className="font-serif text-xl">
-                    {lesson.title}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-serif text-xl">
+                        {lesson.title}
+                      </p>
+
+                      <p className="mt-2 text-[#6c5e51]">
+                        {lesson.summary}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-[#efe3d2] px-3 py-1 text-xs font-semibold text-[#60432f]">
+                      {lesson.estimatedMinutes ?? 15} min
+                    </span>
+                  </div>
+
+                  {(lesson.learningOutcomes?.length ?? 0) > 0 && (
+                    <div className="mt-4 rounded-[16px] bg-[#f6eee2] p-4">
+                      <p className="text-sm font-semibold text-[#60432f]">
+                        Learning outcomes
+                      </p>
+
+                      <ul className="mt-2 space-y-1 text-sm leading-6 text-[#6c5e51]">
+                        {lesson.learningOutcomes?.map(
+                          (outcome) => (
+                            <li key={outcome}>
+                              • {outcome}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {lesson.participantSpecific && (
+                    <p className="mt-4 rounded-[14px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm text-[#6d5e50]">
+                      Participant-specific module
+                      {lesson.participantReference
+                        ? ` · ${lesson.participantReference}`
+                        : ""}
+                    </p>
+                  )}
+                  <p className="mt-4 text-sm font-semibold text-[#765943]">
+                    Open module →
                   </p>
-                  <p className="mt-2 text-[#6c5e51]">
-                    {lesson.summary}
-                  </p>
-                </article>
+                </button>
               ),
+            )}
+          </section>
+        </div>
+      )}
+
+      {activeLesson && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
+          <section className="relative max-h-[94svh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveLesson(null);
+                setLessonAnswers({});
+                setLessonSubmitted(false);
+                setLearnerReflection("");
+                setModuleCompletionSaved(false);
+              }}
+              aria-label="Close training module"
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#eee2d2] text-xl"
+            >
+              ×
+            </button>
+
+            <p className="pr-12 text-xs font-semibold uppercase tracking-[0.25em] text-[#846e58]">
+              Published training module
+            </p>
+
+            <h2 className="mt-3 pr-12 font-serif text-3xl sm:text-4xl">
+              {activeLesson.title}
+            </h2>
+
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-[#6c5e51]">
+              <span className="rounded-full bg-[#efe3d2] px-3 py-1">
+                {activeLesson.estimatedMinutes ?? 15} minutes
+              </span>
+
+              <span className="rounded-full bg-[#efe3d2] px-3 py-1">
+                Pass mark {activeLesson.passMark ?? 80}%
+              </span>
+            </div>
+
+            <p className="mt-5 leading-7 text-[#6c5e51]">
+              {activeLesson.summary}
+            </p>
+
+            {(activeLesson.learningOutcomes?.length ?? 0) > 0 && (
+              <section className="mt-7 rounded-[22px] border border-[#dccdb9] bg-[#f4eadc] p-5">
+                <h3 className="font-serif text-2xl">
+                  Learning outcomes
+                </h3>
+
+                <ul className="mt-4 space-y-2 leading-7 text-[#6c5e51]">
+                  {activeLesson.learningOutcomes?.map(
+                    (outcome) => (
+                      <li key={outcome}>
+                        • {outcome}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </section>
+            )}
+
+            {(activeLesson.contentBlocks?.length ?? 0) > 0 ? (
+              <div className="mt-7 space-y-4">
+                {[...(activeLesson.contentBlocks ?? [])]
+                  .sort(
+                    (first, second) =>
+                      first.order - second.order,
+                  )
+                  .map((block) => (
+                    <section
+                      key={block.id}
+                      className="rounded-[22px] border border-[#ddcfbd] bg-white p-5 sm:p-6"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#846e58]">
+                        {block.type}
+                      </p>
+
+                      <h3 className="mt-2 font-serif text-2xl">
+                        {block.title}
+                      </h3>
+
+                      <p className="mt-3 whitespace-pre-wrap leading-7 text-[#6c5e51]">
+                        {block.body}
+                      </p>
+                    </section>
+                  ))}
+              </div>
+            ) : (
+              <section className="mt-7 rounded-[22px] border border-[#ddcfbd] bg-white p-5 sm:p-6">
+                <p className="whitespace-pre-wrap leading-7 text-[#6c5e51]">
+                  {activeLesson.content}
+                </p>
+              </section>
+            )}
+
+            {(activeLesson.scenarios?.length ?? 0) > 0 && (
+              <section className="mt-7 rounded-[22px] border border-[#cdbba3] bg-[#f1e5d4] p-5 sm:p-6">
+                <h3 className="font-serif text-2xl">
+                  Practice scenario
+                </h3>
+
+                {activeLesson.scenarios?.map(
+                  (scenario) => (
+                    <article
+                      key={scenario.id}
+                      className="mt-4"
+                    >
+                      <p className="font-medium">
+                        {scenario.title}
+                      </p>
+
+                      <p className="mt-3 leading-7 text-[#6c5e51]">
+                        {scenario.situation}
+                      </p>
+
+                      <p className="mt-4 font-medium text-[#60432f]">
+                        {scenario.question}
+                      </p>
+
+                      <details className="mt-4 rounded-[16px] border border-[#d6c6b2] bg-white/75 p-4">
+                        <summary className="cursor-pointer font-medium">
+                          Show guidance
+                        </summary>
+
+                        <p className="mt-3 leading-7 text-[#6c5e51]">
+                          {scenario.guidance}
+                        </p>
+                      </details>
+                    </article>
+                  ),
+                )}
+              </section>
+            )}
+
+            {activeLesson.reflectionPrompt && (
+              <section className="mt-7 rounded-[22px] border border-[#d6c6b2] bg-[#efe4d4] p-5 sm:p-6">
+                <h3 className="font-serif text-2xl">
+                  Your reflection
+                </h3>
+
+                <p className="mt-3 leading-7 text-[#6c5e51]">
+                  {activeLesson.reflectionPrompt}
+                </p>
+
+                <textarea
+                  value={learnerReflection}
+                  onChange={(event) => {
+                    setLearnerReflection(
+                      event.target.value,
+                    );
+                    setModuleCompletionSaved(false);
+                  }}
+                  placeholder="Write your reflection here."
+                  className="mt-4 min-h-32 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7"
+                />
+              </section>
+            )}
+
+            {activeLessonQuestions.length > 0 && (
+              <section className="mt-7 rounded-[22px] border border-[#dccdb9] bg-white p-5 sm:p-6">
+                <h3 className="font-serif text-2xl">
+                  Knowledge check
+                </h3>
+
+                <div className="mt-5 space-y-6">
+                  {activeLessonQuestions.map(
+                    (question, questionIndex) => (
+                      <article key={question.id}>
+                        <p className="font-medium leading-7">
+                          {questionIndex + 1}.{" "}
+                          {question.question}
+                        </p>
+
+                        <div className="mt-3 space-y-2">
+                          {question.options.map(
+                            (option) => (
+                              <label
+                                key={option.id}
+                                className="flex cursor-pointer items-start gap-3 rounded-[14px] border border-[#dfd1bf] bg-[#f8f2e8] px-4 py-3"
+                              >
+                                <input
+                                  type="radio"
+                                  name={question.id}
+                                  value={option.id}
+                                  checked={
+                                    lessonAnswers[
+                                      question.id
+                                    ] === option.id
+                                  }
+                                  onChange={(event) =>
+                                    setLessonAnswers(
+                                      (current) => ({
+                                        ...current,
+                                        [question.id]:
+                                          event.target
+                                            .value,
+                                      }),
+                                    )
+                                  }
+                                  disabled={
+                                    lessonSubmitted
+                                  }
+                                  className="mt-1"
+                                />
+
+                                <span>
+                                  {option.label}
+                                </span>
+                              </label>
+                            ),
+                          )}
+                        </div>
+
+                        {lessonSubmitted && (
+                          <p className="mt-3 rounded-[14px] bg-[#f1e5d4] px-4 py-3 text-sm leading-6 text-[#6c5e51]">
+                            {question.explanation}
+                          </p>
+                        )}
+                      </article>
+                    ),
+                  )}
+                </div>
+
+                {!lessonSubmitted ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLessonSubmitted(true)
+                    }
+                    disabled={
+                      activeLessonQuestions.some(
+                        (question) =>
+                          !lessonAnswers[
+                            question.id
+                          ],
+                      )
+                    }
+                    className="mt-6 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-50"
+                  >
+                    Check answers
+                  </button>
+                ) : (
+                  <div
+                    className={`mt-6 rounded-[18px] p-5 ${
+                      activeLessonPassed
+                        ? "bg-[#e5eee0]"
+                        : "bg-[#f2dfd6]"
+                    }`}
+                  >
+                    <p className="font-serif text-2xl">
+                      Score: {activeLessonScore}%
+                    </p>
+
+                    <p className="mt-2 leading-7 text-[#6c5e51]">
+                      {activeLessonPassed
+                        ? activeLesson.completionStatement ||
+                          "Module passed."
+                        : `A score of ${
+                            activeLesson.passMark ??
+                            80
+                          }% is required. Review the module and try again.`}
+                    </p>
+
+                    {activeLessonPassed &&
+                      activeApplication && (
+                        <div className="mt-4">
+                          <button
+                            type="button"
+                            onClick={saveCompletedModule}
+                            disabled={
+                              !learnerReflection.trim() ||
+                              moduleCompletionSaved
+                            }
+                            className="w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-50"
+                          >
+                            {moduleCompletionSaved
+                              ? "Completion saved"
+                              : "Save to worker pathway"}
+                          </button>
+
+                          {!learnerReflection.trim() && (
+                            <p className="mt-2 text-sm text-[#6c5e51]">
+                              Complete your reflection before saving.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                    {activeLessonPassed &&
+                      !activeApplication && (
+                        <p className="mt-4 rounded-[14px] border border-[#d9cab6] bg-white/70 px-4 py-3 text-sm leading-6 text-[#6c5e51]">
+                          Start the worker pathway to save this completion.
+                        </p>
+                      )}
+
+                    {!activeLessonPassed && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLessonAnswers({});
+                          setLessonSubmitted(false);
+                          setModuleCompletionSaved(false);
+                        }}
+                        className="mt-4 rounded-full border border-[#60432f]/25 bg-white px-5 py-2 text-sm font-medium text-[#60432f]"
+                      >
+                        Try again
+                      </button>
+                    )}
+                  </div>
+                )}
+              </section>
             )}
           </section>
         </div>
@@ -1324,76 +2027,337 @@ export default function SchoolPage() {
 
       {composerOpen && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/45 p-3 sm:items-center sm:p-6">
-          <section className="relative w-full max-w-2xl rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 sm:p-8">
+          <section className="relative max-h-[94svh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 sm:p-8">
             <button
               type="button"
               onClick={() =>
                 setComposerOpen(false)
               }
+              aria-label="Close module builder"
               className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#eee2d2] text-xl"
             >
               ×
             </button>
 
-            <h2 className="pr-12 font-serif text-3xl">
-              Prepare a lesson
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#846e58]">
+              Structured training module
+            </p>
+
+            <h2 className="mt-3 pr-12 font-serif text-3xl">
+              Prepare a training module
             </h2>
 
-            <div className="mt-6 space-y-4">
-              <select
-                value={lessonArea}
-                onChange={(event) =>
-                  setLessonArea(
-                    event.target
-                      .value as LearningArea,
-                  )
-                }
-                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
-              >
-                {Object.entries(
-                  learningAreas,
-                ).map(([value, area]) => (
-                  <option
-                    key={value}
-                    value={value}
-                  >
-                    {area.title}
-                  </option>
-                ))}
-              </select>
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              Build one clear module with outcomes,
+              teaching content, reflection and a knowledge
+              check. It will be saved for review before
+              publication.
+            </p>
 
-              <input
-                value={lessonTitle}
-                onChange={(event) =>
-                  setLessonTitle(
-                    event.target.value,
-                  )
-                }
-                placeholder="Lesson title"
-                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
-              />
+            <div className="mt-6 space-y-5">
+              <label className="block">
+                <span className="text-sm font-medium">
+                  Learning area
+                </span>
 
-              <textarea
-                value={lessonSummary}
-                onChange={(event) =>
-                  setLessonSummary(
-                    event.target.value,
-                  )
-                }
-                placeholder="Short lesson summary"
-                className="min-h-24 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
-              />
+                <select
+                  value={lessonArea}
+                  onChange={(event) =>
+                    setLessonArea(
+                      event.target
+                        .value as LearningArea,
+                    )
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                >
+                  {Object.entries(
+                    learningAreas,
+                  ).map(([value, area]) => (
+                    <option
+                      key={value}
+                      value={value}
+                    >
+                      {area.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-              <textarea
-                value={lessonContent}
-                onChange={(event) =>
-                  setLessonContent(
-                    event.target.value,
-                  )
-                }
-                placeholder="Lesson content"
-                className="min-h-36 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium">
+                    Module title
+                  </span>
+
+                  <input
+                    value={lessonTitle}
+                    onChange={(event) =>
+                      setLessonTitle(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Understanding the whole person"
+                    className="mt-2 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium">
+                    Estimated minutes
+                  </span>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={lessonMinutes}
+                    onChange={(event) =>
+                      setLessonMinutes(
+                        event.target.value,
+                      )
+                    }
+                    className="mt-2 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-medium">
+                  Short summary
+                </span>
+
+                <textarea
+                  value={lessonSummary}
+                  onChange={(event) =>
+                    setLessonSummary(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="What this module teaches and why it matters."
+                  className="mt-2 min-h-24 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium">
+                  Learning outcomes
+                </span>
+
+                <textarea
+                  value={lessonOutcomes}
+                  onChange={(event) =>
+                    setLessonOutcomes(
+                      event.target.value,
+                    )
+                  }
+                  placeholder={"Enter one outcome per line\nRecognise the person's strengths\nIdentify what matters to them"}
+                  className="mt-2 min-h-28 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium">
+                  Lesson content
+                </span>
+
+                <textarea
+                  value={lessonContent}
+                  onChange={(event) =>
+                    setLessonContent(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Write the main teaching content."
+                  className="mt-2 min-h-48 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium">
+                    Reflection prompt
+                  </span>
+
+                  <textarea
+                    value={lessonReflection}
+                    onChange={(event) =>
+                      setLessonReflection(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="What will this change in your practice?"
+                    className="mt-2 min-h-28 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium">
+                    Completion statement
+                  </span>
+
+                  <textarea
+                    value={lessonCompletion}
+                    onChange={(event) =>
+                      setLessonCompletion(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="The learner can explain and apply..."
+                    className="mt-2 min-h-28 w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                </label>
+              </div>
+
+              <section className="rounded-[22px] border border-[#dccdb9] bg-[#f4eadc] p-5">
+                <p className="font-serif text-2xl">
+                  Knowledge check
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-[#6c5e51]">
+                  Add one question now. More questions can
+                  be added when the full module editor is
+                  expanded.
+                </p>
+
+                <input
+                  value={knowledgeQuestion}
+                  onChange={(event) =>
+                    setKnowledgeQuestion(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Knowledge-check question"
+                  className="mt-4 w-full rounded-[14px] border border-[#d8c9b7] bg-white px-4 py-3"
+                />
+
+                <div className="mt-3 grid gap-3">
+                  {[
+                    [
+                      "1",
+                      knowledgeOptionOne,
+                      setKnowledgeOptionOne,
+                    ],
+                    [
+                      "2",
+                      knowledgeOptionTwo,
+                      setKnowledgeOptionTwo,
+                    ],
+                    [
+                      "3",
+                      knowledgeOptionThree,
+                      setKnowledgeOptionThree,
+                    ],
+                  ].map(
+                    ([number, value, setter]) => (
+                      <div
+                        key={number as string}
+                        className="grid grid-cols-[auto_1fr] items-center gap-3"
+                      >
+                        <input
+                          type="radio"
+                          name="correct-option"
+                          value={number as string}
+                          checked={
+                            knowledgeCorrectOption ===
+                            number
+                          }
+                          onChange={(event) =>
+                            setKnowledgeCorrectOption(
+                              event.target.value,
+                            )
+                          }
+                          aria-label={`Mark option ${number} as correct`}
+                        />
+
+                        <input
+                          value={value as string}
+                          onChange={(event) =>
+                            (
+                              setter as (
+                                value: string
+                              ) => void
+                            )(event.target.value)
+                          }
+                          placeholder={`Option ${number}`}
+                          className="rounded-[14px] border border-[#d8c9b7] bg-white px-4 py-3"
+                        />
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                <textarea
+                  value={knowledgeExplanation}
+                  onChange={(event) =>
+                    setKnowledgeExplanation(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Explain why the correct answer is right."
+                  className="mt-3 min-h-24 w-full rounded-[14px] border border-[#d8c9b7] bg-white px-4 py-3"
+                />
+
+                <label className="mt-3 block">
+                  <span className="text-sm font-medium">
+                    Pass mark %
+                  </span>
+
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={lessonPassMark}
+                    onChange={(event) =>
+                      setLessonPassMark(
+                        event.target.value,
+                      )
+                    }
+                    className="mt-2 w-full rounded-[14px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                </label>
+              </section>
+
+              <section className="rounded-[22px] border border-[#dccdb9] bg-white p-5">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      lessonParticipantSpecific
+                    }
+                    onChange={(event) =>
+                      setLessonParticipantSpecific(
+                        event.target.checked,
+                      )
+                    }
+                    className="mt-1"
+                  />
+
+                  <span>
+                    <span className="block font-medium">
+                      Participant-specific training
+                    </span>
+
+                    <span className="mt-1 block text-sm leading-6 text-[#6c5e51]">
+                      Use this only when a module is created
+                      for one person or Circle of Support.
+                    </span>
+                  </span>
+                </label>
+
+                {lessonParticipantSpecific && (
+                  <input
+                    value={
+                      lessonParticipantReference
+                    }
+                    onChange={(event) =>
+                      setLessonParticipantReference(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Participant or Circle reference"
+                    className="mt-4 w-full rounded-[14px] border border-[#d8c9b7] bg-white px-4 py-3"
+                  />
+                )}
+              </section>
             </div>
 
             <button
@@ -1401,11 +2365,12 @@ export default function SchoolPage() {
               onClick={saveLessonForReview}
               disabled={
                 !lessonTitle.trim() ||
-                !lessonSummary.trim()
+                !lessonSummary.trim() ||
+                !lessonContent.trim()
               }
-              className="mt-6 w-full rounded-full bg-[#60432f] px-5 py-3 text-white disabled:opacity-50"
+              className="mt-6 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-50"
             >
-              Save lesson for review
+              Save module for review
             </button>
           </section>
         </div>
