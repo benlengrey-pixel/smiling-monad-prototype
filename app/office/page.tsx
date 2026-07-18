@@ -31,6 +31,7 @@ import type {
   CompanionAvatarStatus,
 } from "@/lib/companion/avatar/types";
 import {
+  speakCompanionResponse,
   stopCompanionSpeech,
   subscribeToCompanionSpeechStatus,
 } from "@/lib/companion/speech-client";
@@ -460,6 +461,11 @@ export default function OfficePage() {
   useEffect(() => {
     return subscribeToCompanionSpeechStatus(
       (speechStatus) => {
+        if (speechStatus === "loading") {
+          setAvatarStatus("thinking");
+          return;
+        }
+
         if (speechStatus === "speaking") {
           setAvatarStatus("speaking");
           return;
@@ -624,12 +630,16 @@ export default function OfficePage() {
 
       setCompanionState(nextState);
 
+      const companionReply =
+        getCompanionReply(result);
+
       addMessage(
         "Kimi",
-        getCompanionReply(result),
+        companionReply,
       );
 
       setAvatarStatus("idle");
+      speakCompanionResponse(companionReply);
 
       const deskChanged =
         JSON.stringify(
