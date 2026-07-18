@@ -389,22 +389,45 @@ export function submitCircleTrainingRequirement(
         };
       }
 
+      const submittedAt = now();
+
+      const participantDecision =
+        module.participantApprovalRequired
+          ? "pending"
+          : "approved";
+
+      const participantDecisionAt =
+        module.participantApprovalRequired
+          ? null
+          : submittedAt;
+
+      const completesImmediately =
+        !module.participantApprovalRequired &&
+        !module.humanReviewRequired;
+
       return {
         ...requirement,
-        status: "submitted",
-        submittedAt: now(),
+        status: completesImmediately
+          ? "completed"
+          : "submitted",
+        submittedAt,
         knowledgeScore: result.score,
         criticalQuestionsPassed:
           result.criticalQuestionsPassed,
-        participantDecision:
-          module.participantApprovalRequired
-            ? "pending"
-            : "approved",
+        participantDecision,
         participantDecisionNote: "",
-        participantDecisionAt:
-          module.participantApprovalRequired
-            ? null
-            : now(),
+        participantDecisionAt,
+        completedAt: completesImmediately
+          ? submittedAt
+          : null,
+        expiresAt:
+          completesImmediately &&
+          module.renewalMonths
+            ? addMonths(
+                submittedAt,
+                module.renewalMonths,
+              )
+            : requirement.expiresAt,
       };
     },
   );
