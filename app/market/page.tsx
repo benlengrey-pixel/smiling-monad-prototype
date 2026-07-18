@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 type MarketStall =
-  | "noticeboard"
   | "school"
   | "shop";
 
@@ -16,20 +15,6 @@ type StallDetails = {
 };
 
 const stalls: Record<MarketStall, StallDetails> = {
-  noticeboard: {
-    name: "Events & Community Noticeboard",
-    sign: "EVENTS & COMMUNITY",
-    description:
-      "The central noticeboard for Smiling Monad events, community announcements, local opportunities and shared information.",
-    items: [
-      "Upcoming Smiling Monad events",
-      "Community activities",
-      "News and announcements",
-      "Requests for help",
-      "Local opportunities",
-    ],
-  },
-
   school: {
     name: "Smiling Monad School",
     sign: "SCHOOL FOR TRAINING",
@@ -98,9 +83,8 @@ export default function MarketPage() {
         className="absolute right-[0%] top-[27%] z-20 h-[30%] w-[47%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:right-[1%] sm:top-[23%] sm:h-[38%] sm:w-[37%]"
       />
 
-      <button
-        type="button"
-        onClick={() => setActiveStall("noticeboard")}
+      <Link
+        href="/community"
         aria-label="Open the Events and Community Noticeboard"
         className="absolute bottom-[3%] left-[0%] z-20 h-[33%] w-[48%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:bottom-[2%] sm:left-[1%] sm:h-[33%] sm:w-[38%]"
       />
