@@ -1,6 +1,15 @@
 "use client";
 
+import {
+  useEffect,
+  useRef,
+} from "react";
+
+import {
+  createBrowserAvatarAdapter,
+} from "@/lib/companion/avatar/browser-adapter";
 import type {
+  CompanionAvatarAdapter,
   CompanionAvatarExpression,
   CompanionAvatarStatus,
 } from "@/lib/companion/avatar/types";
@@ -30,10 +39,52 @@ export default function CompanionPresence({
   expression = "warm",
   onActivate,
 }: CompanionPresenceProps) {
+  const stageRef =
+    useRef<HTMLDivElement>(null);
+
+  const adapterRef =
+    useRef<CompanionAvatarAdapter | null>(
+      null,
+    );
+
   const isEngaged =
     status === "listening" ||
     status === "thinking" ||
     status === "speaking";
+
+  useEffect(() => {
+    const stage = stageRef.current;
+
+    if (!stage) {
+      return;
+    }
+
+    const adapter =
+      createBrowserAvatarAdapter();
+
+    adapterRef.current = adapter;
+
+    void adapter.connect(stage);
+
+    return () => {
+      adapterRef.current = null;
+      void adapter.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    void adapterRef.current?.send({
+      type: "set-status",
+      status,
+    });
+  }, [status]);
+
+  useEffect(() => {
+    void adapterRef.current?.send({
+      type: "set-expression",
+      expression,
+    });
+  }, [expression]);
 
   return (
     <div
@@ -67,6 +118,7 @@ export default function CompanionPresence({
         "
       >
         <div
+          ref={stageRef}
           id="kimi-avatar-stage"
           className="h-full w-full"
         />
