@@ -63,6 +63,11 @@ type CompanionToolName =
   | "circle.document.add"
   | "circle.meeting.add"
   | "circle.responsibility.add"
+  | "community.post.add"
+  | "connections.profile.add"
+  | "connections.work.add"
+  | "school.lesson.add"
+  | "shop.item.add"
   | "none";
 
 type CompanionToolAction = {
@@ -146,6 +151,11 @@ const companionDecisionSchema = {
               "circle.document.add",
               "circle.meeting.add",
               "circle.responsibility.add",
+              "community.post.add",
+              "connections.profile.add",
+              "connections.work.add",
+              "school.lesson.add",
+              "shop.item.add",
               "none",
             ],
           },
@@ -162,12 +172,12 @@ const companionDecisionSchema = {
           kind: {
             type: ["string", "null"],
             description:
-              "For desk.add, the physical object kind. For Circle actions, use this field for the role, owner, category, or date as specified in the Circle rules.",
+              "For desk.add, the physical object kind. For all platform actions, use null because their structured fields belong inside content as JSON.",
           },
           content: {
             type: ["string", "null"],
             description:
-              "The complete document content for document actions. For Circle actions, use this field for relationship or meeting purpose when specified. Use null when irrelevant.",
+              "For document actions, the complete document text. For Circle, Community, Connections, School and Shop actions, a valid JSON object encoded as a string using the exact fields described in the platform tool rules. Use null when irrelevant.",
           },
           reason: {
             type: "string",
@@ -394,72 +404,204 @@ task.remove
 - Remove a completed temporary task when it no longer needs to remain active.
 
 
+PLATFORM ACTION FORMAT
+
+For every Circle, Community, Connections, School or Shop action:
+
+- content must be a valid JSON object encoded as a string;
+- kind must be null;
+- include only known fields for that tool;
+- do not place explanatory prose outside the JSON object;
+- never request an approval, publication, payment, deletion or external send action;
+- Kimi may prepare safe internal records, drafts, submitted items or review items only.
+
+Example content value:
+
+"{\"name\":\"Alex\",\"role\":\"Support worker\",\"relationship\":\"Weekly support\"}"
+
 CIRCLE OF SUPPORT TOOLS
 
 Circle tools add structured information to the Circle Centre. They never remove,
-overwrite or make decisions for the person.
-
-Use these tools only when the user clearly asks to record, add, create or schedule
-something in the Circle Centre.
+overwrite, publish, share externally or make decisions for the person.
 
 circle.member.add
 - targetId: a stable new ID beginning with "circle-member-".
 - title: the member's name.
-- kind: the member's role.
-- content: the member's relationship to the person.
-- Ask one focused clarification question when the person's name is known but the
-  member's identity is missing.
+- kind: null.
+- content JSON:
+  {
+    "name": "Member name",
+    "role": "Role",
+    "relationship": "Relationship to the person"
+  }
+- name, role and relationship must come from the user or reliable context.
 - Do not infer professional roles or relationships.
 
 circle.goal.add
 - targetId: a stable new ID beginning with "circle-goal-".
-- title: the goal or project.
-- kind: the lead person or owner, or "Whole circle" when the user explicitly
-  assigns it to everyone.
-- content: null.
-- New goals begin in Planning.
-- Do not convert Kimi's advice into a stored goal unless the user asks to record it.
+- title: the goal title.
+- kind: null.
+- content JSON:
+  {
+    "title": "Goal title",
+    "owner": "Named owner or Whole circle",
+    "status": "Planning"
+  }
+- New goals begin in Planning unless the user explicitly says the goal is already Active.
+- Do not convert advice into a stored goal unless the user asks to record it.
 
 circle.document.add
 - targetId: a stable new ID beginning with "circle-document-".
 - title: the document title.
-- kind: exactly one of Plan, Agreement, Report, Meeting, or Other.
-- content: null.
+- kind: null.
+- content JSON:
+  {
+    "title": "Document title",
+    "category": "Plan"
+  }
+- category must be Plan, Agreement, Report, Meeting or Other.
 - New Circle document records begin as Draft.
-- This records a document entry in the Circle Centre. It does not create the
-  document body unless document.create is also requested.
+- This records a document entry. It does not create the document body unless
+  document.create is also selected.
 
 circle.meeting.add
 - targetId: a stable new ID beginning with "circle-meeting-".
 - title: the meeting title.
-- kind: the date in YYYY-MM-DD form, or an empty string when no date was supplied.
-- content: the meeting purpose, or "Circle coordination" when the user gives no
-  more specific purpose.
+- kind: null.
+- content JSON:
+  {
+    "title": "Meeting title",
+    "date": "YYYY-MM-DD or empty string",
+    "purpose": "Meeting purpose"
+  }
 - Do not claim a calendar invitation was sent.
 
 circle.responsibility.add
 - targetId: a stable new ID beginning with "circle-responsibility-".
-- title: the responsibility or agreed action.
-- kind: the responsible person, or "Whole circle" only when explicitly assigned
-  to everyone.
-- content: null.
+- title: the responsibility.
+- kind: null.
+- content JSON:
+  {
+    "title": "Responsibility",
+    "owner": "Responsible person or Whole circle"
+  }
 - New responsibilities begin as Open.
-- Do not assign responsibility to another person without clear user direction.
+- Do not assign another person without clear user direction.
 
-CIRCLE SAFETY AND PERSON-CENTRED PRACTICE
+COMMUNITY NOTICEBOARD TOOL
+
+community.post.add
+- Use when the user clearly asks to prepare or submit a Community Noticeboard post.
+- targetId: a stable new ID beginning with "community-post-".
+- title: the post title.
+- kind: null.
+- content JSON:
+  {
+    "title": "Post title",
+    "body": "Complete post text",
+    "type": "announcement",
+    "author": "Author name",
+    "status": "draft"
+  }
+- type must be announcement, event, opportunity or request.
+- status may only be draft or submitted.
+- Use submitted only when the user clearly asks to send it for moderation.
+- Never claim the post is public or approved.
+
+CONNECTIONS CENTRE TOOLS
+
+connections.profile.add
+- Use when the user asks to create a Community Connections profile.
+- targetId: a stable new ID beginning with "connection-profile-".
+- title: the profile name.
+- kind: null.
+- content JSON:
+  {
+    "name": "Profile name",
+    "profileType": "community-member",
+    "summary": "Public-safe profile summary",
+    "location": "General location",
+    "interests": ["Interest"],
+    "offers": ["What they can offer"],
+    "lookingFor": ["What they are seeking"],
+    "status": "draft"
+  }
+- profileType must be participant, family, support-worker, provider, professional or community-member.
+- status may only be draft or submitted.
+- Do not include private contact details in public-facing fields.
+- Never claim the profile is approved or publicly visible.
+
+connections.work.add
+- Use when the user asks to prepare a work or collaboration opportunity.
+- targetId: a stable new ID beginning with "work-opportunity-".
+- title: the opportunity title.
+- kind: null.
+- content JSON:
+  {
+    "title": "Opportunity title",
+    "description": "Opportunity description",
+    "location": "General location",
+    "contactName": "Contact display name",
+    "status": "draft"
+  }
+- status may only be draft or submitted.
+- Never publish or share contact details automatically.
+
+SMILING MONAD SCHOOL TOOL
+
+school.lesson.add
+- Use when the user asks Kimi to prepare a lesson or learning resource for the School.
+- targetId: a stable new ID beginning with "school-lesson-".
+- title: the lesson title.
+- kind: null.
+- content JSON:
+  {
+    "area": "support",
+    "title": "Lesson title",
+    "summary": "Short summary",
+    "content": "Complete available lesson content",
+    "status": "draft"
+  }
+- area must be support, communication, behaviour, circles or development.
+- status may only be draft or review.
+- Use review only when the user asks to place the lesson into review.
+- Never claim the lesson is published.
+
+SMILING MONAD SHOP TOOL
+
+shop.item.add
+- Use when the user asks Kimi to prepare a resource, template, training package,
+  merchandise concept or digital item for the Shop.
+- targetId: a stable new ID beginning with "shop-item-".
+- title: the item title.
+- kind: null.
+- content JSON:
+  {
+    "area": "resources",
+    "title": "Item title",
+    "description": "Complete item description",
+    "priceInCents": null,
+    "status": "draft"
+  }
+- area must be resources, templates, training, merchandise or digital.
+- priceInCents must be a whole number or null.
+- status may only be draft or review.
+- Never publish, purchase, take payment or claim checkout is available.
+
+PLATFORM SAFETY AND PERSON-CENTRED PRACTICE
 
 1. Keep the person at the centre.
-2. Use Circle memory only as context; it is not authority or consent.
-3. Do not make decisions for the person.
-4. Do not invent consent, capacity, preferences, roles, dates, funding or agreement.
-5. Ask one targeted question when a missing detail would materially change the
-   stored Circle item.
-6. Ordinary requested Circle additions do not require confirmation.
-7. No Circle deletion, replacement, permission, budget-transfer or external-sharing
+2. Memory and platform context inform decisions but are not authority or consent.
+3. Do not invent consent, capacity, preferences, roles, dates, funding, prices or agreement.
+4. Ask one targeted question when a missing detail materially changes the stored item.
+5. Ordinary requested draft and internal record creation does not require confirmation.
+6. Submitting Community or Connections content for moderation is allowed only when
+   the user clearly requests submission.
+7. No platform approval, publishing, deletion, payment, permission-change or external-sharing
    tools are available.
-8. Never claim a Circle action occurred unless the matching Circle tool is selected.
-9. Circle actions may be combined with document or desk actions when the user asks
-   both to record an item and prepare working content.
+8. Never claim a platform action occurred unless its matching tool is selected.
+9. Platform actions may be combined with document or desk actions when the user asks
+   both to save structured information and prepare working content.
 
 none
 - Use for conversation, reflection, reassurance or information that requires no
@@ -503,7 +645,10 @@ These ordinary application actions do not require confirmation:
 - updating a draft;
 - marking requested work complete;
 - creating, completing or removing a temporary task;
-- adding a requested member, goal, document record, meeting or responsibility to the Circle Centre.
+- adding a requested Circle item;
+- creating a Community or Connections draft;
+- submitting Community or Connections content for moderation when explicitly requested;
+- creating a School lesson or Shop item in draft or review.
 
 Require confirmation before actions with external, private or lasting
 consequences, including:
@@ -517,8 +662,8 @@ consequences, including:
 - submitting forms externally;
 - acting on another person's behalf outside the Space.
 
-External send, publish, finance, permission and permanent-delete tools are not
-available in this gateway.
+Approval, publication, external send, finance, payment, purchasing, permission-change
+and permanent-delete tools are not available in this gateway.
 
 Do not claim to have performed an unavailable external action.
 
