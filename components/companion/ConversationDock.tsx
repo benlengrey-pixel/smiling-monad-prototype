@@ -70,9 +70,6 @@ export default function ConversationDock({
   const collapseTimerRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const lastSpokenMessageIdRef =
-    useRef<string | null>(null);
-
   const visibleMessages = useMemo(
     () => messages.slice(-6),
     [messages]
@@ -81,47 +78,11 @@ export default function ConversationDock({
   const latestMessage =
     messages[messages.length - 1] ?? null;
 
-  const latestKimiMessage = useMemo(
-    () =>
-      [...messages]
-        .reverse()
-        .find((message) => message.speaker === "Kimi") ??
-      null,
-    [messages]
-  );
-
   const attachmentLabel =
     getAttachmentLabel(attachments);
 
   const hasAttachments =
     attachments.length > 0;
-
-  useEffect(() => {
-    if (
-      !latestKimiMessage ||
-      lastSpokenMessageIdRef.current ===
-        latestKimiMessage.id ||
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window)
-    ) {
-      return;
-    }
-
-    lastSpokenMessageIdRef.current =
-      latestKimiMessage.id;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(
-      latestKimiMessage.text
-    );
-
-    utterance.rate = 0.96;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    window.speechSynthesis.speak(utterance);
-  }, [latestKimiMessage]);
 
   useEffect(() => {
     if (collapseTimerRef.current) {
