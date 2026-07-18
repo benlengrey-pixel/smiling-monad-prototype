@@ -1,7 +1,53 @@
+export type CompanionSpeechStatus =
+  | "idle"
+  | "loading"
+  | "speaking"
+  | "error";
+
+type CompanionSpeechStatusListener = (
+  status: CompanionSpeechStatus,
+) => void;
+
 let activeAudio: HTMLAudioElement | null = null;
 let activeAudioUrl: string | null = null;
 let activeRequest: AbortController | null = null;
 let speechSequence = 0;
+
+const statusListeners =
+  new Set<CompanionSpeechStatusListener>();
+
+let currentStatus: CompanionSpeechStatus =
+  "idle";
+
+function setSpeechStatus(
+  status: CompanionSpeechStatus,
+): void {
+  if (currentStatus === status) {
+    return;
+  }
+
+  currentStatus = status;
+
+  statusListeners.forEach((listener) => {
+    listener(status);
+  });
+}
+
+export function getCompanionSpeechStatus():
+  CompanionSpeechStatus {
+  return currentStatus;
+}
+
+export function subscribeToCompanionSpeechStatus(
+  listener: CompanionSpeechStatusListener,
+): () => void {
+  statusListeners.add(listener);
+  listener(currentStatus);
+
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
 
 export function isCompanionSpeechAvailable(): boolean {
   return (
@@ -32,14 +78,17 @@ export function stopCompanionSpeech(): void {
   activeRequest = null;
 
   releaseAudio();
+  setSpeechStatus("idle");
 }
 
 async function playGeneratedSpeech(
   text: string,
-  sequence: number
+  sequence: number,
 ): Promise<void> {
   const controller = new AbortController();
   activeRequest = controller;
+
+  setSpeechStatus("loading");
 
   try {
     const response = await fetch("/api/speech", {
@@ -54,10 +103,13 @@ async function playGeneratedSpeech(
     if (!response.ok) {
       const errorData = (await response
         .json()
-        .catch(() => null)) as { error?: string } | null;
+        .catch(() => null)) as {
+        error?: string;
+      } | null;
 
       throw new Error(
-        errorData?.error || "Kimi's voice could not be generated."
+        errorData?.error ||
+          "Kimi's voice could not be generated.",
       );
     }
 
@@ -72,18 +124,40 @@ async function playGeneratedSpeech(
 
     releaseAudio();
 
-    const audioUrl = URL.createObjectURL(audioBlob);
+    const audioUrl =
+      URL.createObjectURL(audioBlob);
+
     const audio = new Audio(audioUrl);
 
     activeAudioUrl = audioUrl;
     activeAudio = audio;
     audio.preload = "auto";
 
-    audio.onended = releaseAudio;
+    audio.onplay = () => {
+      if (
+        sequence === speechSequence &&
+        activeAudio === audio
+      ) {
+        setSpeechStatus("speaking");
+      }
+    };
+
+    audio.onended = () => {
+      if (activeAudio === audio) {
+        releaseAudio();
+        setSpeechStatus("idle");
+      }
+    };
 
     audio.onerror = () => {
-      console.error("Kimi audio playback failed.");
-      releaseAudio();
+      console.error(
+        "Kimi audio playback failed.",
+      );
+
+      if (activeAudio === audio) {
+        releaseAudio();
+        setSpeechStatus("error");
+      }
     };
 
     await audio.play();
@@ -95,8 +169,13 @@ async function playGeneratedSpeech(
       return;
     }
 
-    console.error("Kimi voice error:", error);
+    console.error(
+      "Kimi voice error:",
+      error,
+    );
+
     releaseAudio();
+    setSpeechStatus("error");
   } finally {
     if (activeRequest === controller) {
       activeRequest = null;
@@ -104,10 +183,15 @@ async function playGeneratedSpeech(
   }
 }
 
-export function speakCompanionResponse(text: string): void {
+export function speakCompanionResponse(
+  text: string,
+): void {
   const content = text.trim();
 
-  if (!content || !isCompanionSpeechAvailable()) {
+  if (
+    !content ||
+    !isCompanionSpeechAvailable()
+  ) {
     return;
   }
 
@@ -115,5 +199,8 @@ export function speakCompanionResponse(text: string): void {
 
   const sequence = speechSequence;
 
-  void playGeneratedSpeech(content, sequence);
+  void playGeneratedSpeech(
+    content,
+    sequence,
+  );
 }
