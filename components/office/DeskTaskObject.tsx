@@ -1,33 +1,71 @@
 "use client";
 
-import type { SmilingMonadIntent } from "@/lib/intent/intent-engine";
+import type { DeskObject } from "@/lib/companion/tool-executor";
 
 type DeskTaskObjectProps = {
-  intent: SmilingMonadIntent;
+  object: DeskObject;
   previewOpen: boolean;
   onTogglePreview: () => void;
 };
 
-const folderLabels: Record<string, string> = {
-  report: "REPORTS",
-  correspondence: "CORRESPONDENCE",
-  planning: "PLANNING",
-  meeting: "NOTES",
-  files: "FILES",
-  research: "RESEARCH",
-  wellbeing: "WELLBEING",
-};
+function getFolderLabel(
+  object: DeskObject,
+): string {
+  const value =
+    `${object.kind} ${object.title}`.toLowerCase();
 
-function getFolderLabel(intent: SmilingMonadIntent): string {
-  return folderLabels[String(intent.kind)] ?? "DOCUMENTS";
+  if (value.includes("report")) {
+    return "REPORTS";
+  }
+
+  if (
+    value.includes("mail") ||
+    value.includes("email") ||
+    value.includes("correspondence") ||
+    value.includes("letter")
+  ) {
+    return "MAIL";
+  }
+
+  if (
+    value.includes("note") ||
+    value.includes("meeting")
+  ) {
+    return "NOTES";
+  }
+
+  if (value.includes("plan")) {
+    return "PLANNING";
+  }
+
+  if (value.includes("file")) {
+    return "FILES";
+  }
+
+  if (value.includes("research")) {
+    return "RESEARCH";
+  }
+
+  if (
+    value.includes("wellbeing") ||
+    value.includes("wellness")
+  ) {
+    return "WELLBEING";
+  }
+
+  if (value.includes("workspace")) {
+    return "WORKSPACE";
+  }
+
+  return "DOCUMENTS";
 }
 
 export default function DeskTaskObject({
-  intent,
+  object,
   previewOpen,
   onTogglePreview,
 }: DeskTaskObjectProps) {
-  const label = getFolderLabel(intent);
+  const label = getFolderLabel(object);
 
   return (
     <button
@@ -40,13 +78,17 @@ export default function DeskTaskObject({
     >
       <div
         className={`absolute bottom-0 left-[8%] h-[20%] w-[84%] rounded-[50%] bg-black/25 blur-md transition-all duration-500 ${
-          previewOpen ? "scale-x-110 opacity-70" : "opacity-45"
+          previewOpen
+            ? "scale-x-110 opacity-70"
+            : "opacity-45"
         }`}
       />
 
       <div
         className={`absolute bottom-[8%] left-[3%] h-[66%] w-[94%] overflow-hidden rounded-[0.45rem] border border-[#3d2417] bg-gradient-to-br from-[#765039] via-[#51301f] to-[#301a10] shadow-[0_6px_12px_rgba(35,18,10,0.35),inset_0_1px_1px_rgba(255,225,180,0.15)] transition-all duration-500 ${
-          previewOpen ? "-translate-y-2 rotate-[-2deg]" : ""
+          previewOpen
+            ? "-translate-y-2 rotate-[-2deg]"
+            : ""
         }`}
       >
         <div className="absolute inset-[0.22rem] rounded-[0.3rem] border border-dashed border-[#b9895e]/35" />
@@ -56,7 +98,9 @@ export default function DeskTaskObject({
 
       <div
         className={`absolute left-[10%] top-[10%] h-[22%] w-[38%] rounded-t-[0.4rem] border border-b-0 border-[#3d2417] bg-gradient-to-br from-[#7d563d] via-[#5a3724] to-[#3b2115] transition-all duration-500 ${
-          previewOpen ? "-translate-y-1" : ""
+          previewOpen
+            ? "-translate-y-1"
+            : ""
         }`}
       />
 

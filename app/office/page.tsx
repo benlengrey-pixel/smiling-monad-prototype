@@ -33,10 +33,6 @@ import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
 } from "@/lib/companion/voice-client";
-import {
-  createSmilingMonadIntent,
-  type SmilingMonadIntent,
-} from "@/lib/intent/intent-engine";
 import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
@@ -194,8 +190,10 @@ function readSavedCompanionState(): CompanionState {
     }
 
     return {
-      deskObjects: parsedValue.deskObjects,
-      documents: parsedValue.documents,
+      deskObjects:
+        parsedValue.deskObjects,
+      documents:
+        parsedValue.documents,
       temporaryTasks:
         parsedValue.temporaryTasks,
       activeDeskObjectId:
@@ -241,7 +239,8 @@ function getConversationForGateway(
           rememberedMessage.speaker === "Ben"
             ? "user"
             : "assistant",
-        content: rememberedMessage.text,
+        content:
+          rememberedMessage.text,
       }),
     );
 
@@ -251,57 +250,6 @@ function getConversationForGateway(
   });
 
   return conversation.slice(-20);
-}
-
-function getDeskObjectIntent(
-  object: DeskObject,
-): SmilingMonadIntent {
-  const kind = object.kind.toLowerCase();
-  const title = object.title.toLowerCase();
-
-  if (
-    kind.includes("report") ||
-    title.includes("report")
-  ) {
-    return createSmilingMonadIntent(
-      "Create a shift report",
-    );
-  }
-
-  if (
-    kind.includes("mail") ||
-    kind.includes("correspondence") ||
-    kind.includes("email") ||
-    title.includes("email") ||
-    title.includes("letter")
-  ) {
-    return createSmilingMonadIntent(
-      "Create correspondence",
-    );
-  }
-
-  if (
-    kind.includes("note") ||
-    title.includes("note") ||
-    title.includes("meeting")
-  ) {
-    return createSmilingMonadIntent(
-      "Create meeting notes",
-    );
-  }
-
-  if (
-    kind.includes("plan") ||
-    title.includes("plan")
-  ) {
-    return createSmilingMonadIntent(
-      "Create a plan",
-    );
-  }
-
-  return createSmilingMonadIntent(
-    "Create a document",
-  );
 }
 
 function getFolderLabel(
@@ -334,6 +282,25 @@ function getFolderLabel(
     return "PLANNING";
   }
 
+  if (value.includes("research")) {
+    return "RESEARCH";
+  }
+
+  if (
+    value.includes("wellbeing") ||
+    value.includes("wellness")
+  ) {
+    return "WELLBEING";
+  }
+
+  if (value.includes("file")) {
+    return "FILES";
+  }
+
+  if (value.includes("workspace")) {
+    return "WORKSPACE";
+  }
+
   return "DOCUMENT";
 }
 
@@ -346,7 +313,8 @@ function getLinkedDocument(
     const linkedDocument =
       documents.find(
         (document) =>
-          document.id === object.documentId,
+          document.id ===
+          object.documentId,
       );
 
     if (linkedDocument) {
@@ -358,7 +326,8 @@ function getLinkedDocument(
     const activeDocument =
       documents.find(
         (document) =>
-          document.id === activeDocumentId,
+          document.id ===
+          activeDocumentId,
       );
 
     if (activeDocument) {
@@ -490,17 +459,6 @@ export default function OfficePage() {
       visibleDeskObjects,
     ]);
 
-  const pendingIntent =
-    useMemo(
-      () =>
-        primaryDeskObject
-          ? getDeskObjectIntent(
-              primaryDeskObject,
-            )
-          : null,
-      [primaryDeskObject],
-    );
-
   const previewDocument =
     useMemo(
       () =>
@@ -604,10 +562,10 @@ export default function OfficePage() {
 
       setCompanionState(nextState);
 
-      const reply =
-        getCompanionReply(result);
-
-      addMessage("Kimi", reply);
+      addMessage(
+        "Kimi",
+        getCompanionReply(result),
+      );
 
       const deskChanged =
         JSON.stringify(
@@ -634,7 +592,7 @@ export default function OfficePage() {
       }
 
       const removedActiveObject =
-        primaryDeskObject &&
+        primaryDeskObject !== null &&
         !nextState.deskObjects.some(
           (object) =>
             object.id ===
@@ -688,7 +646,9 @@ export default function OfficePage() {
     }, 50);
   }
 
-  function chooseFiles(files: File[]) {
+  function chooseFiles(
+    files: File[],
+  ) {
     setConversationExpanded(true);
 
     setAttachments(
@@ -777,15 +737,18 @@ export default function OfficePage() {
         currentState.activeDocumentId,
     }));
 
-    setFolderPreviewOpen((current) => {
-      const nextValue = !current;
+    setFolderPreviewOpen(
+      (currentValue) => {
+        const nextValue =
+          !currentValue;
 
-      if (!nextValue) {
-        setUseOptionsOpen(false);
-      }
+        if (!nextValue) {
+          setUseOptionsOpen(false);
+        }
 
-      return nextValue;
-    });
+        return nextValue;
+      },
+    );
   }
 
   function closeFolderPreview() {
@@ -877,7 +840,6 @@ export default function OfficePage() {
   return (
     <OfficeEnvironment>
       {primaryDeskObject &&
-        pendingIntent &&
         folderPreviewOpen && (
           <div className="pointer-events-none absolute inset-x-0 top-[3%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
             <div className="pointer-events-auto relative w-full max-w-[35rem] sm:max-w-[39rem]">
@@ -971,7 +933,8 @@ export default function OfficePage() {
                     type="button"
                     onClick={() =>
                       setUseOptionsOpen(
-                        (current) => !current,
+                        (current) =>
+                          !current,
                       )
                     }
                     className="mt-4 w-full border border-[#b4a592] bg-[#f3eadc] px-3 py-2 font-serif text-sm transition hover:bg-[#fffaf2]"
@@ -1022,11 +985,10 @@ export default function OfficePage() {
 
       <Desk>
         {primaryDeskObject &&
-          pendingIntent &&
           !folderPreviewOpen && (
             <div className="pointer-events-auto absolute bottom-[30%] left-[34%] -translate-x-1/2 sm:bottom-[12%] sm:left-[33%]">
               <DeskTaskObject
-                intent={pendingIntent}
+                object={primaryDeskObject}
                 previewOpen={
                   folderPreviewOpen
                 }
