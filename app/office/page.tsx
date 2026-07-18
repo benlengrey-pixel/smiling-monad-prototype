@@ -876,6 +876,16 @@ export default function OfficePage() {
     }
   }
 
+  function greetOnOfficeActivation() {
+    const greeting =
+      "Welcome to the Smiling Monad Human Development Centre. What would you like to work on today?";
+
+    addMessage("Kimi", greeting);
+    setConversationExpanded(true);
+    setAvatarStatus("idle");
+    speakCompanionResponse(greeting);
+  }
+
   async function sharePreview() {
     if (!primaryDeskObject) {
       return;
@@ -927,6 +937,7 @@ export default function OfficePage() {
     <OfficeEnvironment
       avatarStatus={avatarStatus}
       avatarExpression={avatarExpression}
+      onOfficeActivated={greetOnOfficeActivation}
     >
       {primaryDeskObject &&
         folderPreviewOpen && (
