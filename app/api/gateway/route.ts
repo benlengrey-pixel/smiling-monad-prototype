@@ -58,6 +58,11 @@ type CompanionToolName =
   | "task.create"
   | "task.complete"
   | "task.remove"
+  | "circle.member.add"
+  | "circle.goal.add"
+  | "circle.document.add"
+  | "circle.meeting.add"
+  | "circle.responsibility.add"
   | "none";
 
 type CompanionToolAction = {
@@ -136,6 +141,11 @@ const companionDecisionSchema = {
               "task.create",
               "task.complete",
               "task.remove",
+              "circle.member.add",
+              "circle.goal.add",
+              "circle.document.add",
+              "circle.meeting.add",
+              "circle.responsibility.add",
               "none",
             ],
           },
@@ -152,12 +162,12 @@ const companionDecisionSchema = {
           kind: {
             type: ["string", "null"],
             description:
-              "The physical desk-object kind for desk.add, such as mail-folder, report-folder, notebook, planner, research-folder, wellbeing-folder, file-folder, or document-folder.",
+              "For desk.add, the physical object kind. For Circle actions, use this field for the role, owner, category, or date as specified in the Circle rules.",
           },
           content: {
             type: ["string", "null"],
             description:
-              "The complete document content for document.create or document.update. Use null when content is irrelevant.",
+              "The complete document content for document actions. For Circle actions, use this field for relationship or meeting purpose when specified. Use null when irrelevant.",
           },
           reason: {
             type: "string",
@@ -383,6 +393,74 @@ task.complete
 task.remove
 - Remove a completed temporary task when it no longer needs to remain active.
 
+
+CIRCLE OF SUPPORT TOOLS
+
+Circle tools add structured information to the Circle Centre. They never remove,
+overwrite or make decisions for the person.
+
+Use these tools only when the user clearly asks to record, add, create or schedule
+something in the Circle Centre.
+
+circle.member.add
+- targetId: a stable new ID beginning with "circle-member-".
+- title: the member's name.
+- kind: the member's role.
+- content: the member's relationship to the person.
+- Ask one focused clarification question when the person's name is known but the
+  member's identity is missing.
+- Do not infer professional roles or relationships.
+
+circle.goal.add
+- targetId: a stable new ID beginning with "circle-goal-".
+- title: the goal or project.
+- kind: the lead person or owner, or "Whole circle" when the user explicitly
+  assigns it to everyone.
+- content: null.
+- New goals begin in Planning.
+- Do not convert Kimi's advice into a stored goal unless the user asks to record it.
+
+circle.document.add
+- targetId: a stable new ID beginning with "circle-document-".
+- title: the document title.
+- kind: exactly one of Plan, Agreement, Report, Meeting, or Other.
+- content: null.
+- New Circle document records begin as Draft.
+- This records a document entry in the Circle Centre. It does not create the
+  document body unless document.create is also requested.
+
+circle.meeting.add
+- targetId: a stable new ID beginning with "circle-meeting-".
+- title: the meeting title.
+- kind: the date in YYYY-MM-DD form, or an empty string when no date was supplied.
+- content: the meeting purpose, or "Circle coordination" when the user gives no
+  more specific purpose.
+- Do not claim a calendar invitation was sent.
+
+circle.responsibility.add
+- targetId: a stable new ID beginning with "circle-responsibility-".
+- title: the responsibility or agreed action.
+- kind: the responsible person, or "Whole circle" only when explicitly assigned
+  to everyone.
+- content: null.
+- New responsibilities begin as Open.
+- Do not assign responsibility to another person without clear user direction.
+
+CIRCLE SAFETY AND PERSON-CENTRED PRACTICE
+
+1. Keep the person at the centre.
+2. Use Circle memory only as context; it is not authority or consent.
+3. Do not make decisions for the person.
+4. Do not invent consent, capacity, preferences, roles, dates, funding or agreement.
+5. Ask one targeted question when a missing detail would materially change the
+   stored Circle item.
+6. Ordinary requested Circle additions do not require confirmation.
+7. No Circle deletion, replacement, permission, budget-transfer or external-sharing
+   tools are available.
+8. Never claim a Circle action occurred unless the matching Circle tool is selected.
+9. Circle actions may be combined with document or desk actions when the user asks
+   both to record an item and prepare working content.
+
 none
 - Use for conversation, reflection, reassurance or information that requires no
   application state change.
@@ -424,7 +502,8 @@ These ordinary application actions do not require confirmation:
 - creating a requested draft;
 - updating a draft;
 - marking requested work complete;
-- creating, completing or removing a temporary task.
+- creating, completing or removing a temporary task;
+- adding a requested member, goal, document record, meeting or responsibility to the Circle Centre.
 
 Require confirmation before actions with external, private or lasting
 consequences, including:
