@@ -1604,6 +1604,8 @@ export const executeCompanionActions = (
             ? error.message
             : "The action could not be completed.",
       });
+
+      break;
     }
   }
 
