@@ -5,15 +5,23 @@ import Link from "next/link";
 import { useState } from "react";
 
 import CompanionPresence from "@/components/companion/CompanionPresence";
+import type {
+  CompanionAvatarExpression,
+  CompanionAvatarStatus,
+} from "@/lib/companion/avatar/types";
 import OfficeBackground from "./OfficeBackground";
 import OfficeBackButton from "./OfficeBackButton";
 
 type OfficeEnvironmentProps = {
   children: ReactNode;
+  avatarStatus?: CompanionAvatarStatus;
+  avatarExpression?: CompanionAvatarExpression;
 };
 
 export default function OfficeEnvironment({
   children,
+  avatarStatus = "idle",
+  avatarExpression = "warm",
 }: OfficeEnvironmentProps) {
   const [officeActivated, setOfficeActivated] =
     useState(false);
@@ -168,6 +176,8 @@ export default function OfficeEnvironment({
 
       <CompanionPresence
         active={officeActivated}
+        status={avatarStatus}
+        expression={avatarExpression}
         onActivate={activateOffice}
       />
 
