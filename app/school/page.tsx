@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  addSchoolLesson,
+  readSmilingMonadState,
+  subscribeToSmilingMonadState,
+  type SchoolLesson,
+} from "@/lib/platform/smiling-monad-state";
 
 type LearningArea =
   | "support"
@@ -90,9 +101,110 @@ export default function SchoolPage() {
   const [activeArea, setActiveArea] =
     useState<LearningArea | null>(null);
 
+  const [lessons, setLessons] =
+    useState<SchoolLesson[]>([]);
+
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [composerOpen, setComposerOpen] =
+    useState(false);
+
+  const [lessonArea, setLessonArea] =
+    useState<LearningArea>("support");
+
+  const [lessonTitle, setLessonTitle] =
+    useState("");
+
+  const [lessonSummary, setLessonSummary] =
+    useState("");
+
+  const [lessonContent, setLessonContent] =
+    useState("");
+
+  useEffect(() => {
+    const state =
+      readSmilingMonadState();
+
+    setLessons(state.schoolLessons);
+    setLoaded(true);
+
+    return subscribeToSmilingMonadState(
+      (nextState) => {
+        setLessons(
+          nextState.schoolLessons,
+        );
+      },
+    );
+  }, []);
+
+  const publishedLessons = useMemo(
+    () =>
+      lessons.filter(
+        (lesson) =>
+          lesson.status === "published",
+      ),
+    [lessons],
+  );
+
+  const reviewLessons = useMemo(
+    () =>
+      lessons.filter(
+        (lesson) =>
+          lesson.status === "review",
+      ),
+    [lessons],
+  );
+
+  const draftLessons = useMemo(
+    () =>
+      lessons.filter(
+        (lesson) =>
+          lesson.status === "draft",
+      ),
+    [lessons],
+  );
+
   const selectedArea = activeArea
     ? learningAreas[activeArea]
     : null;
+
+  const selectedPublishedLessons =
+    useMemo(
+      () =>
+        activeArea
+          ? publishedLessons.filter(
+              (lesson) =>
+                lesson.area === activeArea,
+            )
+          : [],
+      [activeArea, publishedLessons],
+    );
+
+  function saveLessonForReview() {
+    const title = lessonTitle.trim();
+    const summary =
+      lessonSummary.trim();
+
+    if (!title || !summary) {
+      return;
+    }
+
+    addSchoolLesson({
+      area: lessonArea,
+      title,
+      summary,
+      content:
+        lessonContent.trim(),
+      status: "review",
+    });
+
+    setLessonArea("support");
+    setLessonTitle("");
+    setLessonSummary("");
+    setLessonContent("");
+    setComposerOpen(false);
+  }
 
   return (
     <main className="min-h-[100svh] bg-[linear-gradient(180deg,#e9f0e4_0%,#f8f1e6_54%,#ead7bd_100%)] px-4 pb-14 pt-5 text-[#40352c] sm:px-8 sm:pt-8">
@@ -136,6 +248,16 @@ export default function SchoolPage() {
             Learning should help people become more
             capable, more confident and more connected.
           </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              setComposerOpen(true)
+            }
+            className="mt-6 rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+          >
+            Prepare a lesson
+          </button>
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -172,29 +294,44 @@ export default function SchoolPage() {
           ))}
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
           <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
             <p className="font-serif text-2xl">
-              Learn at your own pace
+              Published
             </p>
 
             <p className="mt-3 leading-7 text-[#6c5e51]">
-              Courses can include short lessons,
-              practical examples, reflection questions,
-              downloadable resources and guided
-              activities with Kimi.
+              {loaded
+                ? `${publishedLessons.length} lesson${publishedLessons.length === 1 ? "" : "s"} available.`
+                : "Loading lessons…"}
             </p>
           </section>
 
           <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
             <p className="font-serif text-2xl">
-              Training for real situations
+              Awaiting review
             </p>
 
             <p className="mt-3 leading-7 text-[#6c5e51]">
-              The School should help people handle the
-              situations they actually face—not just
-              complete generic online modules.
+              {reviewLessons.length} lesson
+              {reviewLessons.length === 1
+                ? ""
+                : "s"}{" "}
+              waiting to be checked.
+            </p>
+          </section>
+
+          <section className="rounded-[24px] border border-[#d6c6b2] bg-[#efe4d4]/75 p-5 sm:p-7">
+            <p className="font-serif text-2xl">
+              Drafts
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              {draftLessons.length} lesson
+              {draftLessons.length === 1
+                ? ""
+                : "s"}{" "}
+              being prepared.
             </p>
           </section>
         </div>
@@ -202,7 +339,7 @@ export default function SchoolPage() {
 
       {selectedArea && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
-          <section className="relative w-full max-w-xl rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
+          <section className="relative max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
             <button
               type="button"
               onClick={() =>
@@ -229,20 +366,52 @@ export default function SchoolPage() {
             <div className="mt-6 space-y-3">
               {selectedArea.lessons.map(
                 (lesson, index) => (
-                  <button
+                  <div
                     key={lesson}
-                    type="button"
-                    className="flex w-full items-center gap-4 rounded-[16px] border border-[#dfd1bf] bg-[#f6eee2] px-4 py-3 text-left transition hover:bg-white"
+                    className="flex w-full items-center gap-4 rounded-[16px] border border-[#dfd1bf] bg-[#f6eee2] px-4 py-3 text-left"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#decdb8] text-sm font-semibold text-[#684d38]">
                       {index + 1}
                     </span>
 
                     <span>{lesson}</span>
-                  </button>
+                  </div>
                 ),
               )}
             </div>
+
+            {selectedPublishedLessons.length > 0 && (
+              <div className="mt-7">
+                <p className="font-serif text-2xl">
+                  Published lessons
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  {selectedPublishedLessons.map(
+                    (lesson) => (
+                      <article
+                        key={lesson.id}
+                        className="rounded-[18px] border border-[#dfd1bf] bg-white p-5"
+                      >
+                        <p className="font-serif text-xl">
+                          {lesson.title}
+                        </p>
+
+                        <p className="mt-2 leading-7 text-[#6c5e51]">
+                          {lesson.summary}
+                        </p>
+
+                        {lesson.content && (
+                          <p className="mt-3 whitespace-pre-wrap leading-7 text-[#6c5e51]">
+                            {lesson.content}
+                          </p>
+                        )}
+                      </article>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
@@ -252,6 +421,112 @@ export default function SchoolPage() {
               className="mt-7 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728]"
             >
               Return to the School
+            </button>
+          </section>
+        </div>
+      )}
+
+      {composerOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
+          <section className="relative max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#d8c7b1] bg-[#fffaf2] p-6 shadow-[0_30px_80px_rgba(35,24,15,0.42)] sm:p-8">
+            <button
+              type="button"
+              onClick={() =>
+                setComposerOpen(false)
+              }
+              aria-label="Close lesson form"
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#eee2d2] text-xl transition hover:bg-[#e4d4bf]"
+            >
+              ×
+            </button>
+
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#846e58]">
+              School content
+            </p>
+
+            <h2 className="mt-3 pr-12 font-serif text-3xl">
+              Prepare a lesson
+            </h2>
+
+            <p className="mt-3 leading-7 text-[#6c5e51]">
+              New lessons are saved for review before
+              they become available to learners.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <select
+                value={lessonArea}
+                onChange={(event) =>
+                  setLessonArea(
+                    event.target
+                      .value as LearningArea,
+                  )
+                }
+                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              >
+                {(
+                  Object.entries(
+                    learningAreas,
+                  ) as Array<
+                    [
+                      LearningArea,
+                      LearningAreaDetails,
+                    ]
+                  >
+                ).map(([value, area]) => (
+                  <option
+                    key={value}
+                    value={value}
+                  >
+                    {area.title}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                value={lessonTitle}
+                onChange={(event) =>
+                  setLessonTitle(
+                    event.target.value,
+                  )
+                }
+                placeholder="Lesson title"
+                className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+
+              <textarea
+                value={lessonSummary}
+                onChange={(event) =>
+                  setLessonSummary(
+                    event.target.value,
+                  )
+                }
+                placeholder="Short lesson summary"
+                className="min-h-28 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+
+              <textarea
+                value={lessonContent}
+                onChange={(event) =>
+                  setLessonContent(
+                    event.target.value,
+                  )
+                }
+                placeholder="Lesson content, examples or activities"
+                className="min-h-44 w-full resize-none rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 leading-7 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={saveLessonForReview}
+              disabled={
+                !lessonTitle.trim() ||
+                !lessonSummary.trim()
+              }
+              className="mt-6 w-full rounded-full bg-[#60432f] px-5 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save lesson for review
             </button>
           </section>
         </div>
