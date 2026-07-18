@@ -29,9 +29,11 @@ type CircleRequirementRow = {
   id: string;
   circle_id: string;
   module_id: string;
+  module_version: string;
   participant_user_id: string;
   learner_user_id: string;
   member_display_name: string;
+  member_email: string;
   audience:
     | "worker"
     | "provider"
@@ -158,11 +160,17 @@ function requirementToRow(
     id: requirement.id,
     circle_id: requirement.circleId,
     module_id: requirement.moduleId,
+    module_version:
+      requirement.moduleVersion,
     participant_user_id:
       participantUserId,
     learner_user_id: learnerUserId,
     member_display_name:
       requirement.memberDisplayName,
+    member_email:
+      requirement.memberEmail
+        .trim()
+        .toLowerCase(),
     audience: requirement.audience,
     status: requirement.status,
     responses:
@@ -209,12 +217,14 @@ function rowToRequirement(
     participantId:
       row.participant_user_id,
     moduleId: row.module_id,
-    moduleVersion: "1.0.0",
+    moduleVersion:
+      row.module_version,
 
     memberId: row.learner_user_id,
     memberDisplayName:
       row.member_display_name,
-    memberEmail: "",
+    memberEmail:
+      row.member_email,
     audience: row.audience,
 
     status: row.status,
