@@ -1,6 +1,7 @@
 import type {
   AssessmentQuestion,
   LearningSection,
+  TrainingAssessmentSelectionRules,
   TrainingModule,
   TrainingSourceReference,
 } from "./types";
@@ -719,7 +720,7 @@ export const moduleOneRightsAndWorkerRole: TrainingModule =
     updatedAt: "2026-07-18T00:00:00.000Z",
   };
 
-export const moduleOneAssessmentSelection = {
+export const moduleOneAssessmentSelection: TrainingAssessmentSelectionRules = {
   totalQuestions: 8,
   minimumCriticalQuestions: 4,
   requiredQuestionTypes: [
@@ -730,7 +731,7 @@ export const moduleOneAssessmentSelection = {
   ],
   randomiseQuestionOrder: true,
   randomiseOptions: true,
-} as const;
+};
 
 export function getModuleOneQuestion(
   questionId: string,
