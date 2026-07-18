@@ -18,6 +18,7 @@ type CompanionPresenceProps = {
   active: boolean;
   status?: CompanionAvatarStatus;
   expression?: CompanionAvatarExpression;
+  speechText?: string;
   onActivate: () => void;
 };
 
@@ -37,6 +38,7 @@ export default function CompanionPresence({
   active,
   status = "idle",
   expression = "warm",
+  speechText = "",
   onActivate,
 }: CompanionPresenceProps) {
   const stageRef =
@@ -85,6 +87,26 @@ export default function CompanionPresence({
       expression,
     });
   }, [expression]);
+
+  useEffect(() => {
+    const content = speechText.trim();
+
+    if (
+      status === "speaking" &&
+      content
+    ) {
+      void adapterRef.current?.send({
+        type: "speak",
+        text: content,
+      });
+
+      return;
+    }
+
+    void adapterRef.current?.send({
+      type: "stop-speaking",
+    });
+  }, [speechText, status]);
 
   return (
     <div
