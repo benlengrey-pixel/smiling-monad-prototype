@@ -96,17 +96,6 @@ function createMessage(
   };
 }
 
-function buildMemory(
-  messages: WorkspaceMessage[]
-): string {
-  return messages
-    .map(
-      (message) =>
-        `${message.speaker}: ${message.text}`
-    )
-    .join("\n");
-}
-
 function stopAllSpeech() {
   stopCompanionSpeech();
 
@@ -340,18 +329,43 @@ export default function WorkspacePage() {
           },
           body: JSON.stringify({
             request,
-            memory: [
-              buildMemory(memoryMessages),
-              currentDocument?.trim()
-                ? [
-                    "",
-                    "=== CURRENT WORKSPACE DOCUMENT ===",
-                    currentDocument,
-                  ].join("\n")
-                : "",
-            ]
-              .filter(Boolean)
-              .join("\n"),
+
+            /*
+             * Retained for compatibility with the gateway's
+             * approved-memory field.
+             */
+            memory: "",
+
+            conversation: memoryMessages.map(
+              (message) => ({
+                speaker: message.speaker,
+                text: message.text,
+              })
+            ),
+
+            taskMemory: {
+              title:
+                result?.title ||
+                session?.intent.title ||
+                "Current task",
+
+              originalRequest:
+                session?.intent.originalRequest ||
+                request,
+
+              content:
+                currentDocument ??
+                result?.content ??
+                "",
+
+              status:
+                session?.status ||
+                "active",
+
+              nextStep:
+                result?.nextStep ||
+                "",
+            },
           }),
         }
       );
