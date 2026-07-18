@@ -30,7 +30,10 @@ import type {
   CompanionAvatarExpression,
   CompanionAvatarStatus,
 } from "@/lib/companion/avatar/types";
-import { stopCompanionSpeech } from "@/lib/companion/speech-client";
+import {
+  stopCompanionSpeech,
+  subscribeToCompanionSpeechStatus,
+} from "@/lib/companion/speech-client";
 import {
   type CompanionState,
   createEmptyCompanionState,
@@ -453,6 +456,31 @@ export default function OfficePage() {
 
     saveCompanionState(companionState);
   }, [companionState]);
+
+  useEffect(() => {
+    return subscribeToCompanionSpeechStatus(
+      (speechStatus) => {
+        if (speechStatus === "speaking") {
+          setAvatarStatus("speaking");
+          return;
+        }
+
+        if (speechStatus === "error") {
+          setAvatarStatus("error");
+          return;
+        }
+
+        if (speechStatus === "idle") {
+          setAvatarStatus((currentStatus) =>
+            currentStatus === "speaking"
+              ? "idle"
+              : currentStatus,
+          );
+        }
+      },
+    );
+  }, []);
+
 
   const visibleDeskObjects =
     useMemo(
