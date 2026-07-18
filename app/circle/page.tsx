@@ -7,52 +7,33 @@ import {
   useState,
 } from "react";
 
-type CircleMember = {
-  id: string;
-  name: string;
-  role: string;
-  relationship: string;
-};
+import {
+  readSmilingMonadState,
+  subscribeToSmilingMonadState,
+  updateSmilingMonadState,
+  type SmilingMonadState,
+} from "@/lib/platform/smiling-monad-state";
 
-type CircleGoal = {
-  id: string;
-  title: string;
-  owner: string;
-  status: "Planning" | "Active" | "Complete";
-};
+type CircleState =
+  SmilingMonadState["circle"];
 
-type CircleDocument = {
-  id: string;
-  title: string;
-  category:
-    | "Plan"
-    | "Agreement"
-    | "Report"
-    | "Meeting"
-    | "Other";
-  status: "Draft" | "Current" | "Review needed";
-};
+type CircleProfile =
+  CircleState["profile"];
 
-type CircleMeeting = {
-  id: string;
-  title: string;
-  date: string;
-  purpose: string;
-};
+type CircleMember =
+  CircleState["members"][number];
 
-type CircleResponsibility = {
-  id: string;
-  title: string;
-  owner: string;
-  status: "Open" | "In progress" | "Complete";
-};
+type CircleGoal =
+  CircleState["goals"][number];
 
-type CircleProfile = {
-  personName: string;
-  preferredName: string;
-  whatMatters: string;
-  communication: string;
-};
+type CircleDocument =
+  CircleState["documents"][number];
+
+type CircleMeeting =
+  CircleState["meetings"][number];
+
+type CircleResponsibility =
+  CircleState["responsibilities"][number];
 
 type ActivePanel =
   | "overview"
@@ -63,86 +44,50 @@ type ActivePanel =
   | "meetings"
   | "responsibilities";
 
-type StoredCircleState = {
-  profile: CircleProfile;
-  members: CircleMember[];
-  goals: CircleGoal[];
-  documents: CircleDocument[];
-  meetings: CircleMeeting[];
-  responsibilities: CircleResponsibility[];
-};
+type StateUpdate<T> =
+  | T
+  | ((current: T) => T);
 
-const STORAGE_KEY =
-  "smiling-monad-circle-centre-v2";
-
-const emptyProfile: CircleProfile = {
-  personName: "",
-  preferredName: "",
-  whatMatters: "",
-  communication: "",
+const emptyCircle: CircleState = {
+  profile: {
+    personName: "",
+    preferredName: "",
+    whatMatters: "",
+    communication: "",
+  },
+  members: [],
+  goals: [],
+  documents: [],
+  meetings: [],
+  responsibilities: [],
 };
 
 function createId(): string {
-  return crypto.randomUUID();
+  if (
+    typeof globalThis.crypto !==
+      "undefined" &&
+    typeof globalThis.crypto.randomUUID ===
+      "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
-function readStoredState(): StoredCircleState {
-  const emptyState: StoredCircleState = {
-    profile: emptyProfile,
-    members: [],
-    goals: [],
-    documents: [],
-    meetings: [],
-    responsibilities: [],
-  };
-
-  try {
-    const storedValue =
-      localStorage.getItem(STORAGE_KEY);
-
-    if (!storedValue) {
-      return emptyState;
-    }
-
-    const parsedValue =
-      JSON.parse(
-        storedValue,
-      ) as Partial<StoredCircleState>;
-
-    return {
-      profile: {
-        ...emptyProfile,
-        ...parsedValue.profile,
-      },
-      members: Array.isArray(
-        parsedValue.members,
-      )
-        ? parsedValue.members
-        : [],
-      goals: Array.isArray(
-        parsedValue.goals,
-      )
-        ? parsedValue.goals
-        : [],
-      documents: Array.isArray(
-        parsedValue.documents,
-      )
-        ? parsedValue.documents
-        : [],
-      meetings: Array.isArray(
-        parsedValue.meetings,
-      )
-        ? parsedValue.meetings
-        : [],
-      responsibilities: Array.isArray(
-        parsedValue.responsibilities,
-      )
-        ? parsedValue.responsibilities
-        : [],
-    };
-  } catch {
-    return emptyState;
-  }
+function resolveStateUpdate<T>(
+  current: T,
+  update: StateUpdate<T>,
+): T {
+  return typeof update === "function"
+    ? (
+        update as (
+          value: T,
+        ) => T
+      )(current)
+    : update;
 }
 
 function getNextStatus<
@@ -168,29 +113,117 @@ export default function CirclePage() {
   const [loaded, setLoaded] =
     useState(false);
 
-  const [profile, setProfile] =
-    useState<CircleProfile>(
-      emptyProfile,
+  const [circle, setCircle] =
+    useState<CircleState>(
+      emptyCircle,
     );
 
-  const [members, setMembers] =
-    useState<CircleMember[]>([]);
+  const profile = circle.profile;
+  const members = circle.members;
+  const goals = circle.goals;
+  const documents = circle.documents;
+  const meetings = circle.meetings;
+  const responsibilities =
+    circle.responsibilities;
 
-  const [goals, setGoals] =
-    useState<CircleGoal[]>([]);
+  function commitCircle(
+    updater: (
+      current: CircleState,
+    ) => CircleState,
+  ) {
+    const nextState =
+      updateSmilingMonadState(
+        (currentState) => ({
+          ...currentState,
+          circle: updater(
+            currentState.circle,
+          ),
+        }),
+      );
 
-  const [documents, setDocuments] =
-    useState<CircleDocument[]>([]);
+    setCircle(nextState.circle);
+  }
 
-  const [meetings, setMeetings] =
-    useState<CircleMeeting[]>([]);
+  function setProfile(
+    update: StateUpdate<CircleProfile>,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      profile: resolveStateUpdate(
+        current.profile,
+        update,
+      ),
+    }));
+  }
 
-  const [
-    responsibilities,
-    setResponsibilities,
-  ] = useState<
-    CircleResponsibility[]
-  >([]);
+  function setMembers(
+    update: StateUpdate<
+      CircleMember[]
+    >,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      members: resolveStateUpdate(
+        current.members,
+        update,
+      ),
+    }));
+  }
+
+  function setGoals(
+    update: StateUpdate<CircleGoal[]>,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      goals: resolveStateUpdate(
+        current.goals,
+        update,
+      ),
+    }));
+  }
+
+  function setDocuments(
+    update: StateUpdate<
+      CircleDocument[]
+    >,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      documents: resolveStateUpdate(
+        current.documents,
+        update,
+      ),
+    }));
+  }
+
+  function setMeetings(
+    update: StateUpdate<
+      CircleMeeting[]
+    >,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      meetings: resolveStateUpdate(
+        current.meetings,
+        update,
+      ),
+    }));
+  }
+
+  function setResponsibilities(
+    update: StateUpdate<
+      CircleResponsibility[]
+    >,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      responsibilities:
+        resolveStateUpdate(
+          current.responsibilities,
+          update,
+        ),
+    }));
+  }
 
   const [activePanel, setActivePanel] =
     useState<ActivePanel | null>(
@@ -249,50 +282,18 @@ export default function CirclePage() {
   ] = useState("");
 
   useEffect(() => {
-    const storedState =
-      readStoredState();
+    const state =
+      readSmilingMonadState();
 
-    setProfile(storedState.profile);
-    setMembers(storedState.members);
-    setGoals(storedState.goals);
-    setDocuments(
-      storedState.documents,
-    );
-    setMeetings(storedState.meetings);
-    setResponsibilities(
-      storedState.responsibilities,
-    );
-
+    setCircle(state.circle);
     setLoaded(true);
-  }, []);
 
-  useEffect(() => {
-    if (!loaded) {
-      return;
-    }
-
-    const state: StoredCircleState = {
-      profile,
-      members,
-      goals,
-      documents,
-      meetings,
-      responsibilities,
-    };
-
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(state),
+    return subscribeToSmilingMonadState(
+      (nextState) => {
+        setCircle(nextState.circle);
+      },
     );
-  }, [
-    loaded,
-    profile,
-    members,
-    goals,
-    documents,
-    meetings,
-    responsibilities,
-  ]);
+  }, []);
 
   const activeGoals = useMemo(
     () =>
@@ -881,8 +882,9 @@ export default function CirclePage() {
                 </label>
 
                 <p className="mt-5 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                  Changes are saved automatically
-                  in this browser.
+                  {loaded
+                    ? "Changes are saved automatically to the shared Smiling Monad platform state and update live across the app."
+                    : "Loading the shared Circle state…"}
                 </p>
               </>
             )}
