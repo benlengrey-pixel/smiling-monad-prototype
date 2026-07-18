@@ -15,6 +15,7 @@ import {
   type ConnectionProfile,
   type ConnectionProfileType,
   type WorkOpportunity,
+  type WorkerApplication,
 } from "@/lib/platform/smiling-monad-state";
 
 type ConnectionArea =
@@ -75,7 +76,7 @@ const connectionAreas: Record<
       "Create a respectful profile that helps others understand who you are, what you offer and what you are looking for.",
     examples: [
       "Participant and family profiles",
-      "Support-worker profiles",
+      "Trained support-worker pathway",
       "Provider and professional profiles",
       "Community-member profiles",
     ],
@@ -110,6 +111,9 @@ export default function ConnectionsPage() {
 
   const [opportunities, setOpportunities] =
     useState<WorkOpportunity[]>([]);
+
+  const [workerApplications, setWorkerApplications] =
+    useState<WorkerApplication[]>([]);
 
   const [loaded, setLoaded] =
     useState(false);
@@ -157,6 +161,9 @@ export default function ConnectionsPage() {
     setOpportunities(
       state.workOpportunities,
     );
+    setWorkerApplications(
+      state.workerApplications,
+    );
     setLoaded(true);
 
     return subscribeToSmilingMonadState(
@@ -167,17 +174,60 @@ export default function ConnectionsPage() {
         setOpportunities(
           nextState.workOpportunities,
         );
+        setWorkerApplications(
+          nextState.workerApplications,
+        );
       },
     );
   }, []);
 
+  const approvedWorkerApplications = useMemo(
+    () =>
+      workerApplications.filter(
+        (application) =>
+          application.status === "approved" &&
+          application.badgeStatus === "active" &&
+          Boolean(
+            application.connectionProfileId,
+          ),
+      ),
+    [workerApplications],
+  );
+
+  const approvedWorkerByProfileId = useMemo(
+    () =>
+      new Map(
+        approvedWorkerApplications.map(
+          (application) => [
+            application.connectionProfileId as string,
+            application,
+          ],
+        ),
+      ),
+    [approvedWorkerApplications],
+  );
+
   const approvedProfiles = useMemo(
     () =>
-      profiles.filter(
-        (profile) =>
-          profile.status === "approved",
-      ),
-    [profiles],
+      profiles.filter((profile) => {
+        if (
+          profile.status !== "approved"
+        ) {
+          return false;
+        }
+
+        if (
+          profile.profileType !==
+          "support-worker"
+        ) {
+          return true;
+        }
+
+        return approvedWorkerByProfileId.has(
+          profile.id,
+        );
+      }),
+    [profiles, approvedWorkerByProfileId],
   );
 
   const submittedProfiles = useMemo(
@@ -233,7 +283,11 @@ export default function ConnectionsPage() {
     const name = profileName.trim();
     const summary = profileSummary.trim();
 
-    if (!name || !summary) {
+    if (
+      !name ||
+      !summary ||
+      profileType === "support-worker"
+    ) {
       return;
     }
 
@@ -397,11 +451,11 @@ export default function ConnectionsPage() {
 
           <p className="mt-3 leading-7 text-[#6c5e51]">
             Public profiles and posts are reviewed before
-            becoming visible. Private contact details
-            should only be shared after both people choose
-            to connect. Kimi can help prepare profiles,
-            opportunities and Circle connections without
-            making decisions for the person.
+            becoming visible. Support workers appear only
+            after completing the Smiling Monad training
+            pathway, evidence review and human approval.
+            Private contact details should only be shared
+            after both people choose to connect.
           </p>
         </div>
       </section>
@@ -460,14 +514,22 @@ export default function ConnectionsPage() {
                         string,
                       ]
                     >
-                  ).map(([value, label]) => (
-                    <option
-                      key={value}
-                      value={value}
-                    >
-                      {label}
-                    </option>
-                  ))}
+                  )
+                    .filter(
+                      ([value]) =>
+                        value !==
+                        "support-worker",
+                    )
+                    .map(
+                      ([value, label]) => (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      ),
+                    )}
                 </select>
 
                 <textarea
@@ -524,6 +586,20 @@ export default function ConnectionsPage() {
                   placeholder="What you are looking for, separated by commas"
                   className="w-full rounded-[16px] border border-[#d8c9b7] bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-[#7a6049]/20"
                 />
+
+                <div className="rounded-[16px] border border-[#cdbda8] bg-[#efe4d4] px-4 py-4 text-sm leading-6 text-[#6c5e51]">
+                  Support-worker profiles cannot be
+                  created through this general form.
+                  Workers must complete the Smiling
+                  Monad training pathway and pass
+                  human review first.
+                  <Link
+                    href="/school"
+                    className="ml-1 font-semibold text-[#60432f] underline"
+                  >
+                    Open the worker pathway
+                  </Link>
+                </div>
 
                 <button
                   type="button"
@@ -616,20 +692,60 @@ export default function ConnectionsPage() {
                           {profile.name}
                         </p>
 
-                        <p className="mt-1 text-sm text-[#7a6a5b]">
-                          {
-                            profileTypeLabels[
-                              profile.profileType
-                            ]
-                          }
-                          {profile.location
-                            ? ` · ${profile.location}`
-                            : ""}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#7a6a5b]">
+                          <span>
+                            {
+                              profileTypeLabels[
+                                profile.profileType
+                              ]
+                            }
+                            {profile.location
+                              ? ` · ${profile.location}`
+                              : ""}
+                          </span>
+
+                          {profile.profileType ===
+                            "support-worker" &&
+                            approvedWorkerByProfileId.has(
+                              profile.id,
+                            ) && (
+                              <span className="rounded-full bg-[#60432f] px-3 py-1 text-xs font-semibold text-white">
+                                Smiling Monad Trained
+                              </span>
+                            )}
+                        </div>
 
                         <p className="mt-3 leading-7 text-[#67594d]">
                           {profile.summary}
                         </p>
+
+                        {profile.profileType ===
+                          "support-worker" &&
+                          approvedWorkerByProfileId.get(
+                            profile.id,
+                          ) && (
+                            <p className="mt-3 text-sm text-[#7a6a5b]">
+                              Last reviewed:{" "}
+                              {new Intl.DateTimeFormat(
+                                "en-AU",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              ).format(
+                                new Date(
+                                  approvedWorkerByProfileId.get(
+                                    profile.id,
+                                  )?.lastReviewedAt ??
+                                    approvedWorkerByProfileId.get(
+                                      profile.id,
+                                    )?.approvedAt ??
+                                    new Date().toISOString(),
+                                ),
+                              )}
+                            </p>
+                          )}
                       </article>
                     ),
                   )
