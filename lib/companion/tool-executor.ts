@@ -1,11 +1,16 @@
-export type DeskObjectStatus = "active" | "complete" | "archived";
+export type DeskObjectStatus =
+  | "active"
+  | "complete"
+  | "archived";
 
 export type WorkspaceDocumentStatus =
   | "draft"
   | "complete"
   | "archived";
 
-export type TemporaryTaskStatus = "active" | "complete";
+export type TemporaryTaskStatus =
+  | "active"
+  | "complete";
 
 export type DeskObject = {
   id: string;
@@ -81,19 +86,24 @@ export type ToolExecutionResult = {
   }>;
 };
 
-export const createEmptyCompanionState = (): CompanionState => ({
-  deskObjects: [],
-  documents: [],
-  temporaryTasks: [],
-  activeDeskObjectId: null,
-  activeDocumentId: null,
-  workspaceOpen: false,
-});
+export const createEmptyCompanionState =
+  (): CompanionState => ({
+    deskObjects: [],
+    documents: [],
+    temporaryTasks: [],
+    activeDeskObjectId: null,
+    activeDocumentId: null,
+    workspaceOpen: false,
+  });
 
-const createId = (prefix: string): string => {
+const createId = (
+  prefix: string,
+): string => {
   if (
-    typeof globalThis.crypto !== "undefined" &&
-    typeof globalThis.crypto.randomUUID === "function"
+    typeof globalThis.crypto !==
+      "undefined" &&
+    typeof globalThis.crypto.randomUUID ===
+      "function"
   ) {
     return `${prefix}-${globalThis.crypto.randomUUID()}`;
   }
@@ -103,28 +113,110 @@ const createId = (prefix: string): string => {
     .slice(2, 10)}`;
 };
 
-const copyState = (state: CompanionState): CompanionState => ({
-  deskObjects: state.deskObjects.map((object) => ({
-    ...object,
-  })),
-  documents: state.documents.map((document) => ({
-    ...document,
-  })),
-  temporaryTasks: state.temporaryTasks.map((task) => ({
-    ...task,
-  })),
-  activeDeskObjectId: state.activeDeskObjectId,
-  activeDocumentId: state.activeDocumentId,
+const copyState = (
+  state: CompanionState,
+): CompanionState => ({
+  deskObjects: state.deskObjects.map(
+    (object) => ({
+      ...object,
+    }),
+  ),
+  documents: state.documents.map(
+    (document) => ({
+      ...document,
+    }),
+  ),
+  temporaryTasks:
+    state.temporaryTasks.map((task) => ({
+      ...task,
+    })),
+  activeDeskObjectId:
+    state.activeDeskObjectId,
+  activeDocumentId:
+    state.activeDocumentId,
   workspaceOpen: state.workspaceOpen,
 });
+
+const normaliseText = (
+  value: string,
+): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ");
+
+const titlesLikelyMatch = (
+  firstTitle: string,
+  secondTitle: string,
+): boolean => {
+  const first =
+    normaliseText(firstTitle);
+  const second =
+    normaliseText(secondTitle);
+
+  if (!first || !second) {
+    return false;
+  }
+
+  if (
+    first === second ||
+    first.includes(second) ||
+    second.includes(first)
+  ) {
+    return true;
+  }
+
+  const ignoredWords = new Set([
+    "a",
+    "an",
+    "and",
+    "document",
+    "draft",
+    "file",
+    "folder",
+    "for",
+    "mail",
+    "note",
+    "notes",
+    "report",
+    "the",
+    "to",
+  ]);
+
+  const firstWords = new Set(
+    first
+      .split(" ")
+      .filter(
+        (word) =>
+          word.length > 2 &&
+          !ignoredWords.has(word),
+      ),
+  );
+
+  const secondWords = second
+    .split(" ")
+    .filter(
+      (word) =>
+        word.length > 2 &&
+        !ignoredWords.has(word),
+    );
+
+  return secondWords.some((word) =>
+    firstWords.has(word),
+  );
+};
 
 const requireTargetId = (
   action: CompanionToolAction,
 ): string => {
-  const targetId = action.targetId?.trim();
+  const targetId =
+    action.targetId?.trim();
 
   if (!targetId) {
-    throw new Error(`${action.tool} requires a targetId.`);
+    throw new Error(
+      `${action.tool} requires a targetId.`,
+    );
   }
 
   return targetId;
@@ -136,7 +228,9 @@ const requireTitle = (
   const title = action.title?.trim();
 
   if (!title) {
-    throw new Error(`${action.tool} requires a title.`);
+    throw new Error(
+      `${action.tool} requires a title.`,
+    );
   }
 
   return title;
@@ -146,12 +240,15 @@ const findDeskObject = (
   state: CompanionState,
   targetId: string,
 ): DeskObject => {
-  const object = state.deskObjects.find(
-    (item) => item.id === targetId,
-  );
+  const object =
+    state.deskObjects.find(
+      (item) => item.id === targetId,
+    );
 
   if (!object) {
-    throw new Error(`Desk object "${targetId}" was not found.`);
+    throw new Error(
+      `Desk object "${targetId}" was not found.`,
+    );
   }
 
   return object;
@@ -161,12 +258,15 @@ const findDocument = (
   state: CompanionState,
   targetId: string,
 ): WorkspaceDocument => {
-  const document = state.documents.find(
-    (item) => item.id === targetId,
-  );
+  const document =
+    state.documents.find(
+      (item) => item.id === targetId,
+    );
 
   if (!document) {
-    throw new Error(`Document "${targetId}" was not found.`);
+    throw new Error(
+      `Document "${targetId}" was not found.`,
+    );
   }
 
   return document;
@@ -176,15 +276,129 @@ const findTask = (
   state: CompanionState,
   targetId: string,
 ): TemporaryTask => {
-  const task = state.temporaryTasks.find(
-    (item) => item.id === targetId,
-  );
+  const task =
+    state.temporaryTasks.find(
+      (item) => item.id === targetId,
+    );
 
   if (!task) {
-    throw new Error(`Task "${targetId}" was not found.`);
+    throw new Error(
+      `Task "${targetId}" was not found.`,
+    );
   }
 
   return task;
+};
+
+const linkDeskObjectToDocument = (
+  state: CompanionState,
+  objectId: string,
+  documentId: string,
+) => {
+  const object =
+    state.deskObjects.find(
+      (item) => item.id === objectId,
+    );
+
+  const document =
+    state.documents.find(
+      (item) => item.id === documentId,
+    );
+
+  if (!object || !document) {
+    return;
+  }
+
+  object.documentId = documentId;
+};
+
+const findBestDeskObjectForDocument = (
+  state: CompanionState,
+  document: WorkspaceDocument,
+): DeskObject | null => {
+  if (state.activeDeskObjectId) {
+    const activeObject =
+      state.deskObjects.find(
+        (object) =>
+          object.id ===
+            state.activeDeskObjectId &&
+          object.status !== "archived",
+      );
+
+    if (
+      activeObject &&
+      (!activeObject.documentId ||
+        activeObject.documentId ===
+          document.id)
+    ) {
+      return activeObject;
+    }
+  }
+
+  const matchingUnlinkedObject = [
+    ...state.deskObjects,
+  ]
+    .reverse()
+    .find(
+      (object) =>
+        object.status !== "archived" &&
+        !object.documentId &&
+        titlesLikelyMatch(
+          object.title,
+          document.title,
+        ),
+    );
+
+  if (matchingUnlinkedObject) {
+    return matchingUnlinkedObject;
+  }
+
+  return (
+    [...state.deskObjects]
+      .reverse()
+      .find(
+        (object) =>
+          object.status !==
+            "archived" &&
+          !object.documentId,
+      ) ?? null
+  );
+};
+
+const findBestDocumentForDeskObject = (
+  state: CompanionState,
+  object: DeskObject,
+): WorkspaceDocument | null => {
+  if (state.activeDocumentId) {
+    const activeDocument =
+      state.documents.find(
+        (document) =>
+          document.id ===
+            state.activeDocumentId &&
+          document.status !==
+            "archived",
+      );
+
+    if (activeDocument) {
+      return activeDocument;
+    }
+  }
+
+  const matchingDocument = [
+    ...state.documents,
+  ]
+    .reverse()
+    .find(
+      (document) =>
+        document.status !==
+          "archived" &&
+        titlesLikelyMatch(
+          object.title,
+          document.title,
+        ),
+    );
+
+  return matchingDocument ?? null;
 };
 
 const executeAction = (
@@ -195,70 +409,136 @@ const executeAction = (
 
   switch (action.tool) {
     case "desk.add": {
-      const title = requireTitle(action);
+      const title =
+        requireTitle(action);
+
       const objectId =
-        action.targetId?.trim() || createId("desk");
+        action.targetId?.trim() ||
+        createId("desk");
 
-      const existingObject = nextState.deskObjects.find(
-        (object) => object.id === objectId,
-      );
+      let object =
+        nextState.deskObjects.find(
+          (item) =>
+            item.id === objectId,
+        );
 
-      if (existingObject) {
-        existingObject.title = title;
-        existingObject.kind =
-          action.kind?.trim() || existingObject.kind;
-        existingObject.status = "active";
+      if (object) {
+        object.title = title;
+        object.kind =
+          action.kind?.trim() ||
+          object.kind;
+        object.status = "active";
       } else {
-        nextState.deskObjects.push({
+        object = {
           id: objectId,
           title,
-          kind: action.kind?.trim() || "folder",
+          kind:
+            action.kind?.trim() ||
+            "folder",
           status: "active",
           documentId: null,
-        });
+        };
+
+        nextState.deskObjects.push(
+          object,
+        );
       }
+
+      const matchingDocument =
+        findBestDocumentForDeskObject(
+          nextState,
+          object,
+        );
+
+      if (matchingDocument) {
+        object.documentId =
+          matchingDocument.id;
+
+        nextState.activeDocumentId =
+          matchingDocument.id;
+      }
+
+      nextState.activeDeskObjectId =
+        objectId;
 
       return nextState;
     }
 
     case "desk.open": {
-      const targetId = requireTargetId(action);
-      const object = findDeskObject(nextState, targetId);
+      const targetId =
+        requireTargetId(action);
+
+      const object =
+        findDeskObject(
+          nextState,
+          targetId,
+        );
 
       object.status = "active";
-      nextState.activeDeskObjectId = targetId;
+
+      nextState.activeDeskObjectId =
+        targetId;
 
       if (object.documentId) {
-        nextState.activeDocumentId = object.documentId;
+        const linkedDocument =
+          nextState.documents.find(
+            (document) =>
+              document.id ===
+                object.documentId &&
+              document.status !==
+                "archived",
+          );
+
+        if (linkedDocument) {
+          nextState.activeDocumentId =
+            linkedDocument.id;
+        }
       }
 
       return nextState;
     }
 
     case "desk.close": {
-      const targetId = requireTargetId(action);
+      const targetId =
+        requireTargetId(action);
 
-      findDeskObject(nextState, targetId);
+      findDeskObject(
+        nextState,
+        targetId,
+      );
 
-      if (nextState.activeDeskObjectId === targetId) {
-        nextState.activeDeskObjectId = null;
+      if (
+        nextState.activeDeskObjectId ===
+        targetId
+      ) {
+        nextState.activeDeskObjectId =
+          null;
       }
 
       return nextState;
     }
 
     case "desk.remove": {
-      const targetId = requireTargetId(action);
+      const targetId =
+        requireTargetId(action);
 
-      findDeskObject(nextState, targetId);
+      findDeskObject(
+        nextState,
+        targetId,
+      );
 
       nextState.deskObjects =
         nextState.deskObjects.filter(
-          (object) => object.id !== targetId,
+          (object) =>
+            object.id !== targetId,
         );
 
-      if (nextState.activeDeskObjectId === targetId) {
-        nextState.activeDeskObjectId = null;
+      if (
+        nextState.activeDeskObjectId ===
+        targetId
+      ) {
+        nextState.activeDeskObjectId =
+          null;
       }
 
       return nextState;
@@ -271,111 +551,243 @@ const executeAction = (
 
     case "workspace.close": {
       nextState.workspaceOpen = false;
-      nextState.activeDeskObjectId = null;
-      nextState.activeDocumentId = null;
+      nextState.activeDeskObjectId =
+        null;
+      nextState.activeDocumentId =
+        null;
+
       return nextState;
     }
 
     case "workspace.clear": {
       nextState.workspaceOpen = false;
-      nextState.activeDeskObjectId = null;
-      nextState.activeDocumentId = null;
+      nextState.activeDeskObjectId =
+        null;
+      nextState.activeDocumentId =
+        null;
       nextState.temporaryTasks = [];
+
       return nextState;
     }
 
     case "document.create": {
-      const title = requireTitle(action);
+      const title =
+        requireTitle(action);
+
       const documentId =
-        action.targetId?.trim() || createId("document");
+        action.targetId?.trim() ||
+        createId("document");
 
-      const existingDocument = nextState.documents.find(
-        (document) => document.id === documentId,
-      );
+      let document =
+        nextState.documents.find(
+          (item) =>
+            item.id === documentId,
+        );
 
-      if (existingDocument) {
-        existingDocument.title = title;
-        existingDocument.content =
-          action.content ?? existingDocument.content;
-        existingDocument.status = "draft";
+      if (document) {
+        document.title = title;
+        document.content =
+          action.content ??
+          document.content;
+        document.status = "draft";
       } else {
-        nextState.documents.push({
+        document = {
           id: documentId,
           title,
-          content: action.content ?? "",
+          content:
+            action.content ?? "",
           status: "draft",
-        });
+        };
+
+        nextState.documents.push(
+          document,
+        );
       }
 
-      nextState.activeDocumentId = documentId;
+      nextState.activeDocumentId =
+        documentId;
+
       nextState.workspaceOpen = true;
+
+      const matchingObject =
+        findBestDeskObjectForDocument(
+          nextState,
+          document,
+        );
+
+      if (matchingObject) {
+        linkDeskObjectToDocument(
+          nextState,
+          matchingObject.id,
+          documentId,
+        );
+
+        nextState.activeDeskObjectId =
+          matchingObject.id;
+      }
 
       return nextState;
     }
 
     case "document.update": {
-      const targetId = requireTargetId(action);
-      const document = findDocument(
-        nextState,
-        targetId,
-      );
+      const targetId =
+        requireTargetId(action);
+
+      const document =
+        findDocument(
+          nextState,
+          targetId,
+        );
 
       if (action.title?.trim()) {
-        document.title = action.title.trim();
+        document.title =
+          action.title.trim();
       }
 
       if (action.content !== null) {
-        document.content = action.content;
+        document.content =
+          action.content;
       }
 
       document.status = "draft";
-      nextState.activeDocumentId = targetId;
+
+      nextState.activeDocumentId =
+        targetId;
+
       nextState.workspaceOpen = true;
+
+      const linkedObject =
+        nextState.deskObjects.find(
+          (object) =>
+            object.documentId ===
+            targetId,
+        );
+
+      if (linkedObject) {
+        linkedObject.title =
+          document.title;
+
+        nextState.activeDeskObjectId =
+          linkedObject.id;
+      } else {
+        const matchingObject =
+          findBestDeskObjectForDocument(
+            nextState,
+            document,
+          );
+
+        if (matchingObject) {
+          linkDeskObjectToDocument(
+            nextState,
+            matchingObject.id,
+            targetId,
+          );
+
+          nextState.activeDeskObjectId =
+            matchingObject.id;
+        }
+      }
 
       return nextState;
     }
 
     case "document.complete": {
-      const targetId = requireTargetId(action);
-      const document = findDocument(
-        nextState,
-        targetId,
-      );
+      const targetId =
+        requireTargetId(action);
+
+      const document =
+        findDocument(
+          nextState,
+          targetId,
+        );
 
       document.status = "complete";
-      nextState.activeDocumentId = targetId;
+
+      nextState.activeDocumentId =
+        targetId;
+
+      const linkedObject =
+        nextState.deskObjects.find(
+          (object) =>
+            object.documentId ===
+            targetId,
+        );
+
+      if (linkedObject) {
+        linkedObject.status =
+          "complete";
+
+        nextState.activeDeskObjectId =
+          linkedObject.id;
+      }
 
       return nextState;
     }
 
     case "document.archive": {
-      const targetId = requireTargetId(action);
-      const document = findDocument(
-        nextState,
-        targetId,
-      );
+      const targetId =
+        requireTargetId(action);
+
+      const document =
+        findDocument(
+          nextState,
+          targetId,
+        );
 
       document.status = "archived";
 
-      if (nextState.activeDocumentId === targetId) {
-        nextState.activeDocumentId = null;
+      const linkedObjects =
+        nextState.deskObjects.filter(
+          (object) =>
+            object.documentId ===
+            targetId,
+        );
+
+      for (
+        const linkedObject of
+        linkedObjects
+      ) {
+        linkedObject.status =
+          "archived";
+
+        if (
+          nextState.activeDeskObjectId ===
+          linkedObject.id
+        ) {
+          nextState.activeDeskObjectId =
+            null;
+        }
+      }
+
+      if (
+        nextState.activeDocumentId ===
+        targetId
+      ) {
+        nextState.activeDocumentId =
+          null;
       }
 
       return nextState;
     }
 
     case "task.create": {
-      const title = requireTitle(action);
-      const taskId =
-        action.targetId?.trim() || createId("task");
+      const title =
+        requireTitle(action);
 
-      const existingTask = nextState.temporaryTasks.find(
-        (task) => task.id === taskId,
-      );
+      const taskId =
+        action.targetId?.trim() ||
+        createId("task");
+
+      const existingTask =
+        nextState.temporaryTasks.find(
+          (task) =>
+            task.id === taskId,
+        );
 
       if (existingTask) {
         existingTask.title = title;
-        existingTask.status = "active";
+        existingTask.status =
+          "active";
       } else {
         nextState.temporaryTasks.push({
           id: taskId,
@@ -388,21 +800,33 @@ const executeAction = (
     }
 
     case "task.complete": {
-      const targetId = requireTargetId(action);
-      const task = findTask(nextState, targetId);
+      const targetId =
+        requireTargetId(action);
+
+      const task =
+        findTask(
+          nextState,
+          targetId,
+        );
 
       task.status = "complete";
+
       return nextState;
     }
 
     case "task.remove": {
-      const targetId = requireTargetId(action);
+      const targetId =
+        requireTargetId(action);
 
-      findTask(nextState, targetId);
+      findTask(
+        nextState,
+        targetId,
+      );
 
       nextState.temporaryTasks =
         nextState.temporaryTasks.filter(
-          (task) => task.id !== targetId,
+          (task) =>
+            task.id !== targetId,
         );
 
       return nextState;
@@ -412,7 +836,8 @@ const executeAction = (
       return nextState;
 
     default: {
-      const unsupportedTool: never = action.tool;
+      const unsupportedTool: never =
+        action.tool;
 
       throw new Error(
         `Unsupported Companion tool: ${unsupportedTool}`,
@@ -425,9 +850,12 @@ export const executeCompanionActions = (
   currentState: CompanionState,
   actions: CompanionToolAction[],
 ): ToolExecutionResult => {
-  let nextState = copyState(currentState);
+  let nextState =
+    copyState(currentState);
 
-  const completedActions: CompanionToolAction[] = [];
+  const completedActions:
+    CompanionToolAction[] = [];
+
   const failedActions: Array<{
     action: CompanionToolAction;
     error: string;
@@ -435,7 +863,11 @@ export const executeCompanionActions = (
 
   for (const action of actions) {
     try {
-      nextState = executeAction(nextState, action);
+      nextState = executeAction(
+        nextState,
+        action,
+      );
+
       completedActions.push(action);
     } catch (error) {
       failedActions.push({
