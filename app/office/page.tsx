@@ -384,14 +384,10 @@ export default function OfficePage() {
       savedSession.gatewayResult
     );
 
+    setFolderPreviewOpen(false);
+    setUseOptionsOpen(false);
     setConversationExpanded(false);
-
-    setMessages([
-      createMessage(
-        "Kimi",
-        `${savedSession.gatewayResult.title || "Your unfinished task"} is still here when you are ready to continue.`
-      ),
-    ]);
+    setMessages([]);
   }, []);
 
   function addMessage(
@@ -886,7 +882,7 @@ export default function OfficePage() {
         {pendingIntent &&
           pendingResult &&
           !folderPreviewOpen && (
-            <div className="pointer-events-auto absolute bottom-[22%] left-[34%] -translate-x-1/2 sm:bottom-[6%] sm:left-[33%]">
+            <div className="pointer-events-auto absolute bottom-[30%] left-[34%] -translate-x-1/2 sm:bottom-[12%] sm:left-[33%]">
               <DeskTaskObject
                 intent={pendingIntent}
                 previewOpen={
