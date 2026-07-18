@@ -68,9 +68,7 @@ export default function ConversationDock({
   onChooseFiles,
 }: ConversationDockProps) {
   const collapseTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(
-      null
-    );
+    useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastSpokenMessageIdRef =
     useRef<string | null>(null);
@@ -87,10 +85,8 @@ export default function ConversationDock({
     () =>
       [...messages]
         .reverse()
-        .find(
-          (message) =>
-            message.speaker === "Kimi"
-        ) ?? null,
+        .find((message) => message.speaker === "Kimi") ??
+      null,
     [messages]
   );
 
@@ -116,26 +112,20 @@ export default function ConversationDock({
 
     window.speechSynthesis.cancel();
 
-    const utterance =
-      new SpeechSynthesisUtterance(
-        latestKimiMessage.text
-      );
+    const utterance = new SpeechSynthesisUtterance(
+      latestKimiMessage.text
+    );
 
     utterance.rate = 0.96;
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    window.speechSynthesis.speak(
-      utterance
-    );
+    window.speechSynthesis.speak(utterance);
   }, [latestKimiMessage]);
 
   useEffect(() => {
     if (collapseTimerRef.current) {
-      clearTimeout(
-        collapseTimerRef.current
-      );
-
+      clearTimeout(collapseTimerRef.current);
       collapseTimerRef.current = null;
     }
 
@@ -152,16 +142,13 @@ export default function ConversationDock({
       return;
     }
 
-    collapseTimerRef.current =
-      setTimeout(() => {
-        onExpandedChange(false);
-      }, 9000);
+    collapseTimerRef.current = setTimeout(() => {
+      onExpandedChange(false);
+    }, 9000);
 
     return () => {
       if (collapseTimerRef.current) {
-        clearTimeout(
-          collapseTimerRef.current
-        );
+        clearTimeout(collapseTimerRef.current);
       }
     };
   }, [
@@ -170,15 +157,6 @@ export default function ConversationDock({
     onExpandedChange,
     request,
     working,
-  ]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      onExpandedChange(true);
-    }
-  }, [
-    messages.length,
-    onExpandedChange,
   ]);
 
   function chooseFiles(
@@ -256,14 +234,8 @@ export default function ConversationDock({
                 : "bg-white/14 text-white/80"
             }`}
           >
-            <span aria-hidden="true">
-              📎
-            </span>
-
-            <span className="sr-only">
-              Add files
-            </span>
-
+            <span aria-hidden="true">📎</span>
+            <span className="sr-only">Add files</span>
             <input
               type="file"
               multiple
@@ -296,9 +268,7 @@ export default function ConversationDock({
                 : ""
             }`}
           >
-            <span aria-hidden="true">
-              🎤
-            </span>
+            <span aria-hidden="true">🎤</span>
           </button>
 
           <button
@@ -315,9 +285,7 @@ export default function ConversationDock({
                 : "bg-white/14 text-white/80"
             }`}
           >
-            <span aria-hidden="true">
-              ⌨️
-            </span>
+            <span aria-hidden="true">⌨️</span>
           </button>
 
           <button
@@ -353,9 +321,7 @@ export default function ConversationDock({
               title="Send"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/85 text-xs text-[#60432f] transition focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9 sm:text-sm"
             >
-              <span aria-hidden="true">
-                ➜
-              </span>
+              <span aria-hidden="true">➜</span>
             </button>
           )}
         </form>
@@ -410,14 +376,12 @@ export default function ConversationDock({
                 >
                   <div
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white sm:h-7 sm:w-7 sm:text-[11px] ${
-                      message.speaker ===
-                      "Ben"
+                      message.speaker === "Ben"
                         ? "bg-[#6f3e1f]/80"
                         : "bg-[#314d4c]/85"
                     }`}
                   >
-                    {message.speaker ===
-                    "Ben"
+                    {message.speaker === "Ben"
                       ? "B"
                       : "K"}
                   </div>
@@ -445,7 +409,6 @@ export default function ConversationDock({
                   <p className="font-semibold">
                     Kimi
                   </p>
-
                   <p className="mt-0.5 text-white/75">
                     thinking…
                   </p>
