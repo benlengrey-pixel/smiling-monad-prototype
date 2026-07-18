@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 type MarketStall =
-  | "connections"
   | "noticeboard"
   | "school"
   | "shop";
@@ -17,20 +16,6 @@ type StallDetails = {
 };
 
 const stalls: Record<MarketStall, StallDetails> = {
-  connections: {
-    name: "Connections Centre",
-    sign: "CONNECTIONS CENTRE",
-    description:
-      "A shared place where participants, families, support workers, providers and community members can advertise, search and build meaningful working relationships.",
-    items: [
-      "Find support workers",
-      "Find participants seeking support",
-      "Advertise available work",
-      "Create participant and provider profiles",
-      "Invite people into Circles of Support",
-    ],
-  },
-
   noticeboard: {
     name: "Events & Community Noticeboard",
     sign: "EVENTS & COMMUNITY",
@@ -100,15 +85,12 @@ export default function MarketPage() {
         ←
       </Link>
 
-      {/* Connections Centre — upper left stall */}
-      <button
-        type="button"
-        onClick={() => setActiveStall("connections")}
+      <Link
+        href="/connections"
         aria-label="Open the Connections Centre"
         className="absolute left-[0%] top-[27%] z-20 h-[30%] w-[47%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:left-[1%] sm:top-[23%] sm:h-[38%] sm:w-[37%]"
       />
 
-      {/* School for Training — upper right stall */}
       <button
         type="button"
         onClick={() => setActiveStall("school")}
@@ -116,7 +98,6 @@ export default function MarketPage() {
         className="absolute right-[0%] top-[27%] z-20 h-[30%] w-[47%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:right-[1%] sm:top-[23%] sm:h-[38%] sm:w-[37%]"
       />
 
-      {/* Events and Community Noticeboard — lower left stall */}
       <button
         type="button"
         onClick={() => setActiveStall("noticeboard")}
@@ -124,7 +105,6 @@ export default function MarketPage() {
         className="absolute bottom-[3%] left-[0%] z-20 h-[33%] w-[48%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:bottom-[2%] sm:left-[1%] sm:h-[33%] sm:w-[38%]"
       />
 
-      {/* Smiling Monad Shop — lower right stall */}
       <button
         type="button"
         onClick={() => setActiveStall("shop")}
