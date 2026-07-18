@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 
 import ConversationDock from "@/components/companion/ConversationDock";
 import type { ConversationMessage } from "@/components/companion/ConversationThread";
@@ -18,7 +17,18 @@ import {
   appendConversationMessage,
   readConversationMemory,
 } from "@/lib/companion/conversation-memory-client";
+import {
+  getCompanionReply,
+  runCompanionTurn,
+  type CompanionConversationMessage,
+} from "@/lib/companion/gateway-client";
 import { stopCompanionSpeech } from "@/lib/companion/speech-client";
+import {
+  type CompanionState,
+  createEmptyCompanionState,
+  type DeskObject,
+  type WorkspaceDocument,
+} from "@/lib/companion/tool-executor";
 import {
   isCompanionVoiceAvailable,
   startCompanionVoiceRecognition,
@@ -27,12 +37,6 @@ import {
   createSmilingMonadIntent,
   type SmilingMonadIntent,
 } from "@/lib/intent/intent-engine";
-import {
-  createTemporaryWorkspaceSession,
-  readTemporaryWorkspaceSession,
-  saveTemporaryWorkspaceSession,
-  type WorkspaceGatewayResult,
-} from "@/lib/workspace/session-client";
 import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
@@ -40,10 +44,11 @@ import type {
 
 type InteractionMode = "voice" | "text";
 
-type GatewayResult = WorkspaceGatewayResult;
+const COMPANION_STATE_STORAGE_KEY =
+  "smiling-monad-companion-state-v1";
 
 function getAttachmentKind(
-  file: File
+  file: File,
 ): WorkspaceAttachmentKind {
   const name = file.name.toLowerCase();
 
@@ -86,7 +91,7 @@ function getAttachmentKind(
 }
 
 function createTemporaryAttachment(
-  file: File
+  file: File,
 ): WorkspaceAttachment {
   return {
     id: crypto.randomUUID(),
@@ -102,7 +107,7 @@ function createTemporaryAttachment(
 
 function createMessage(
   speaker: "Ben" | "Kimi",
-  text: string
+  text: string,
 ): ConversationMessage {
   return {
     id: crypto.randomUUID(),
@@ -112,7 +117,7 @@ function createMessage(
 }
 
 function isExpandRequest(
-  text: string
+  text: string,
 ): boolean {
   const value = text.toLowerCase();
 
@@ -123,12 +128,12 @@ function isExpandRequest(
     "show conversation",
     "show chat",
   ].some((command) =>
-    value.includes(command)
+    value.includes(command),
   );
 }
 
 function isCollapseRequest(
-  text: string
+  text: string,
 ): boolean {
   const value = text.toLowerCase();
 
@@ -140,179 +145,250 @@ function isCollapseRequest(
     "minimise chat",
     "minimize chat",
   ].some((command) =>
-    value.includes(command)
+    value.includes(command),
   );
 }
 
-function createIntentFromGateway(
-  result: GatewayResult
-): SmilingMonadIntent | null {
-  switch (result.officeObject) {
-    case "report-folder":
-      return createSmilingMonadIntent(
-        "Create a shift report"
-      );
-
-    case "correspondence-folder":
-      return createSmilingMonadIntent(
-        "Create correspondence"
-      );
-
-    case "notebook":
-      return createSmilingMonadIntent(
-        "Create meeting notes"
-      );
-
-    case "planner":
-      return createSmilingMonadIntent(
-        "Create a plan"
-      );
-
-    case "workspace":
-      switch (result.application) {
-        case "shift-report":
-          return createSmilingMonadIntent(
-            "Create a shift report"
-          );
-
-        case "correspondence":
-          return createSmilingMonadIntent(
-            "Create correspondence"
-          );
-
-        case "notes":
-          return createSmilingMonadIntent(
-            "Create meeting notes"
-          );
-
-        case "planning":
-          return createSmilingMonadIntent(
-            "Create a plan"
-          );
-
-        default:
-          return createSmilingMonadIntent(
-            "Create a document"
-          );
-      }
-
-    case "none":
-    default:
-      return null;
+function isCompanionState(
+  value: unknown,
+): value is CompanionState {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return false;
   }
+
+  const state =
+    value as Partial<CompanionState>;
+
+  return (
+    Array.isArray(state.deskObjects) &&
+    Array.isArray(state.documents) &&
+    Array.isArray(state.temporaryTasks) &&
+    typeof state.workspaceOpen === "boolean"
+  );
+}
+
+function readSavedCompanionState(): CompanionState {
+  if (typeof window === "undefined") {
+    return createEmptyCompanionState();
+  }
+
+  try {
+    const savedValue =
+      window.localStorage.getItem(
+        COMPANION_STATE_STORAGE_KEY,
+      );
+
+    if (!savedValue) {
+      return createEmptyCompanionState();
+    }
+
+    const parsedValue =
+      JSON.parse(savedValue) as unknown;
+
+    if (!isCompanionState(parsedValue)) {
+      return createEmptyCompanionState();
+    }
+
+    return {
+      deskObjects: parsedValue.deskObjects,
+      documents: parsedValue.documents,
+      temporaryTasks:
+        parsedValue.temporaryTasks,
+      activeDeskObjectId:
+        parsedValue.activeDeskObjectId ??
+        null,
+      activeDocumentId:
+        parsedValue.activeDocumentId ??
+        null,
+      workspaceOpen:
+        parsedValue.workspaceOpen,
+    };
+  } catch {
+    return createEmptyCompanionState();
+  }
+}
+
+function saveCompanionState(
+  state: CompanionState,
+) {
+  try {
+    window.localStorage.setItem(
+      COMPANION_STATE_STORAGE_KEY,
+      JSON.stringify(state),
+    );
+  } catch {
+    // The Space can continue without local persistence.
+  }
+}
+
+function getConversationForGateway(
+  rememberedMessages: Array<{
+    speaker: "Ben" | "Kimi";
+    text: string;
+  }>,
+  currentRequest: string,
+): CompanionConversationMessage[] {
+  const conversation: CompanionConversationMessage[] =
+    rememberedMessages.map(
+      (
+        rememberedMessage,
+      ): CompanionConversationMessage => ({
+        role:
+          rememberedMessage.speaker === "Ben"
+            ? "user"
+            : "assistant",
+        content: rememberedMessage.text,
+      }),
+    );
+
+  conversation.push({
+    role: "user",
+    content: currentRequest,
+  });
+
+  return conversation.slice(-20);
+}
+
+function getDeskObjectIntent(
+  object: DeskObject,
+): SmilingMonadIntent {
+  const kind = object.kind.toLowerCase();
+  const title = object.title.toLowerCase();
+
+  if (
+    kind.includes("report") ||
+    title.includes("report")
+  ) {
+    return createSmilingMonadIntent(
+      "Create a shift report",
+    );
+  }
+
+  if (
+    kind.includes("mail") ||
+    kind.includes("correspondence") ||
+    kind.includes("email") ||
+    title.includes("email") ||
+    title.includes("letter")
+  ) {
+    return createSmilingMonadIntent(
+      "Create correspondence",
+    );
+  }
+
+  if (
+    kind.includes("note") ||
+    title.includes("note") ||
+    title.includes("meeting")
+  ) {
+    return createSmilingMonadIntent(
+      "Create meeting notes",
+    );
+  }
+
+  if (
+    kind.includes("plan") ||
+    title.includes("plan")
+  ) {
+    return createSmilingMonadIntent(
+      "Create a plan",
+    );
+  }
+
+  return createSmilingMonadIntent(
+    "Create a document",
+  );
 }
 
 function getFolderLabel(
-  result: GatewayResult
+  object: DeskObject,
 ): string {
-  switch (result.officeObject) {
-    case "report-folder":
-      return "REPORTS";
+  const value =
+    `${object.kind} ${object.title}`.toLowerCase();
 
-    case "correspondence-folder":
-      return "MAIL";
-
-    case "notebook":
-      return "NOTES";
-
-    case "planner":
-      return "PLANNING";
-
-    case "workspace":
-      return "WORKSPACE";
-
-    default:
-      switch (result.application) {
-        case "shift-report":
-          return "REPORTS";
-
-        case "correspondence":
-          return "MAIL";
-
-        case "notes":
-          return "NOTES";
-
-        case "planning":
-          return "PLANNING";
-
-        default:
-          return "DOCUMENT";
-      }
+  if (value.includes("report")) {
+    return "REPORTS";
   }
+
+  if (
+    value.includes("mail") ||
+    value.includes("email") ||
+    value.includes("correspondence") ||
+    value.includes("letter")
+  ) {
+    return "MAIL";
+  }
+
+  if (
+    value.includes("note") ||
+    value.includes("meeting")
+  ) {
+    return "NOTES";
+  }
+
+  if (value.includes("plan")) {
+    return "PLANNING";
+  }
+
+  return "DOCUMENT";
 }
 
-function getGatewayResponseText(
-  result: GatewayResult
-): string {
-  if (result.action === "clarify") {
-    return (
-      result.question ||
-      "What would you like me to clarify?"
-    );
+function getLinkedDocument(
+  object: DeskObject | null,
+  documents: WorkspaceDocument[],
+  activeDocumentId: string | null,
+): WorkspaceDocument | null {
+  if (object?.documentId) {
+    const linkedDocument =
+      documents.find(
+        (document) =>
+          document.id === object.documentId,
+      );
+
+    if (linkedDocument) {
+      return linkedDocument;
+    }
   }
 
-  if (result.action === "prepare-tool") {
-    return (
-      result.content ||
-      result.nextStep ||
-      "I have prepared the next step."
-    );
+  if (activeDocumentId) {
+    const activeDocument =
+      documents.find(
+        (document) =>
+          document.id === activeDocumentId,
+      );
+
+    if (activeDocument) {
+      return activeDocument;
+    }
   }
 
-  return (
-    result.content ||
-    "I'm here with you."
-  );
-}
-
-function getPreparedOfficeMessage(
-  result: GatewayResult
-): string {
-  const title =
-    result.title.trim() || "Your task";
-
-  switch (result.officeObject) {
-    case "report-folder":
-      return `${title} is ready in the Reports folder on the desk.`;
-
-    case "correspondence-folder":
-      return `${title} is ready in the mail folder on the desk.`;
-
-    case "notebook":
-      return `${title} is ready in the notebook on the desk.`;
-
-    case "planner":
-      return `${title} is ready in the planner on the desk.`;
-
-    case "workspace":
-      return `${title} is ready to open in the Workspace.`;
-
-    case "none":
-    default:
-      return getGatewayResponseText(result);
-  }
+  return documents.at(-1) ?? null;
 }
 
 function getPreviewPlainText(
-  result: GatewayResult
+  object: DeskObject,
+  document: WorkspaceDocument | null,
 ): string {
   return [
-    result.title ||
+    document?.title ||
+      object.title ||
       "Smiling Monad Document",
     "",
-    result.content,
+    document?.content || "",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 export default function OfficePage() {
-  const router = useRouter();
-
   const textInputRef =
     useRef<HTMLInputElement>(null);
 
-  const restoredTaskRef =
+  const stateRestoredRef =
     useRef(false);
 
   const [request, setRequest] =
@@ -335,14 +411,6 @@ export default function OfficePage() {
   const [attachments, setAttachments] =
     useState<WorkspaceAttachment[]>([]);
 
-  const [pendingIntent, setPendingIntent] =
-    useState<SmilingMonadIntent | null>(
-      null
-    );
-
-  const [pendingResult, setPendingResult] =
-    useState<GatewayResult | null>(null);
-
   const [messages, setMessages] = useState<
     ConversationMessage[]
   >([]);
@@ -362,41 +430,109 @@ export default function OfficePage() {
     setUseOptionsOpen,
   ] = useState(false);
 
+  const [
+    companionState,
+    setCompanionState,
+  ] = useState<CompanionState>(
+    createEmptyCompanionState,
+  );
+
   useEffect(() => {
-    if (restoredTaskRef.current) {
+    if (stateRestoredRef.current) {
       return;
     }
 
-    restoredTaskRef.current = true;
+    stateRestoredRef.current = true;
 
-    const savedSession =
-      readTemporaryWorkspaceSession();
-
-    if (
-      !savedSession ||
-      savedSession.status === "complete" ||
-      !savedSession.gatewayResult
-    ) {
-      return;
-    }
-
-    setPendingIntent(
-      savedSession.intent
+    setCompanionState(
+      readSavedCompanionState(),
     );
-
-    setPendingResult(
-      savedSession.gatewayResult
-    );
-
-    setFolderPreviewOpen(false);
-    setUseOptionsOpen(false);
-    setConversationExpanded(false);
-    setMessages([]);
   }, []);
+
+  useEffect(() => {
+    if (!stateRestoredRef.current) {
+      return;
+    }
+
+    saveCompanionState(companionState);
+  }, [companionState]);
+
+  const visibleDeskObjects =
+    useMemo(
+      () =>
+        companionState.deskObjects.filter(
+          (object) =>
+            object.status !== "archived",
+        ),
+      [companionState.deskObjects],
+    );
+
+  const primaryDeskObject =
+    useMemo(() => {
+      if (
+        companionState.activeDeskObjectId
+      ) {
+        const activeObject =
+          visibleDeskObjects.find(
+            (object) =>
+              object.id ===
+              companionState.activeDeskObjectId,
+          );
+
+        if (activeObject) {
+          return activeObject;
+        }
+      }
+
+      return visibleDeskObjects.at(-1) ?? null;
+    }, [
+      companionState.activeDeskObjectId,
+      visibleDeskObjects,
+    ]);
+
+  const pendingIntent =
+    useMemo(
+      () =>
+        primaryDeskObject
+          ? getDeskObjectIntent(
+              primaryDeskObject,
+            )
+          : null,
+      [primaryDeskObject],
+    );
+
+  const previewDocument =
+    useMemo(
+      () =>
+        getLinkedDocument(
+          primaryDeskObject,
+          companionState.documents,
+          companionState.activeDocumentId,
+        ),
+      [
+        primaryDeskObject,
+        companionState.documents,
+        companionState.activeDocumentId,
+      ],
+    );
+
+  const previewParagraphs =
+    useMemo(() => {
+      if (!previewDocument?.content) {
+        return [];
+      }
+
+      return previewDocument.content
+        .split(/\n{2,}/)
+        .map((paragraph) =>
+          paragraph.trim(),
+        )
+        .filter(Boolean);
+    }, [previewDocument]);
 
   function addMessage(
     speaker: "Ben" | "Kimi",
-    text: string
+    text: string,
   ) {
     const message =
       createMessage(speaker, text);
@@ -409,15 +545,8 @@ export default function OfficePage() {
     ]);
   }
 
-  function clearPendingOfficeWork() {
-    setPendingIntent(null);
-    setPendingResult(null);
-    setFolderPreviewOpen(false);
-    setUseOptionsOpen(false);
-  }
-
   async function handleRequest(
-    message?: string
+    message?: string,
   ) {
     const currentRequest = (
       message ?? request
@@ -446,45 +575,11 @@ export default function OfficePage() {
     const rememberedConversation =
       readConversationMemory();
 
-    const conversationForGateway = [
-      ...rememberedConversation.map(
-        (rememberedMessage) => ({
-          speaker:
-            rememberedMessage.speaker,
-          text: rememberedMessage.text,
-        })
-      ),
-      {
-        speaker: "Ben" as const,
-        text: currentRequest,
-      },
-    ];
-
-    const savedSession =
-      readTemporaryWorkspaceSession();
-
-    const activeTaskResult =
-      savedSession?.gatewayResult ??
-      pendingResult;
-
-    const taskMemory = activeTaskResult
-      ? {
-          title:
-            activeTaskResult.title,
-          originalRequest:
-            savedSession?.intent
-              .originalRequest ??
-            pendingIntent?.originalRequest ??
-            "",
-          content:
-            activeTaskResult.content,
-          status:
-            savedSession?.status ??
-            "active",
-          nextStep:
-            activeTaskResult.nextStep,
-        }
-      : null;
+    const conversationForGateway =
+      getConversationForGateway(
+        rememberedConversation,
+        currentRequest,
+      );
 
     addMessage("Ben", currentRequest);
 
@@ -494,84 +589,82 @@ export default function OfficePage() {
     setListening(false);
     setWorking(true);
 
-    clearPendingOfficeWork();
-
     try {
-      const response = await fetch(
-        "/api/gateway",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            request: currentRequest,
-            memory: "",
-            conversation:
-              conversationForGateway,
-            taskMemory,
-          }),
-        }
-      );
-
-      const data =
-        (await response.json()) as
-          | GatewayResult
-          | { error?: string };
-
-      if (!response.ok) {
-        throw new Error(
-          "error" in data && data.error
-            ? data.error
-            : "The Companion could not respond."
-        );
-      }
-
       const result =
-        data as GatewayResult;
+        await runCompanionTurn({
+          request: currentRequest,
+          memory: "",
+          conversation:
+            conversationForGateway,
+          state: companionState,
+        });
 
-      const officeIntent =
-        createIntentFromGateway(result);
+      const nextState =
+        result.execution.state;
 
-      const shouldCreateOfficeObject =
-        result.officeObject !== "none" &&
-        officeIntent !== null;
+      setCompanionState(nextState);
 
-      if (shouldCreateOfficeObject) {
-        const session =
-          createTemporaryWorkspaceSession(
-            officeIntent,
-            result
-          );
+      const reply =
+        getCompanionReply(result);
 
-        saveTemporaryWorkspaceSession(
-          session
+      addMessage("Kimi", reply);
+
+      const deskChanged =
+        JSON.stringify(
+          nextState.deskObjects,
+        ) !==
+        JSON.stringify(
+          companionState.deskObjects,
         );
 
-        setPendingIntent(officeIntent);
-        setPendingResult(result);
-
-        addMessage(
-          "Kimi",
-          getPreparedOfficeMessage(result)
+      const documentChanged =
+        JSON.stringify(
+          nextState.documents,
+        ) !==
+        JSON.stringify(
+          companionState.documents,
         );
 
-        setConversationExpanded(false);
-
-        return;
+      if (
+        deskChanged ||
+        documentChanged
+      ) {
+        setFolderPreviewOpen(false);
+        setUseOptionsOpen(false);
       }
 
-      addMessage(
-        "Kimi",
-        getGatewayResponseText(result)
-      );
+      const removedActiveObject =
+        primaryDeskObject &&
+        !nextState.deskObjects.some(
+          (object) =>
+            object.id ===
+            primaryDeskObject.id,
+        );
+
+      if (removedActiveObject) {
+        setFolderPreviewOpen(false);
+        setUseOptionsOpen(false);
+      }
+
+      const hasVisibleDeskObject =
+        nextState.deskObjects.some(
+          (object) =>
+            object.status !== "archived",
+        );
+
+      if (
+        hasVisibleDeskObject &&
+        result.execution.completedActions
+          .length > 0
+      ) {
+        setConversationExpanded(false);
+      }
     } catch (caughtError) {
       addMessage(
         "Kimi",
         caughtError instanceof Error
           ? caughtError.message
-          : "I could not respond just now."
+          : "I could not respond just now.",
       );
     } finally {
       setWorking(false);
@@ -579,7 +672,7 @@ export default function OfficePage() {
   }
 
   function submitText(
-    event: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
     void handleRequest();
@@ -602,9 +695,9 @@ export default function OfficePage() {
       (currentAttachments) => [
         ...currentAttachments,
         ...files.map(
-          createTemporaryAttachment
+          createTemporaryAttachment,
         ),
-      ]
+      ],
     );
   }
 
@@ -617,7 +710,7 @@ export default function OfficePage() {
 
     if (!isCompanionVoiceAvailable()) {
       setVoiceMessage(
-        "Voice is not available in this browser. Use the keyboard button."
+        "Voice is not available in this browser. Use the keyboard button.",
       );
       return;
     }
@@ -628,7 +721,7 @@ export default function OfficePage() {
     startCompanionVoiceRecognition({
       onTranscript: (transcript) => {
         setVoiceMessage(
-          `You said: ${transcript}`
+          `You said: ${transcript}`,
         );
 
         void handleRequest(transcript);
@@ -638,7 +731,7 @@ export default function OfficePage() {
         setListening(false);
 
         setVoiceMessage(
-          "I could not hear that. Press the microphone and try again."
+          "I could not hear that. Press the microphone and try again.",
         );
       },
 
@@ -649,37 +742,40 @@ export default function OfficePage() {
   }
 
   function openPendingTask() {
-    if (!pendingIntent || !pendingResult) {
+    if (!primaryDeskObject) {
       return;
     }
 
-    const existingSession =
-      readTemporaryWorkspaceSession();
+    setCompanionState((currentState) => ({
+      ...currentState,
+      activeDeskObjectId:
+        primaryDeskObject.id,
+      activeDocumentId:
+        previewDocument?.id ??
+        currentState.activeDocumentId,
+      workspaceOpen: true,
+    }));
 
-    const session =
-      existingSession &&
-      existingSession.gatewayResult &&
-      existingSession.status !== "complete"
-        ? existingSession
-        : createTemporaryWorkspaceSession(
-            pendingIntent,
-            pendingResult
-          );
-
-    saveTemporaryWorkspaceSession(
-      {
-        ...session,
-        status: "active",
-        gatewayResult:
-          pendingResult,
-      }
-    );
-
-    router.push("/workspace");
+    setFolderPreviewOpen(true);
+    setUseOptionsOpen(false);
+    setConversationExpanded(false);
   }
 
   function toggleFolderPreview() {
+    if (!primaryDeskObject) {
+      return;
+    }
+
     setConversationExpanded(false);
+
+    setCompanionState((currentState) => ({
+      ...currentState,
+      activeDeskObjectId:
+        primaryDeskObject.id,
+      activeDocumentId:
+        previewDocument?.id ??
+        currentState.activeDocumentId,
+    }));
 
     setFolderPreviewOpen((current) => {
       const nextValue = !current;
@@ -692,28 +788,39 @@ export default function OfficePage() {
     });
   }
 
+  function closeFolderPreview() {
+    setFolderPreviewOpen(false);
+    setUseOptionsOpen(false);
+
+    setCompanionState((currentState) => ({
+      ...currentState,
+      workspaceOpen: false,
+    }));
+  }
+
   async function copyPreview() {
-    if (!pendingResult) {
+    if (!primaryDeskObject) {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(
         getPreviewPlainText(
-          pendingResult
-        )
+          primaryDeskObject,
+          previewDocument,
+        ),
       );
 
       addMessage(
         "Kimi",
-        "The document has been copied."
+        "The document has been copied.",
       );
 
       setConversationExpanded(true);
     } catch {
       addMessage(
         "Kimi",
-        "I could not copy that just now."
+        "I could not copy that just now.",
       );
 
       setConversationExpanded(true);
@@ -721,36 +828,38 @@ export default function OfficePage() {
   }
 
   async function sharePreview() {
-    if (!pendingResult) {
+    if (!primaryDeskObject) {
       return;
     }
 
     const text =
       getPreviewPlainText(
-        pendingResult
+        primaryDeskObject,
+        previewDocument,
       );
 
     try {
       if (navigator.share) {
         await navigator.share({
           title:
-            pendingResult.title ||
+            previewDocument?.title ||
+            primaryDeskObject.title ||
             "Smiling Monad Document",
           text,
         });
 
         addMessage(
           "Kimi",
-          "The document is ready to share."
+          "The document is ready to share.",
         );
       } else {
         await navigator.clipboard.writeText(
-          text
+          text,
         );
 
         addMessage(
           "Kimi",
-          "Sharing is not available here, so I copied the document instead."
+          "Sharing is not available here, so I copied the document instead.",
         );
       }
 
@@ -758,31 +867,17 @@ export default function OfficePage() {
     } catch {
       addMessage(
         "Kimi",
-        "Sharing was cancelled."
+        "Sharing was cancelled.",
       );
 
       setConversationExpanded(true);
     }
   }
 
-  const previewParagraphs =
-    useMemo(() => {
-      if (!pendingResult?.content) {
-        return [];
-      }
-
-      return pendingResult.content
-        .split(/\n{2,}/)
-        .map((paragraph) =>
-          paragraph.trim()
-        )
-        .filter(Boolean);
-    }, [pendingResult]);
-
   return (
     <OfficeEnvironment>
-      {pendingIntent &&
-        pendingResult &&
+      {primaryDeskObject &&
+        pendingIntent &&
         folderPreviewOpen && (
           <div className="pointer-events-none absolute inset-x-0 top-[3%] z-30 flex justify-center px-3 sm:top-[6%] sm:px-6">
             <div className="pointer-events-auto relative w-full max-w-[35rem] sm:max-w-[39rem]">
@@ -803,7 +898,8 @@ export default function OfficePage() {
                   </p>
 
                   <h2 className="mt-3 text-center font-serif text-[2rem] leading-tight sm:text-[2.5rem]">
-                    {pendingResult.title ||
+                    {previewDocument?.title ||
+                      primaryDeskObject.title ||
                       "Smiling Monad Document"}
                   </h2>
 
@@ -829,13 +925,13 @@ export default function OfficePage() {
                           <p
                             key={`${index}-${paragraph.slice(
                               0,
-                              30
+                              30,
                             )}`}
                             className="whitespace-pre-wrap"
                           >
                             {paragraph}
                           </p>
-                        )
+                        ),
                       )
                     ) : (
                       <p>
@@ -864,15 +960,7 @@ export default function OfficePage() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setFolderPreviewOpen(
-                          false
-                        );
-
-                        setUseOptionsOpen(
-                          false
-                        );
-                      }}
+                      onClick={closeFolderPreview}
                       className="border border-[#9b8d7c] bg-[rgba(255,255,255,0.35)] px-2 py-3 transition hover:bg-[#f5ecdf]"
                     >
                       Close
@@ -883,8 +971,7 @@ export default function OfficePage() {
                     type="button"
                     onClick={() =>
                       setUseOptionsOpen(
-                        (current) =>
-                          !current
+                        (current) => !current,
                       )
                     }
                     className="mt-4 w-full border border-[#b4a592] bg-[#f3eadc] px-3 py-2 font-serif text-sm transition hover:bg-[#fffaf2]"
@@ -924,7 +1011,7 @@ export default function OfficePage() {
 
                   <div className="absolute left-[13%] top-[-1.4rem] rounded-t-lg border border-[#9b774f] bg-[#c8a372] px-5 py-2 font-serif text-sm tracking-[0.1em] text-[#4a3424] shadow-sm">
                     {getFolderLabel(
-                      pendingResult
+                      primaryDeskObject,
                     )}
                   </div>
                 </div>
@@ -934,8 +1021,8 @@ export default function OfficePage() {
         )}
 
       <Desk>
-        {pendingIntent &&
-          pendingResult &&
+        {primaryDeskObject &&
+          pendingIntent &&
           !folderPreviewOpen && (
             <div className="pointer-events-auto absolute bottom-[30%] left-[34%] -translate-x-1/2 sm:bottom-[12%] sm:left-[33%]">
               <DeskTaskObject
