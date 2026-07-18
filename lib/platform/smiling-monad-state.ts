@@ -332,6 +332,27 @@ export type CircleResponsibility = {
   status: "Open" | "In progress" | "Complete";
 };
 
+export type CircleBudgetCategory =
+  | "Core"
+  | "Capacity Building"
+  | "Capital"
+  | "Other";
+
+export type CircleBudgetStatus =
+  | "Active"
+  | "Review needed"
+  | "Closed";
+
+export type CircleBudgetItem = {
+  id: string;
+  title: string;
+  category: CircleBudgetCategory;
+  allocated: number;
+  spent: number;
+  owner: string;
+  status: CircleBudgetStatus;
+};
+
 export type CircleCentreState = {
   profile: CircleProfile;
   members: CircleMember[];
@@ -339,6 +360,7 @@ export type CircleCentreState = {
   documents: CircleDocument[];
   meetings: CircleMeeting[];
   responsibilities: CircleResponsibility[];
+  budgets: CircleBudgetItem[];
 };
 
 export type SmilingMonadState = {
@@ -500,6 +522,7 @@ function createDefaultCircleState(): CircleCentreState {
     documents: [],
     meetings: [],
     responsibilities: [],
+    budgets: [],
   };
 }
 
@@ -2012,6 +2035,9 @@ function readLegacyCircleState(): CircleCentreState | null {
       )
         ? (parsedValue.responsibilities as CircleResponsibility[])
         : [],
+      budgets: Array.isArray(parsedValue.budgets)
+        ? (parsedValue.budgets as CircleBudgetItem[])
+        : [],
     };
   } catch {
     return null;
@@ -2151,6 +2177,12 @@ function normaliseState(
         circleValue.responsibilities,
       )
         ? (circleValue.responsibilities as CircleResponsibility[])
+        : [],
+
+      budgets: Array.isArray(
+        circleValue.budgets,
+      )
+        ? (circleValue.budgets as CircleBudgetItem[])
         : [],
     },
   };

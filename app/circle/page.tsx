@@ -46,6 +46,9 @@ type CircleMeeting =
 type CircleResponsibility =
   CircleState["responsibilities"][number];
 
+type CircleBudgetItem =
+  CircleState["budgets"][number];
+
 type ActivePanel =
   | "overview"
   | "person"
@@ -54,6 +57,7 @@ type ActivePanel =
   | "documents"
   | "meetings"
   | "responsibilities"
+  | "budget"
   | "training";
 
 type StateUpdate<T> =
@@ -72,6 +76,7 @@ const emptyCircle: CircleState = {
   documents: [],
   meetings: [],
   responsibilities: [],
+  budgets: [],
 };
 
 function createId(): string {
@@ -137,6 +142,8 @@ export default function CirclePage() {
   const meetings = circle.meetings;
   const responsibilities =
     circle.responsibilities;
+
+  const budgets = circle.budgets;
 
   function commitCircle(
     updater: (
@@ -237,6 +244,20 @@ export default function CirclePage() {
     }));
   }
 
+  function setBudgets(
+    update: StateUpdate<
+      CircleBudgetItem[]
+    >,
+  ) {
+    commitCircle((current) => ({
+      ...current,
+      budgets: resolveStateUpdate(
+        current.budgets,
+        update,
+      ),
+    }));
+  }
+
   const [activePanel, setActivePanel] =
     useState<ActivePanel | null>(
       null,
@@ -331,6 +352,27 @@ export default function CirclePage() {
     setResponsibilityOwner,
   ] = useState("");
 
+  const [budgetTitle, setBudgetTitle] =
+    useState("");
+
+  const [
+    budgetCategory,
+    setBudgetCategory,
+  ] = useState<
+    CircleBudgetItem["category"]
+  >("Core");
+
+  const [
+    budgetAllocated,
+    setBudgetAllocated,
+  ] = useState("");
+
+  const [budgetSpent, setBudgetSpent] =
+    useState("");
+
+  const [budgetOwner, setBudgetOwner] =
+    useState("");
+
   useEffect(() => {
     const state =
       readSmilingMonadState();
@@ -399,6 +441,26 @@ export default function CirclePage() {
         ).length,
       [documents],
     );
+
+  const totalBudgetAllocated = useMemo(
+    () =>
+      budgets.reduce(
+        (total, item) =>
+          total + item.allocated,
+        0,
+      ),
+    [budgets],
+  );
+
+  const totalBudgetSpent = useMemo(
+    () =>
+      budgets.reduce(
+        (total, item) =>
+          total + item.spent,
+        0,
+      ),
+    [budgets],
+  );
 
   function addMember() {
     const name = memberName.trim();
@@ -525,6 +587,49 @@ export default function CirclePage() {
     setResponsibilityOwner("");
   }
 
+  function addBudgetItem() {
+    const title = budgetTitle.trim();
+    const allocated =
+      Number.parseFloat(
+        budgetAllocated,
+      );
+    const spent =
+      Number.parseFloat(budgetSpent);
+
+    if (
+      !title ||
+      !Number.isFinite(allocated) ||
+      allocated < 0
+    ) {
+      return;
+    }
+
+    setBudgets((current) => [
+      ...current,
+      {
+        id: createId(),
+        title,
+        category: budgetCategory,
+        allocated,
+        spent:
+          Number.isFinite(spent) &&
+          spent >= 0
+            ? spent
+            : 0,
+        owner:
+          budgetOwner.trim() ||
+          "Whole circle",
+        status: "Active",
+      },
+    ]);
+
+    setBudgetTitle("");
+    setBudgetCategory("Core");
+    setBudgetAllocated("");
+    setBudgetSpent("");
+    setBudgetOwner("");
+  }
+
   function removeMember(
     memberId: string,
   ) {
@@ -574,6 +679,16 @@ export default function CirclePage() {
         (responsibility) =>
           responsibility.id !==
           responsibilityId,
+      ),
+    );
+  }
+
+  function removeBudgetItem(
+    budgetId: string,
+  ) {
+    setBudgets((current) =>
+      current.filter(
+        (item) => item.id !== budgetId,
       ),
     );
   }
@@ -649,6 +764,30 @@ export default function CirclePage() {
                   ),
               }
             : responsibility,
+      ),
+    );
+  }
+
+  function advanceBudgetStatus(
+    budgetId: string,
+  ) {
+    const statuses = [
+      "Active",
+      "Review needed",
+      "Closed",
+    ] as const;
+
+    setBudgets((current) =>
+      current.map((item) =>
+        item.id === budgetId
+          ? {
+              ...item,
+              status: getNextStatus(
+                item.status,
+                statuses,
+              ),
+            }
+          : item,
       ),
     );
   }
@@ -775,6 +914,7 @@ export default function CirclePage() {
             "responsibilities",
             "Responsibilities",
           ],
+          ["budget", "Budget"],
           ["training", "Training"],
         ].map(([panel, label]) => (
           <button
@@ -870,6 +1010,16 @@ export default function CirclePage() {
                         openResponsibilities,
                       panel:
                         "responsibilities" as ActivePanel,
+                    },
+                    {
+                      label: "Budget remaining",
+                      value: `$${Math.max(
+                        0,
+                        totalBudgetAllocated -
+                          totalBudgetSpent,
+                      ).toLocaleString()}`,
+                      panel:
+                        "budget" as ActivePanel,
                     },
                     {
                       label: "Person profile",
@@ -1633,6 +1783,254 @@ export default function CirclePage() {
                   )}
                 </div>
 
+              </>
+            )}
+
+            {activePanel === "budget" && (
+              <>
+                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
+                  Funding and shared oversight
+                </p>
+
+                <h1 className="mt-3 font-serif text-3xl">
+                  Budget and funding
+                </h1>
+
+                <p className="mt-3 max-w-3xl leading-7 text-[#6b5d50]">
+                  Record broad funding allocations,
+                  spending and responsibility so the
+                  Circle can see what is available and
+                  what may need review. This is a
+                  coordination tool, not formal financial
+                  advice or plan-manager accounting.
+                </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
+                    <p className="text-sm text-[#6c594a]">
+                      Allocated
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      ${totalBudgetAllocated.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
+                    <p className="text-sm text-[#6c594a]">
+                      Spent
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      ${totalBudgetSpent.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
+                    <p className="text-sm text-[#6c594a]">
+                      Remaining
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      ${Math.max(
+                        0,
+                        totalBudgetAllocated -
+                          totalBudgetSpent,
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 md:grid-cols-2">
+                  <input
+                    value={budgetTitle}
+                    onChange={(event) =>
+                      setBudgetTitle(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Budget or funding area"
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  />
+
+                  <select
+                    value={budgetCategory}
+                    onChange={(event) =>
+                      setBudgetCategory(
+                        event.target
+                          .value as CircleBudgetItem["category"],
+                      )
+                    }
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  >
+                    <option value="Core">Core</option>
+                    <option value="Capacity Building">
+                      Capacity Building
+                    </option>
+                    <option value="Capital">
+                      Capital
+                    </option>
+                    <option value="Other">
+                      Other
+                    </option>
+                  </select>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={budgetAllocated}
+                    onChange={(event) =>
+                      setBudgetAllocated(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Allocated amount"
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={budgetSpent}
+                    onChange={(event) =>
+                      setBudgetSpent(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Spent so far"
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  />
+
+                  <input
+                    value={budgetOwner}
+                    onChange={(event) =>
+                      setBudgetOwner(
+                        event.target.value,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter"
+                      ) {
+                        addBudgetItem();
+                      }
+                    }}
+                    placeholder="Responsible person"
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b] md:col-span-2"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addBudgetItem}
+                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+                >
+                  Add budget item
+                </button>
+
+                <div className="mt-6 space-y-3">
+                  {budgets.length === 0 ? (
+                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                      No budget items have been
+                      recorded yet.
+                    </div>
+                  ) : (
+                    budgets.map((item) => {
+                      const remaining =
+                        item.allocated -
+                        item.spent;
+
+                      const percentage =
+                        item.allocated > 0
+                          ? Math.min(
+                              100,
+                              Math.round(
+                                (item.spent /
+                                  item.allocated) *
+                                  100,
+                              ),
+                            )
+                          : 0;
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-[20px] border border-[#dfd2c1] bg-white p-5"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-serif text-xl">
+                                {item.title}
+                              </p>
+
+                              <p className="mt-1 text-sm text-[#756151]">
+                                {item.category} · Responsible:{" "}
+                                {item.owner}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  advanceBudgetStatus(
+                                    item.id,
+                                  )
+                                }
+                                className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
+                              >
+                                {item.status}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeBudgetItem(
+                                    item.id,
+                                  )
+                                }
+                                className="px-2 py-2 text-sm text-[#98765e]"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#eee2d2]">
+                            <div
+                              className="h-full rounded-full bg-[#71523b]"
+                              style={{
+                                width: `${percentage}%`,
+                              }}
+                            />
+                          </div>
+
+                          <div className="mt-3 grid gap-2 text-sm text-[#6b5d50] sm:grid-cols-3">
+                            <p>
+                              Allocated:{" "}
+                              <strong>
+                                ${item.allocated.toLocaleString()}
+                              </strong>
+                            </p>
+
+                            <p>
+                              Spent:{" "}
+                              <strong>
+                                ${item.spent.toLocaleString()}
+                              </strong>
+                            </p>
+
+                            <p>
+                              Remaining:{" "}
+                              <strong>
+                                ${remaining.toLocaleString()}
+                              </strong>
+                            </p>
+                          </div>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
               </>
             )}
 
