@@ -1,48 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-type CommunityPostType =
-  | "event"
-  | "announcement"
-  | "opportunity"
-  | "request";
-
-type CommunityPostStatus =
-  | "draft"
-  | "submitted"
-  | "approved";
-
-type CommunityPost = {
-  id: string;
-  title: string;
-  body: string;
-  type: CommunityPostType;
-  status: CommunityPostStatus;
-  author: string;
-};
-
-const publicPosts: CommunityPost[] = [
-  {
-    id: "welcome-community",
-    title: "Welcome to the Smiling Monad Community",
-    body:
-      "This is a shared place for events, announcements, opportunities and respectful community connection.",
-    type: "announcement",
-    status: "approved",
-    author: "The Smiling Monad",
-  },
-  {
-    id: "community-gathering",
-    title: "Community Gathering",
-    body:
-      "A relaxed gathering for participants, families, workers, providers and community members to meet and share ideas.",
-    type: "event",
-    status: "approved",
-    author: "The Smiling Monad",
-  },
-];
+import {
+  addCommunityPost,
+  readSmilingMonadState,
+  subscribeToSmilingMonadState,
+  type CommunityPost,
+  type CommunityPostType,
+} from "@/lib/platform/smiling-monad-state";
 
 const socialLinks = [
   {
@@ -83,9 +54,10 @@ function getTypeLabel(
 
 export default function CommunityPage() {
   const [posts, setPosts] =
-    useState<CommunityPost[]>(
-      publicPosts,
-    );
+    useState<CommunityPost[]>([]);
+
+  const [loaded, setLoaded] =
+    useState(false);
 
   const [composerOpen, setComposerOpen] =
     useState(false);
@@ -101,50 +73,64 @@ export default function CommunityPage() {
       "announcement",
     );
 
-  const approvedPosts =
-    useMemo(
-      () =>
-        posts.filter(
-          (post) =>
-            post.status ===
-            "approved",
-        ),
-      [posts],
-    );
+  useEffect(() => {
+    const state =
+      readSmilingMonadState();
 
-  const submittedPosts =
-    useMemo(
-      () =>
-        posts.filter(
-          (post) =>
-            post.status ===
-            "submitted",
-        ),
-      [posts],
+    setPosts(state.communityPosts);
+    setLoaded(true);
+
+    return subscribeToSmilingMonadState(
+      (nextState) => {
+        setPosts(
+          nextState.communityPosts,
+        );
+      },
     );
+  }, []);
+
+  const approvedPosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          post.status === "approved",
+      ),
+    [posts],
+  );
+
+  const submittedPosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          post.status === "submitted",
+      ),
+    [posts],
+  );
+
+  const draftPosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          post.status === "draft",
+      ),
+    [posts],
+  );
 
   function submitPost() {
-    const cleanTitle =
-      title.trim();
-
-    const cleanBody =
-      body.trim();
+    const cleanTitle = title.trim();
+    const cleanBody = body.trim();
 
     if (!cleanTitle || !cleanBody) {
       return;
     }
 
-    setPosts((currentPosts) => [
-      ...currentPosts,
-      {
-        id: crypto.randomUUID(),
-        title: cleanTitle,
-        body: cleanBody,
-        type,
-        status: "submitted",
-        author: "Community member",
-      },
-    ]);
+    addCommunityPost({
+      title: cleanTitle,
+      body: cleanBody,
+      type,
+      author: "Community member",
+      status: "submitted",
+    });
 
     setTitle("");
     setBody("");
@@ -208,8 +194,17 @@ export default function CommunityPage() {
           </div>
 
           <div className="mt-8 space-y-4">
-            {approvedPosts.map(
-              (post) => (
+            {!loaded ? (
+              <div className="rounded-[22px] border border-[#ded1c0] bg-[#fffaf3] p-5 text-[#746457]">
+                Loading the noticeboard…
+              </div>
+            ) : approvedPosts.length === 0 ? (
+              <div className="rounded-[22px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                No approved community posts are
+                visible yet.
+              </div>
+            ) : (
+              approvedPosts.map((post) => (
                 <article
                   key={post.id}
                   className="rounded-[22px] border border-[#ded1c0] bg-[#fffaf3] p-5 shadow-sm sm:p-6"
@@ -234,7 +229,7 @@ export default function CommunityPage() {
                     {post.body}
                   </p>
                 </article>
-              ),
+              ))
             )}
           </div>
         </div>
@@ -251,17 +246,15 @@ export default function CommunityPage() {
             </p>
 
             <div className="mt-5 space-y-3">
-              {socialLinks.map(
-                (link) => (
-                  <a
-                    key={link.name}
-                    href={link.href}
-                    className="block rounded-[16px] border border-[#ddcfbe] bg-[#fffaf3] px-4 py-3 transition hover:bg-white"
-                  >
-                    {link.name}
-                  </a>
-                ),
-              )}
+              {socialLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className="block rounded-[16px] border border-[#ddcfbe] bg-[#fffaf3] px-4 py-3 transition hover:bg-white"
+                >
+                  {link.name}
+                </a>
+              ))}
             </div>
           </section>
 
@@ -278,8 +271,7 @@ export default function CommunityPage() {
             </p>
           </section>
 
-          {submittedPosts.length >
-            0 && (
+          {submittedPosts.length > 0 && (
             <section className="rounded-[26px] border border-[#d5c4ad] bg-white/65 p-5">
               <p className="font-serif text-xl">
                 Awaiting review
@@ -288,11 +280,27 @@ export default function CommunityPage() {
               <p className="mt-2 text-sm leading-6 text-[#6f6255]">
                 {submittedPosts.length}{" "}
                 community post
-                {submittedPosts.length ===
-                1
+                {submittedPosts.length === 1
                   ? ""
                   : "s"}{" "}
                 submitted for moderation.
+              </p>
+            </section>
+          )}
+
+          {draftPosts.length > 0 && (
+            <section className="rounded-[26px] border border-[#d5c4ad] bg-white/65 p-5">
+              <p className="font-serif text-xl">
+                Drafts prepared
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-[#6f6255]">
+                {draftPosts.length}{" "}
+                community draft
+                {draftPosts.length === 1
+                  ? ""
+                  : "s"}{" "}
+                saved but not submitted.
               </p>
             </section>
           )}
