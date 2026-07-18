@@ -17,11 +17,6 @@ export type CompanionGatewayRequest = {
   state: CompanionState;
 };
 
-type CompanionGatewayResponse = {
-  decision: CompanionDecision;
-  stateReceived: CompanionState;
-};
-
 type CompanionGatewayErrorResponse = {
   error?: string;
 };
@@ -200,20 +195,19 @@ export const getCompanionReply = (
     return decision.message;
   }
 
-  if (
-    execution.completedActions.length === 0 &&
-    execution.failedActions.length > 0
-  ) {
+  const firstFailure =
+    execution.failedActions[0]?.error ||
+    "The action could not be completed.";
+
+  if (execution.completedActions.length === 0) {
     return [
-      "I understood what you wanted, but I couldn’t complete the action.",
-      execution.failedActions[0]?.error,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      "I understood what you wanted, but I couldn’t complete it.",
+      firstFailure,
+    ].join(" ");
   }
 
   return [
-    decision.message,
-    "Part of the action could not be completed.",
+    "I completed part of the task, then stopped so I would not leave the Space in an inconsistent state.",
+    firstFailure,
   ].join(" ");
 };
