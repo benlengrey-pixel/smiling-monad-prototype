@@ -601,6 +601,63 @@ export default function OfficePage() {
     ]);
   }
 
+  function applyDeskControlActions(
+    actions: CompanionToolAction[],
+    nextState: CompanionState,
+  ) {
+    const openedDesk =
+      actions.some(
+        (action) =>
+          action.tool === "desk.open",
+      );
+
+    const closedDesk =
+      actions.some(
+        (action) =>
+          action.tool === "desk.close",
+      );
+
+    const openedWorkspace =
+      actions.some(
+        (action) =>
+          action.tool === "workspace.open",
+      );
+
+    const closedWorkspace =
+      actions.some(
+        (action) =>
+          action.tool === "workspace.close" ||
+          action.tool === "workspace.clear",
+      );
+
+    const removedDesk =
+      actions.some(
+        (action) =>
+          action.tool === "desk.remove",
+      );
+
+    if (
+      closedDesk ||
+      closedWorkspace ||
+      removedDesk
+    ) {
+      setFolderPreviewOpen(false);
+      setUseOptionsOpen(false);
+    }
+
+    if (
+      openedDesk ||
+      (
+        openedWorkspace &&
+        nextState.activeDeskObjectId !== null
+      )
+    ) {
+      setFolderPreviewOpen(true);
+      setUseOptionsOpen(false);
+      setConversationExpanded(false);
+    }
+  }
+
   async function handleRequest(
     message?: string,
   ) {
@@ -668,6 +725,11 @@ export default function OfficePage() {
         result.execution.state;
 
       setCompanionState(nextState);
+
+      applyDeskControlActions(
+        result.execution.completedActions,
+        nextState,
+      );
 
       const companionReply =
         getCompanionReply(result);
@@ -796,6 +858,12 @@ export default function OfficePage() {
         );
 
       setCompanionState(execution.state);
+
+      applyDeskControlActions(
+        execution.completedActions,
+        execution.state,
+      );
+
       setPendingConfirmationActions([]);
       setConfirmationMessage("");
 

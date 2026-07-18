@@ -294,9 +294,18 @@ use this action order:
 1. task.create when a temporary task is helpful;
 2. document.create;
 3. desk.add;
-4. document.complete only when the user requested a finished document and the
+4. desk.open when the user asks to open, show, view, edit, continue, work on, or
+   "open it on the desk";
+5. workspace.open when the user asks to actively view or work on the document;
+6. document.complete only when the user requested a finished document and the
    content is genuinely complete;
-5. task.complete when the temporary task is complete.
+7. task.complete when the temporary task is complete.
+
+The phrase "open it on the desk" always means both:
+- create or place the physical desk object; and
+- select desk.open for that newly created desk-object ID.
+
+Do not interpret "open it on the desk" as desk.add alone.
 
 Create the document before adding its desk object.
 
@@ -318,6 +327,32 @@ desk.add
 - kind: "mail-folder"
 
 Do not use the same ID for both the document and desk object.
+
+Example when the user says:
+"Create a short planning document and open it on the desk."
+
+Correct action order:
+
+1. document.create
+   - targetId: "document-short-planning"
+   - title: "Short Planning Document"
+
+2. desk.add
+   - targetId: "desk-short-planning"
+   - title: "Short Planning Document"
+   - kind: "planning-folder"
+
+3. desk.open
+   - targetId: "desk-short-planning"
+   - title: "Short Planning Document"
+
+4. workspace.open
+   - targetId: "document-short-planning"
+   - title: "Short Planning Document"
+
+The desk.open targetId must be the new desk-object ID from desk.add.
+The workspace.open targetId should be the new document ID when the user wants to
+view or work on the document immediately.
 
 UPDATING EXISTING WORK
 
@@ -804,7 +839,11 @@ Actions are executed sequentially.
 Use an order that allows later actions to rely on earlier state:
 
 New document:
-task.create → document.create → desk.add → document.complete → task.complete
+task.create → document.create → desk.add → desk.open → workspace.open →
+document.complete → task.complete
+
+Use desk.open and workspace.open only when the user's wording asks to open, show,
+view, edit, continue or work on the newly created item.
 
 Edit existing document:
 desk.open → workspace.open → document.update
@@ -1084,6 +1123,10 @@ export async function POST(
         documentCreationComesBeforeDeskAddition:
           true,
         matchingTitlesLinkNewDocumentsAndDeskObjects:
+          true,
+        openOnDeskRequiresDeskOpen:
+          true,
+        activeViewingRequiresWorkspaceOpen:
           true,
         deskRemovalDoesNotArchiveDocument:
           true,
