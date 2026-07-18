@@ -466,7 +466,7 @@ export default function SchoolPage() {
           </p>
 
           <h1 className="mt-1 font-serif text-2xl sm:text-4xl">
-            Smiling Monad School
+            Smiling Monad Training Centre
           </h1>
         </div>
 
@@ -481,11 +481,11 @@ export default function SchoolPage() {
       <section className="mx-auto mt-8 w-full max-w-6xl rounded-[32px] border border-white/70 bg-white/60 p-5 shadow-[0_24px_70px_rgba(78,60,40,0.12)] backdrop-blur-xl sm:mt-12 sm:p-9">
         <div className="mx-auto max-w-3xl text-center">
           <p className="font-serif text-3xl leading-tight sm:text-5xl">
-            Learn to support people well.
+            Learn, develop and support people well.
           </p>
 
           <p className="mx-auto mt-5 max-w-2xl leading-7 text-[#695d51]">
-            The Smiling Monad School brings together
+            The Smiling Monad Training Centre brings together
             practical skills, lived experience and a
             thoughtful approach to human support.
           </p>
@@ -611,6 +611,69 @@ export default function SchoolPage() {
             </p>
           </section>
         </div>
+
+        <section className="mt-10 rounded-[28px] border border-[#d6c6b2] bg-[#f4eadc]/80 p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#806b55]">
+                Smiling Monad Shop
+              </p>
+
+              <h2 className="mt-2 font-serif text-3xl">
+                Useful resources, kept simple
+              </h2>
+
+              <p className="mt-3 max-w-2xl leading-7 text-[#68594d]">
+                Training packages and a small range of Smiling Monad merchandise.
+              </p>
+            </div>
+
+            <Link
+              href="/shop"
+              className="w-fit rounded-full border border-[#60432f]/25 bg-white/80 px-5 py-3 font-medium text-[#60432f] transition hover:bg-white"
+            >
+              View all items
+            </Link>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Training packs",
+                description:
+                  "Practical learning packages for workers, teams and providers.",
+              },
+              {
+                title: "Jackets",
+                description:
+                  "Simple Smiling Monad outerwear.",
+              },
+              {
+                title: "T-shirts",
+                description:
+                  "Comfortable everyday Smiling Monad clothing.",
+              },
+              {
+                title: "Coffee mugs",
+                description:
+                  "A quiet reminder to pause and reconnect.",
+              },
+            ].map((item) => (
+              <article
+                key={item.title}
+                className="rounded-[20px] border border-[#ddcfbd] bg-white/85 p-5"
+              >
+                <p className="font-serif text-xl">
+                  {item.title}
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-[#6c5e51]">
+                  {item.description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
 
       {workerOpen && (

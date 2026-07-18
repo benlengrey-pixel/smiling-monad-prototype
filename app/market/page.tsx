@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 
-type MarketEntryProps = {
+type MarketEntranceProps = {
   href: string;
   ariaLabel: string;
   label: string;
+  description: string;
   className: string;
 };
 
-function MarketEntry({
+function MarketEntrance({
   href,
   ariaLabel,
   label,
+  description,
   className,
-}: MarketEntryProps) {
+}: MarketEntranceProps) {
   return (
     <Link
       href={href}
@@ -28,7 +30,7 @@ function MarketEntry({
         outline-none
         transition
         focus-visible:ring-2
-        focus-visible:ring-white/65
+        focus-visible:ring-white/70
         ${className}
       `}
     >
@@ -43,11 +45,10 @@ function MarketEntry({
           bg-white/0
           transition
           duration-300
-          group-hover:border-white/28
+          group-hover:border-white/30
           group-hover:bg-white/[0.035]
-          group-hover:shadow-[0_0_24px_rgba(255,255,255,0.08)]
-          group-focus-visible:border-white/35
-          group-focus-visible:bg-white/[0.045]
+          group-focus-visible:border-white/40
+          group-focus-visible:bg-white/[0.05]
         "
       />
 
@@ -57,31 +58,32 @@ function MarketEntry({
           absolute
           bottom-4
           left-1/2
+          w-[82%]
           -translate-x-1/2
-          whitespace-nowrap
-          rounded-full
+          rounded-[18px]
           border
-          border-white/18
-          bg-black/28
-          px-3
-          py-1.5
-          text-[10px]
-          font-medium
-          tracking-[0.08em]
-          text-white/0
+          border-white/20
+          bg-black/30
+          px-4
+          py-3
+          text-center
+          text-white
           opacity-0
           shadow-sm
           backdrop-blur-md
           transition
           duration-300
-          group-hover:text-white/88
           group-hover:opacity-100
-          group-focus-visible:text-white/88
           group-focus-visible:opacity-100
-          sm:text-[11px]
         "
       >
-        {label}
+        <span className="block text-sm font-semibold">
+          {label}
+        </span>
+
+        <span className="mt-1 block text-[10px] leading-4 text-white/75">
+          {description}
+        </span>
       </span>
     </Link>
   );
@@ -92,7 +94,7 @@ export default function MarketPage() {
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#526644] text-[#3f3127]">
       <img
         src="/smiling-monad-community-market.png"
-        alt="The Smiling Monad Community Market beside the waterfall"
+        alt="The Smiling Monad courtyard with the Community Centre and Training Centre beside the waterfall"
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
 
@@ -132,67 +134,37 @@ export default function MarketPage() {
         ←
       </Link>
 
-      <MarketEntry
-        href="/connections"
-        ariaLabel="Open Connections and Circles"
-        label="Connections & Circles"
-        className="
-          left-[0%]
-          top-[27%]
-          h-[30%]
-          w-[47%]
-          sm:left-[1%]
-          sm:top-[23%]
-          sm:h-[38%]
-          sm:w-[37%]
-        "
-      />
-
-      <MarketEntry
-        href="/school"
-        ariaLabel="Open the Smiling Monad School and Community Chat"
-        label="School & Community Chat"
-        className="
-          right-[0%]
-          top-[27%]
-          h-[30%]
-          w-[47%]
-          sm:right-[1%]
-          sm:top-[23%]
-          sm:h-[38%]
-          sm:w-[37%]
-        "
-      />
-
-      <MarketEntry
+      <MarketEntrance
         href="/community"
-        ariaLabel="Open the Community Noticeboard"
-        label="Community Noticeboard"
+        ariaLabel="Enter the Smiling Monad Community Centre"
+        label="Community Centre"
+        description="People, circles, posts, events and community trading"
         className="
-          bottom-[3%]
-          left-[0%]
-          h-[33%]
-          w-[48%]
-          sm:bottom-[2%]
-          sm:left-[1%]
-          sm:h-[33%]
-          sm:w-[38%]
+          left-[2%]
+          top-[34%]
+          h-[47%]
+          w-[46%]
+          sm:left-[3%]
+          sm:top-[28%]
+          sm:h-[55%]
+          sm:w-[43%]
         "
       />
 
-      <MarketEntry
-        href="/shop"
-        ariaLabel="Open the Smiling Monad Shop"
-        label="Smiling Monad Shop"
+      <MarketEntrance
+        href="/school"
+        ariaLabel="Enter the Smiling Monad Training Centre"
+        label="Training Centre"
+        description="Learning, worker pathways, training packs and resources"
         className="
-          bottom-[3%]
-          right-[0%]
-          h-[33%]
-          w-[48%]
-          sm:bottom-[2%]
-          sm:right-[1%]
-          sm:h-[33%]
-          sm:w-[38%]
+          right-[2%]
+          top-[34%]
+          h-[47%]
+          w-[46%]
+          sm:right-[3%]
+          sm:top-[28%]
+          sm:h-[55%]
+          sm:w-[43%]
         "
       />
     </main>

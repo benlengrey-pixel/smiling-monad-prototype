@@ -155,7 +155,7 @@ export default function CommunityPage() {
           </p>
 
           <h1 className="mt-1 font-serif text-2xl sm:text-4xl">
-            Community Noticeboard
+            Smiling Monad Community Centre
           </h1>
         </div>
 
@@ -167,6 +167,58 @@ export default function CommunityPage() {
         </Link>
       </header>
 
+
+        <section className="mx-auto mt-6 grid w-full max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/connections"
+            className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
+          >
+            <p className="font-serif text-2xl">
+              People & Circles
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5f52]">
+              Find workers, providers and community members, and build trusted circles of support.
+            </p>
+
+            <p className="mt-4 text-sm font-semibold text-[#765943]">
+              Open connections →
+            </p>
+          </Link>
+
+          <Link
+            href="/school"
+            className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
+          >
+            <p className="font-serif text-2xl">
+              Worker Training
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5f52]">
+              Complete required training or open the full Smiling Monad Training Centre.
+            </p>
+
+            <p className="mt-4 text-sm font-semibold text-[#765943]">
+              Open training →
+            </p>
+          </Link>
+
+          <section className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl">
+            <p className="font-serif text-2xl">
+              Community Trading
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6c5f52]">
+              A separate space for community offers, exchanges and local opportunities.
+            </p>
+
+            <p className="mt-4 text-sm text-[#806b55]">
+              Trading tools will remain moderated and community-focused.
+            </p>
+          </section>
+        </section>
+
+
       <section className="mx-auto mt-8 grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="rounded-[30px] border border-white/70 bg-white/60 p-5 shadow-[0_22px_65px_rgba(74,55,36,0.12)] backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -176,9 +228,7 @@ export default function CommunityPage() {
               </p>
 
               <p className="mt-3 max-w-2xl leading-7 text-[#6c5f52]">
-                Approved events, announcements,
-                opportunities and requests from the
-                Smiling Monad community appear here.
+                Approved events, announcements, opportunities and requests from the Smiling Monad community appear here.
               </p>
             </div>
 
@@ -306,6 +356,71 @@ export default function CommunityPage() {
           )}
         </aside>
       </section>
+
+
+      <section className="mx-auto mt-6 w-full max-w-6xl rounded-[28px] border border-[#d6c6b2] bg-[#f4eadc]/80 p-6 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#806b55]">
+              Smiling Monad Shop
+            </p>
+
+            <h2 className="mt-2 font-serif text-3xl">
+              A few useful things
+            </h2>
+
+            <p className="mt-3 max-w-2xl leading-7 text-[#68594d]">
+              Simple merchandise and direct access to training packs.
+            </p>
+          </div>
+
+          <Link
+            href="/shop"
+            className="w-fit rounded-full border border-[#60432f]/25 bg-white/80 px-5 py-3 font-medium text-[#60432f] transition hover:bg-white"
+          >
+            View all items
+          </Link>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              title: "Jackets",
+              description:
+                "Simple Smiling Monad outerwear.",
+            },
+            {
+              title: "T-shirts",
+              description:
+                "Comfortable everyday clothing.",
+            },
+            {
+              title: "Coffee mugs",
+              description:
+                "A practical reminder to pause.",
+            },
+            {
+              title: "Training packs",
+              description:
+                "Open the Training Centre for learning packages.",
+            },
+          ].map((item) => (
+            <article
+              key={item.title}
+              className="rounded-[20px] border border-[#ddcfbd] bg-white/85 p-5"
+            >
+              <p className="font-serif text-xl">
+                {item.title}
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-[#6c5e51]">
+                {item.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
 
       {composerOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
