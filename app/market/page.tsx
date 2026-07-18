@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-type MarketStall =
-  | "school"
-  | "shop";
+type MarketStall = "shop";
 
 type StallDetails = {
   name: string;
@@ -15,20 +13,6 @@ type StallDetails = {
 };
 
 const stalls: Record<MarketStall, StallDetails> = {
-  school: {
-    name: "Smiling Monad School",
-    sign: "SCHOOL FOR TRAINING",
-    description:
-      "A calm learning space for practical training, personal development and building the skills needed to provide thoughtful, person-centred support.",
-    items: [
-      "Support worker training",
-      "Communication training",
-      "Positive behaviour support learning",
-      "Circle-building skills",
-      "Community and professional development",
-    ],
-  },
-
   shop: {
     name: "Smiling Monad Shop",
     sign: "THE SHOP",
@@ -76,9 +60,8 @@ export default function MarketPage() {
         className="absolute left-[0%] top-[27%] z-20 h-[30%] w-[47%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:left-[1%] sm:top-[23%] sm:h-[38%] sm:w-[37%]"
       />
 
-      <button
-        type="button"
-        onClick={() => setActiveStall("school")}
+      <Link
+        href="/school"
         aria-label="Open the Smiling Monad School"
         className="absolute right-[0%] top-[27%] z-20 h-[30%] w-[47%] rounded-[24px] bg-transparent outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/70 sm:right-[1%] sm:top-[23%] sm:h-[38%] sm:w-[37%]"
       />
