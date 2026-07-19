@@ -28,43 +28,25 @@ export default function RequireSignedInUser({
     useState(true);
 
   useEffect(() => {
-    const supabase =
-      getSupabaseBrowserClient();
-
     let active = true;
+    let unsubscribe:
+      | (() => void)
+      | undefined;
 
     async function checkAccess() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const supabase =
+          getSupabaseBrowserClient();
 
-      if (!active) {
-        return;
-      }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        const returnTo =
-          encodeURIComponent(
-            pathname || "/office",
-          );
+        if (!active) {
+          return;
+        }
 
-        router.replace(
-          `/sign-in?returnTo=${returnTo}`,
-        );
-
-        return;
-      }
-
-      setChecking(false);
-    }
-
-    void checkAccess();
-
-    const {
-      data: subscription,
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session?.user) {
+        if (!user) {
           const returnTo =
             encodeURIComponent(
               pathname || "/office",
@@ -78,12 +60,46 @@ export default function RequireSignedInUser({
         }
 
         setChecking(false);
-      },
-    );
+
+        const {
+          data: subscription,
+        } = supabase.auth.onAuthStateChange(
+          (_event, session) => {
+            if (!session?.user) {
+              const returnTo =
+                encodeURIComponent(
+                  pathname || "/office",
+                );
+
+              router.replace(
+                `/sign-in?returnTo=${returnTo}`,
+              );
+
+              return;
+            }
+
+            setChecking(false);
+          },
+        );
+
+        unsubscribe = () => {
+          subscription.subscription.unsubscribe();
+        };
+      } catch {
+        // Temporary development fallback:
+        // allow access when Supabase is unavailable
+        // so the Smiling Monad Space remains usable.
+        if (active) {
+          setChecking(false);
+        }
+      }
+    }
+
+    void checkAccess();
 
     return () => {
       active = false;
-      subscription.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, [pathname, router]);
 
@@ -96,7 +112,7 @@ export default function RequireSignedInUser({
           </p>
 
           <p className="mt-3 text-lg font-semibold">
-            Checking secure access…
+            Opening the Space…
           </p>
         </div>
       </main>
