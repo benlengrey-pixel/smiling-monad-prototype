@@ -54,6 +54,11 @@ import {
 import {
   useLiveAvatarSession,
 } from "@/lib/access/use-live-avatar-session";
+import {
+  createUserProfileMemoryPrompt,
+  readCurrentUserProfile,
+  type SmilingMonadUserProfile,
+} from "@/lib/profile/user-profile-client";
 import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
@@ -470,9 +475,36 @@ export default function OfficePage() {
     setConfirmationMessage,
   ] = useState("");
 
+  const [
+    userProfile,
+    setUserProfile,
+  ] = useState<SmilingMonadUserProfile | null>(
+    null,
+  );
+
   const liveAvatarSession =
     useLiveAvatarSession();
 
+
+  useEffect(() => {
+    let active = true;
+
+    readCurrentUserProfile()
+      .then((profile) => {
+        if (active) {
+          setUserProfile(profile);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUserProfile(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (stateRestoredRef.current) {
@@ -712,10 +744,21 @@ export default function OfficePage() {
           readCircleCentreMemory(),
         );
 
+      const profileMemory =
+        createUserProfileMemoryPrompt(
+          userProfile,
+        );
+
+      const combinedMemory = [
+        profileMemory,
+        "",
+        circleMemory,
+      ].join("\n");
+
       const result =
         await runCompanionTurn({
           request: currentRequest,
-          memory: circleMemory,
+          memory: combinedMemory,
           conversation:
             conversationForGateway,
           state: companionState,
@@ -1114,8 +1157,9 @@ export default function OfficePage() {
   }
 
   function greetOnOfficeActivation() {
-    const greeting =
-      "Welcome to the Smiling Monad Human Development Centre. What would you like to work on today?";
+    const greeting = userProfile?.displayName
+      ? `Welcome home, ${userProfile.displayName}. What would you like to work on today?`
+      : "Welcome to the Smiling Monad Human Development Centre. What would you like to work on today?";
 
     addMessage("Kimi", greeting);
     setConversationExpanded(true);
