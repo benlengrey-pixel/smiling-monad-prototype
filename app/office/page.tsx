@@ -1019,6 +1019,31 @@ export default function OfficePage() {
     setConversationExpanded(false);
   }
 
+  function openDeskObject(
+    object: DeskObject,
+  ) {
+    const linkedDocument =
+      getLinkedDocument(
+        object,
+        companionState.documents,
+        object.documentId ?? null,
+      );
+
+    setConversationExpanded(false);
+
+    setCompanionState((currentState) => ({
+      ...currentState,
+      activeDeskObjectId: object.id,
+      activeDocumentId:
+        linkedDocument?.id ??
+        currentState.activeDocumentId,
+      workspaceOpen: true,
+    }));
+
+    setFolderPreviewOpen(true);
+    setUseOptionsOpen(false);
+  }
+
   function toggleFolderPreview() {
     if (!primaryDeskObject) {
       return;
@@ -1321,19 +1346,65 @@ export default function OfficePage() {
         )}
 
       <Desk>
-        {primaryDeskObject &&
-          !folderPreviewOpen && (
-            <div className="pointer-events-auto absolute bottom-[30%] left-[34%] -translate-x-1/2 sm:bottom-[12%] sm:left-[33%]">
-              <DeskTaskObject
-                object={primaryDeskObject}
-                previewOpen={
-                  folderPreviewOpen
-                }
-                onTogglePreview={
-                  toggleFolderPreview
-                }
-              />
-            </div>
+        {!folderPreviewOpen &&
+          visibleDeskObjects.map(
+            (object, index) => {
+              const desktopLeft =
+                24 + index * 13;
+
+              const mobileLeft =
+                25 + index * 18;
+
+              return (
+                <div
+                  key={object.id}
+                  className="pointer-events-auto absolute bottom-[30%] -translate-x-1/2 sm:bottom-[12%]"
+                  style={{
+                    left: `min(${mobileLeft}%, 78%)`,
+                  }}
+                >
+                  <div
+                    className="sm:hidden"
+                  >
+                    <DeskTaskObject
+                      object={object}
+                      previewOpen={false}
+                      onTogglePreview={() =>
+                        openDeskObject(object)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="hidden sm:block"
+                    style={{
+                      transform: `translateX(${
+                        index % 2 === 0
+                          ? "0"
+                          : "0.35rem"
+                      })`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        marginLeft: `${Math.min(
+                          desktopLeft,
+                          68,
+                        ) - mobileLeft}%`,
+                      }}
+                    >
+                      <DeskTaskObject
+                        object={object}
+                        previewOpen={false}
+                        onTogglePreview={() =>
+                          openDeskObject(object)
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            },
           )}
       </Desk>
 
