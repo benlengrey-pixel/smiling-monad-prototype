@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -1451,6 +1452,13 @@ export default function OfficePage() {
             },
           )}
       </Desk>
+
+      <Link
+        href="/profile"
+        className="pointer-events-auto absolute right-4 top-4 z-40 rounded-full border border-white/35 bg-black/45 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/60 sm:right-6 sm:top-6"
+      >
+        Profile
+      </Link>
 
       <LiveAvatarControl
         active={liveAvatarSession.active}
