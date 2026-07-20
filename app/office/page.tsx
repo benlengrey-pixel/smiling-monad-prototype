@@ -64,6 +64,9 @@ import type {
   WorkspaceAttachment,
   WorkspaceAttachmentKind,
 } from "@/lib/workspace/types";
+import {
+  getSupabaseBrowserClient,
+} from "@/lib/supabase/client";
 
 type InteractionMode = "voice" | "text";
 
@@ -483,6 +486,11 @@ export default function OfficePage() {
     null,
   );
 
+  const [
+    isApprovedAdministrator,
+    setIsApprovedAdministrator,
+  ] = useState(false);
+
   const liveAvatarSession =
     useLiveAvatarSession();
 
@@ -501,6 +509,66 @@ export default function OfficePage() {
           setUserProfile(null);
         }
       });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function readAdministratorAccess() {
+      try {
+        const supabase =
+          getSupabaseBrowserClient();
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          if (active) {
+            setIsApprovedAdministrator(
+              false,
+            );
+          }
+
+          return;
+        }
+
+        const {
+          data: access,
+          error,
+        } = await supabase
+          .from("user_access")
+          .select(
+            "access_status, is_admin",
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        if (active) {
+          setIsApprovedAdministrator(
+            access?.access_status ===
+              "approved" &&
+              access?.is_admin === true,
+          );
+        }
+      } catch {
+        if (active) {
+          setIsApprovedAdministrator(
+            false,
+          );
+        }
+      }
+    }
+
+    void readAdministratorAccess();
 
     return () => {
       active = false;
@@ -1453,12 +1521,23 @@ export default function OfficePage() {
           )}
       </Desk>
 
-      <Link
-        href="/profile"
-        className="pointer-events-auto absolute right-4 top-4 z-40 rounded-full border border-white/35 bg-black/45 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/60 sm:right-6 sm:top-6"
-      >
-        Profile
-      </Link>
+      <div className="pointer-events-auto absolute right-4 top-4 z-40 flex flex-wrap justify-end gap-2 sm:right-6 sm:top-6">
+        {isApprovedAdministrator ? (
+          <Link
+            href="/admin/users"
+            className="rounded-full border border-white/35 bg-[#6b422d]/90 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition hover:bg-[#553321]"
+          >
+            Admin
+          </Link>
+        ) : null}
+
+        <Link
+          href="/profile"
+          className="rounded-full border border-white/35 bg-black/45 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/60"
+        >
+          Profile
+        </Link>
+      </div>
 
       <LiveAvatarControl
         active={liveAvatarSession.active}
