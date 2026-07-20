@@ -26,6 +26,9 @@ export default function AccessPendingPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [signingOut, setSigningOut] =
+    useState(false);
+
   useEffect(() => {
     let active = true;
 
@@ -43,8 +46,9 @@ export default function AccessPendingPage() {
         }
 
         if (!user) {
-          setStatus("unknown");
-          setLoading(false);
+          window.location.replace(
+            "/sign-in",
+          );
           return;
         }
 
@@ -67,13 +71,18 @@ export default function AccessPendingPage() {
           return;
         }
 
-        setStatus(
-          data?.access_status === "approved" ||
-            data?.access_status === "pending" ||
-            data?.access_status === "suspended"
-            ? data.access_status
-            : "unknown",
-        );
+        const nextStatus =
+          data?.access_status;
+
+        if (
+          nextStatus === "approved" ||
+          nextStatus === "pending" ||
+          nextStatus === "suspended"
+        ) {
+          setStatus(nextStatus);
+        } else {
+          setStatus("pending");
+        }
       } catch {
         if (active) {
           setStatus("unknown");
@@ -93,12 +102,62 @@ export default function AccessPendingPage() {
   }, []);
 
   async function signOut() {
-    const supabase =
-      getSupabaseBrowserClient();
+    if (signingOut) {
+      return;
+    }
 
-    await supabase.auth.signOut();
+    setSigningOut(true);
 
-    window.location.href = "/sign-in";
+    try {
+      const supabase =
+        getSupabaseBrowserClient();
+
+      await supabase.auth.signOut({
+        scope: "local",
+      });
+    } catch {
+      // Continue with local session cleanup.
+    }
+
+    try {
+      Object.keys(
+        window.localStorage,
+      ).forEach((key) => {
+        if (
+          key.startsWith("sb-") ||
+          key.includes("supabase")
+        ) {
+          window.localStorage.removeItem(
+            key,
+          );
+        }
+      });
+
+      Object.keys(
+        window.sessionStorage,
+      ).forEach((key) => {
+        if (
+          key.startsWith("sb-") ||
+          key.includes("supabase")
+        ) {
+          window.sessionStorage.removeItem(
+            key,
+          );
+        }
+      });
+    } finally {
+      window.location.replace(
+        "/sign-in",
+      );
+    }
+  }
+
+  function checkAgain() {
+    window.location.replace(
+      status === "approved"
+        ? "/office"
+        : "/access-pending",
+    );
   }
 
   if (loading) {
@@ -157,9 +216,7 @@ export default function AccessPendingPage() {
           ) : (
             <button
               type="button"
-              onClick={() =>
-                window.location.reload()
-              }
+              onClick={checkAgain}
               className="rounded-full bg-[#2c2a26] px-5 py-3 text-sm font-semibold text-white"
             >
               Check again
@@ -168,10 +225,15 @@ export default function AccessPendingPage() {
 
           <button
             type="button"
-            onClick={signOut}
-            className="rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-semibold"
+            onClick={() =>
+              void signOut()
+            }
+            disabled={signingOut}
+            className="rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-semibold disabled:opacity-50"
           >
-            Sign out
+            {signingOut
+              ? "Signing out…"
+              : "Sign out"}
           </button>
         </div>
       </div>
