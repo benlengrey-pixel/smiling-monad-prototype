@@ -15,6 +15,12 @@ import {
 } from "@/lib/platform/smiling-monad-state";
 
 import {
+  openSecureCircleWorkspace,
+  updateSecureParticipantProfile,
+  type SecureCircleWorkspace,
+} from "@/lib/circle/secure-circle-client";
+
+import {
   assignMandatoryCircleTraining,
   canMemberJoinCircle,
   getActiveCircleModule,
@@ -130,12 +136,30 @@ export default function CirclePage() {
   const [loaded, setLoaded] =
     useState(false);
 
+  const [workspace, setWorkspace] =
+    useState<SecureCircleWorkspace | null>(
+      null,
+    );
+
+  const [accessError, setAccessError] =
+    useState("");
+
+  const [profileSaving, setProfileSaving] =
+    useState(false);
+
+  const [profileMessage, setProfileMessage] =
+    useState("");
+
+  const [profile, setProfileState] =
+    useState<CircleProfile>(
+      emptyCircle.profile,
+    );
+
   const [circle, setCircle] =
     useState<CircleState>(
       emptyCircle,
     );
 
-  const profile = circle.profile;
   const members = circle.members;
   const goals = circle.goals;
   const documents = circle.documents;
@@ -152,27 +176,105 @@ export default function CirclePage() {
   ) {
     const nextState =
       updateSmilingMonadState(
-        (currentState) => ({
-          ...currentState,
-          circle: updater(
-            currentState.circle,
-          ),
-        }),
+        (currentState) => {
+          const nextCircle = updater({
+            ...currentState.circle,
+            profile: emptyCircle.profile,
+          });
+
+          return {
+            ...currentState,
+            circle: {
+              ...nextCircle,
+              profile: emptyCircle.profile,
+            },
+          };
+        },
       );
 
-    setCircle(nextState.circle);
+    setCircle({
+      ...nextState.circle,
+      profile: emptyCircle.profile,
+    });
   }
 
   function setProfile(
     update: StateUpdate<CircleProfile>,
   ) {
-    commitCircle((current) => ({
-      ...current,
-      profile: resolveStateUpdate(
-        current.profile,
+    setProfileState((current) =>
+      resolveStateUpdate(
+        current,
         update,
       ),
-    }));
+    );
+
+    setProfileMessage(
+      "Changes not yet saved.",
+    );
+  }
+
+  async function saveProfile() {
+    if (!workspace || profileSaving) {
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileMessage("");
+
+    try {
+      const updatedParticipant =
+        await updateSecureParticipantProfile(
+          workspace.participant.id,
+          {
+            fullName: profile.personName,
+            preferredName:
+              profile.preferredName,
+            whatMatters:
+              profile.whatMatters,
+            communicationSupport:
+              profile.communication,
+            decisionSupport: "",
+          },
+        );
+
+      setWorkspace((current) =>
+        current
+          ? {
+              ...current,
+              participant:
+                updatedParticipant,
+            }
+          : current,
+      );
+
+      setProfileState({
+        personName:
+          updatedParticipant.full_name,
+        preferredName:
+          updatedParticipant.preferred_name,
+        whatMatters:
+          updatedParticipant.what_matters,
+        communication:
+          [
+            updatedParticipant.communication_support,
+            updatedParticipant.decision_support,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+      });
+
+      setProfileMessage(
+        "Saved securely to your Circle.",
+      );
+    } catch (error) {
+      setProfileMessage(
+        error instanceof Error
+          ? error.message
+          : "The profile could not be saved.",
+      );
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   function setMembers(
@@ -411,14 +513,77 @@ export default function CirclePage() {
     const state =
       readSmilingMonadState();
 
-    setCircle(state.circle);
-    setLoaded(true);
+    setCircle({
+      ...state.circle,
+      profile: emptyCircle.profile,
+    });
 
     return subscribeToSmilingMonadState(
       (nextState) => {
-        setCircle(nextState.circle);
+        setCircle({
+          ...nextState.circle,
+          profile: emptyCircle.profile,
+        });
       },
     );
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function openWorkspace() {
+      try {
+        const secureWorkspace =
+          await openSecureCircleWorkspace();
+
+        if (!active) {
+          return;
+        }
+
+        setWorkspace(secureWorkspace);
+        setProfileState({
+          personName:
+            secureWorkspace.participant
+              .full_name,
+          preferredName:
+            secureWorkspace.participant
+              .preferred_name,
+          whatMatters:
+            secureWorkspace.participant
+              .what_matters,
+          communication:
+            [
+              secureWorkspace.participant
+                .communication_support,
+              secureWorkspace.participant
+                .decision_support,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
+        });
+        setAccessError("");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setAccessError(
+          error instanceof Error
+            ? error.message
+            : "Your Circle of Support could not be opened.",
+        );
+      } finally {
+        if (active) {
+          setLoaded(true);
+        }
+      }
+    }
+
+    void openWorkspace();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -904,6 +1069,44 @@ export default function CirclePage() {
     }
   }
 
+  if (!loaded) {
+    return (
+      <main className="flex h-[100svh] w-full items-center justify-center bg-[#5b4936] px-6 text-[#fff8ed]">
+        <div className="rounded-full border border-white/35 bg-black/30 px-6 py-3 font-serif text-lg shadow-lg backdrop-blur-md">
+          Opening your secure Circle of Support…
+        </div>
+      </main>
+    );
+  }
+
+  if (accessError || !workspace) {
+    return (
+      <main className="flex h-[100svh] w-full items-center justify-center bg-[#5b4936] px-6 text-[#3f3127]">
+        <section className="w-full max-w-lg rounded-[28px] border border-[#d9c7ad] bg-[rgba(255,250,241,0.98)] p-7 text-center shadow-[0_30px_70px_rgba(25,18,12,0.48)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#8b745d]">
+            Circle of Support
+          </p>
+
+          <h1 className="mt-3 font-serif text-3xl">
+            This Circle could not be opened
+          </h1>
+
+          <p className="mt-4 leading-7 text-[#68584a]">
+            {accessError ||
+              "No authorised Circle workspace was found for this account."}
+          </p>
+
+          <Link
+            href="/office"
+            className="mt-6 inline-flex rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+          >
+            Return to the Smiling Monad Space
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   const personDisplayName =
     profile.preferredName.trim() ||
     profile.personName.trim() ||
@@ -1151,6 +1354,9 @@ export default function CirclePage() {
                           }),
                         )
                       }
+                      onBlur={() => {
+                        void saveProfile();
+                      }}
                       className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
                     />
                   </label>
@@ -1174,6 +1380,9 @@ export default function CirclePage() {
                           }),
                         )
                       }
+                      onBlur={() => {
+                        void saveProfile();
+                      }}
                       className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
                     />
                   </label>
@@ -1197,6 +1406,9 @@ export default function CirclePage() {
                         }),
                       )
                     }
+                    onBlur={() => {
+                      void saveProfile();
+                    }}
                     placeholder="Important relationships, routines, interests, hopes, preferences and things that help life feel right."
                     className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
                   />
@@ -1221,15 +1433,21 @@ export default function CirclePage() {
                         }),
                       )
                     }
+                    onBlur={() => {
+                      void saveProfile();
+                    }}
                     placeholder="How the person communicates, understands information, expresses consent, makes choices and shows when something is wrong."
                     className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
                   />
                 </label>
 
                 <p className="mt-5 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                  {loaded
-                    ? "Changes are saved automatically to the shared Smiling Monad platform state and update live across the app."
-                    : "Loading the shared Circle state…"}
+                  {!loaded
+                    ? "Opening your secure Circle profile…"
+                    : profileSaving
+                      ? "Saving securely…"
+                      : profileMessage ||
+                        "Changes save securely when you leave a field."}
                 </p>
               </>
             )}
