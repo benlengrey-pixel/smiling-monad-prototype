@@ -41,18 +41,12 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
-      {/*
-        The wall poster is the only Circle of Support entrance.
-
-        It always opens the normal participant-facing Circle of Support room.
-        Administrator access remains separate and permission-controlled.
-      */}
+      {/* Wall poster: Circle of Support */}
       <Link
         href="/circle"
         aria-label="Enter the Circle of Support room"
         title="Circle of Support"
         className="
-          group
           absolute
           right-[12%]
           top-[22%]
@@ -62,107 +56,35 @@ export default function OfficeEnvironment({
           cursor-pointer
           rounded-[10px]
           outline-none
-          transition
-          focus-visible:ring-4
-          focus-visible:ring-[rgba(255,248,230,0.8)]
           sm:right-[17%]
           sm:top-[20%]
           sm:h-[23%]
           sm:w-[17%]
         "
-      >
-        <span
-          aria-hidden="true"
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            rounded-[10px]
-            border
-            border-transparent
-            transition
-            group-hover:border-[rgba(255,248,230,0.72)]
-            group-hover:bg-[rgba(255,248,230,0.05)]
-            group-hover:shadow-[0_0_28px_rgba(255,244,215,0.4)]
-            group-focus-visible:border-[rgba(255,248,230,0.82)]
-            group-focus-visible:bg-[rgba(255,248,230,0.06)]
-            group-focus-visible:shadow-[0_0_28px_rgba(255,244,215,0.45)]
-          "
-        />
-      </Link>
+      />
 
-      {/* Doorway and waterfall: Community Market */}
+      {/* Doorway and waterfall only: Community Market */}
       <Link
         href="/market"
         aria-label="Walk through the doorway to the Community Market"
         title="Smiling Monad Community Market"
         className="
-          group
           absolute
-          left-[2%]
-          top-[20%]
+          left-[3%]
+          top-[24%]
           z-10
-          h-[43%]
-          w-[54%]
+          h-[38%]
+          w-[43%]
           cursor-pointer
-          rounded-t-[50%]
-          rounded-b-[20px]
+          rounded-t-[48%]
+          rounded-b-[18px]
           outline-none
-          transition
-          focus-visible:ring-4
-          focus-visible:ring-[rgba(224,246,238,0.85)]
-          sm:left-[4%]
-          sm:top-[14%]
-          sm:h-[54%]
-          sm:w-[42%]
+          sm:left-[5%]
+          sm:top-[16%]
+          sm:h-[48%]
+          sm:w-[32%]
         "
-      >
-        <span
-          aria-hidden="true"
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            rounded-t-[50%]
-            rounded-b-[20px]
-            border
-            border-transparent
-            transition
-            group-hover:border-[rgba(224,246,238,0.75)]
-            group-hover:bg-[rgba(210,239,226,0.06)]
-            group-hover:shadow-[0_0_35px_rgba(215,244,235,0.48)]
-            group-focus-visible:border-[rgba(224,246,238,0.75)]
-            group-focus-visible:bg-[rgba(210,239,226,0.06)]
-            group-focus-visible:shadow-[0_0_35px_rgba(215,244,235,0.48)]
-          "
-        />
-
-        <span
-          className="
-            pointer-events-none
-            absolute
-            bottom-[8%]
-            left-1/2
-            -translate-x-1/2
-            whitespace-nowrap
-            rounded-full
-            bg-[rgba(45,66,51,0.9)]
-            px-4
-            py-2
-            text-xs
-            font-medium
-            text-[#f7fff8]
-            opacity-0
-            shadow-lg
-            backdrop-blur-sm
-            transition
-            group-hover:opacity-100
-            group-focus-visible:opacity-100
-          "
-        >
-          Community Market
-        </span>
-      </Link>
+      />
 
       <CompanionPresence
         active={officeActivated}
