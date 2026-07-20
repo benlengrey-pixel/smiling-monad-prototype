@@ -200,62 +200,6 @@ export default function HomePage() {
 
       <div className="absolute inset-0 bg-black/10" />
 
-      <div className="absolute left-4 top-4 z-30 sm:left-6 sm:top-6">
-        {!authLoading && user ? (
-          <button
-            type="button"
-            onClick={signOut}
-            disabled={working}
-            className="
-              rounded-full
-              border
-              border-white/40
-              bg-black/45
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              shadow-lg
-              backdrop-blur-md
-              transition
-              hover:bg-black/60
-              disabled:cursor-not-allowed
-              disabled:opacity-60
-            "
-          >
-            {working ? "Signing out…" : "Sign out"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() =>
-              openAuthentication("sign-in")
-            }
-            disabled={authLoading}
-            className="
-              rounded-full
-              border
-              border-white/40
-              bg-black/45
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              shadow-lg
-              backdrop-blur-md
-              transition
-              hover:bg-black/60
-              disabled:cursor-not-allowed
-              disabled:opacity-60
-            "
-          >
-            {authLoading ? "Checking…" : "Sign in"}
-          </button>
-        )}
-      </div>
-
       {!authLoading && user ? (
         <Link
           href="/office"
@@ -299,6 +243,30 @@ export default function HomePage() {
                 Enter the Smiling Monad Space
               </Link>
 
+              <button
+                type="button"
+                onClick={signOut}
+                disabled={working}
+                className="
+                  rounded-full
+                  border
+                  border-white/35
+                  bg-black/35
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-medium
+                  text-white
+                  backdrop-blur-sm
+                  transition
+                  hover:bg-black/50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
+              >
+                {working ? "Signing out…" : "Sign out"}
+              </button>
+
               <p className="rounded-full bg-black/35 px-4 py-2 text-xs text-white/90 backdrop-blur-sm">
                 Signed in as {user.email}
               </p>
@@ -330,7 +298,9 @@ export default function HomePage() {
                   disabled:opacity-60
                 "
               >
-                Sign in to enter
+                {authLoading
+                  ? "Checking…"
+                  : "Sign in to enter"}
               </button>
 
               <button
