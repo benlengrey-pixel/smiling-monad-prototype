@@ -13,67 +13,81 @@ function cleanEnvironmentValue(
     return "";
   }
 
-  return value
-    .trim()
-    .replace(/^["']|["']$/g, "")
-    .trim();
-}
+  let cleaned = value.trim();
 
-function normaliseSupabaseUrl(
-  value: string | undefined,
-): string {
-  let cleaned =
-    cleanEnvironmentValue(value);
+  const equalsPosition =
+    cleaned.indexOf("=");
+
+  if (
+    equalsPosition >= 0 &&
+    cleaned
+      .slice(0, equalsPosition)
+      .includes("SUPABASE")
+  ) {
+    cleaned = cleaned
+      .slice(equalsPosition + 1)
+      .trim();
+  }
 
   cleaned = cleaned.replace(
-    /^NEXT_PUBLIC_SUPABASE_URL\s*=\s*/i,
+    /^["'`]+|["'`]+$/g,
     "",
   );
 
-  if (cleaned.startsWith("//")) {
-    cleaned = `https:${cleaned}`;
-  }
-
-  if (
-    !cleaned.startsWith("http://") &&
-    !cleaned.startsWith("https://")
-  ) {
-    if (
-      /^[a-z0-9]{15,30}$/i.test(cleaned)
-    ) {
-      cleaned =
-        `https://${cleaned}.supabase.co`;
-    } else if (
-      cleaned.endsWith(".supabase.co")
-    ) {
-      cleaned = `https://${cleaned}`;
-    }
-  }
-
-  return cleaned;
+  return cleaned.trim();
 }
 
-function validateSupabaseUrl(
-  value: string,
-): string {
+function readSupabaseUrl(): string {
+  const rawValue =
+    cleanEnvironmentValue(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL,
+    );
+
+  const urlMatch = rawValue.match(
+    /https:\/\/[a-zA-Z0-9-]+\.supabase\.co/,
+  );
+
+  const supabaseUrl =
+    urlMatch?.[0] ?? rawValue;
+
   try {
-    const parsedUrl = new URL(value);
+    const parsedUrl =
+      new URL(supabaseUrl);
 
     if (
-      parsedUrl.protocol !== "https:" &&
-      parsedUrl.protocol !== "http:"
+      parsedUrl.protocol !== "https:" ||
+      !parsedUrl.hostname.endsWith(
+        ".supabase.co",
+      )
     ) {
       throw new Error(
-        "Unsupported URL protocol.",
+        "Invalid Supabase host.",
       );
     }
 
-    return parsedUrl.toString();
+    return parsedUrl.origin;
   } catch {
     throw new Error(
-      "The Supabase URL could not be read. Check NEXT_PUBLIC_SUPABASE_URL in .env.local.",
+      "The Supabase URL could not be read. Check NEXT_PUBLIC_SUPABASE_URL in Vercel.",
     );
   }
+}
+
+function readPublishableKey(): string {
+  const publishableKey =
+    cleanEnvironmentValue(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    );
+
+  if (!publishableKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is missing.",
+    );
+  }
+
+  return publishableKey;
 }
 
 export function getSupabaseBrowserClient(): SupabaseClient {
@@ -81,44 +95,9 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     return browserClient;
   }
 
-  const suppliedUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  const suppliedKey =
-    process.env
-      .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  const normalisedUrl =
-    normaliseSupabaseUrl(suppliedUrl);
-
-  const publishableKey =
-    cleanEnvironmentValue(
-      suppliedKey,
-    ).replace(
-      /^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY\s*=\s*/i,
-      "",
-    );
-
-  if (!normalisedUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is missing from .env.local.",
-    );
-  }
-
-  if (!publishableKey) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is missing from .env.local.",
-    );
-  }
-
-  const supabaseUrl =
-    validateSupabaseUrl(
-      normalisedUrl,
-    );
-
   browserClient = createClient(
-    supabaseUrl,
-    publishableKey,
+    readSupabaseUrl(),
+    readPublishableKey(),
     {
       auth: {
         persistSession: true,
