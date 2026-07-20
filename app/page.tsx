@@ -266,10 +266,6 @@ export default function HomePage() {
               >
                 {working ? "Signing out…" : "Sign out"}
               </button>
-
-              <p className="rounded-full bg-black/35 px-4 py-2 text-xs text-white/90 backdrop-blur-sm">
-                Signed in as {user.email}
-              </p>
             </>
           ) : (
             <>
