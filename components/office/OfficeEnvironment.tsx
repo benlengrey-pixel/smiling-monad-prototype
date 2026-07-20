@@ -41,18 +41,23 @@ export default function OfficeEnvironment({
     <main className="relative h-[100svh] w-full overflow-hidden bg-[#d9c3a6]">
       <OfficeBackground />
 
-      {/* Poster behind Kimi: Circle of Support Meeting Room */}
+      {/*
+        The wall poster is the only Circle of Support entrance.
+
+        It always opens the normal participant-facing Circle of Support room.
+        Administrator access remains separate and permission-controlled.
+      */}
       <Link
         href="/circle"
-        aria-label="Enter the Circle of Support Meeting Room"
-        title="Circle of Support Meeting Room"
+        aria-label="Enter the Circle of Support room"
+        title="Circle of Support"
         className="
           group
           absolute
           right-[12%]
           top-[22%]
           z-30
-          h-[25%]
+          h-[19%]
           w-[25%]
           cursor-pointer
           rounded-[10px]
@@ -62,87 +67,28 @@ export default function OfficeEnvironment({
           focus-visible:ring-[rgba(255,248,230,0.8)]
           sm:right-[17%]
           sm:top-[20%]
-          sm:h-[30%]
+          sm:h-[23%]
           sm:w-[17%]
         "
       >
         <span
+          aria-hidden="true"
           className="
             pointer-events-none
             absolute
-            inset-x-0
-            top-0
-            h-[76%]
+            inset-0
             rounded-[10px]
             border
-            border-[rgba(255,248,230,0.18)]
-            bg-[rgba(255,248,230,0.025)]
+            border-transparent
             transition
-            group-hover:border-[rgba(255,248,230,0.82)]
-            group-hover:bg-[rgba(255,248,230,0.08)]
-            group-hover:shadow-[0_0_28px_rgba(255,244,215,0.45)]
+            group-hover:border-[rgba(255,248,230,0.72)]
+            group-hover:bg-[rgba(255,248,230,0.05)]
+            group-hover:shadow-[0_0_28px_rgba(255,244,215,0.4)]
             group-focus-visible:border-[rgba(255,248,230,0.82)]
+            group-focus-visible:bg-[rgba(255,248,230,0.06)]
             group-focus-visible:shadow-[0_0_28px_rgba(255,244,215,0.45)]
           "
         />
-
-        <span
-          className="
-            pointer-events-none
-            absolute
-            bottom-0
-            left-1/2
-            w-[92%]
-            -translate-x-1/2
-            rounded-[12px]
-            border
-            border-[rgba(91,65,43,0.28)]
-            bg-[rgba(250,241,222,0.9)]
-            px-2
-            py-1.5
-            text-center
-            font-serif
-            text-[10px]
-            font-semibold
-            leading-tight
-            tracking-[0.08em]
-            text-[#60432f]
-            shadow-[0_6px_16px_rgba(65,45,30,0.16)]
-            backdrop-blur-sm
-            transition
-            group-hover:bg-[#fff8ed]
-            group-focus-visible:bg-[#fff8ed]
-            sm:text-xs
-          "
-        >
-          Circle of Support
-        </span>
-
-        <span
-          className="
-            pointer-events-none
-            absolute
-            bottom-[-2.9rem]
-            left-1/2
-            -translate-x-1/2
-            whitespace-nowrap
-            rounded-full
-            bg-[rgba(55,38,26,0.92)]
-            px-4
-            py-2
-            text-xs
-            font-medium
-            text-[#fff8ed]
-            opacity-0
-            shadow-lg
-            backdrop-blur-sm
-            transition
-            group-hover:opacity-100
-            group-focus-visible:opacity-100
-          "
-        >
-          Enter the meeting room
-        </span>
       </Link>
 
       {/* Doorway and waterfall: Community Market */}
@@ -172,6 +118,7 @@ export default function OfficeEnvironment({
         "
       >
         <span
+          aria-hidden="true"
           className="
             pointer-events-none
             absolute
@@ -184,6 +131,9 @@ export default function OfficeEnvironment({
             group-hover:border-[rgba(224,246,238,0.75)]
             group-hover:bg-[rgba(210,239,226,0.06)]
             group-hover:shadow-[0_0_35px_rgba(215,244,235,0.48)]
+            group-focus-visible:border-[rgba(224,246,238,0.75)]
+            group-focus-visible:bg-[rgba(210,239,226,0.06)]
+            group-focus-visible:shadow-[0_0_35px_rgba(215,244,235,0.48)]
           "
         />
 
