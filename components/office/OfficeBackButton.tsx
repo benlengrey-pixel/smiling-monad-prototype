@@ -86,28 +86,31 @@ export default function OfficeBackButton() {
         onClick={signOut}
         disabled={signingOut}
         aria-label="Sign out of the Smiling Monad"
+        title="Sign out"
         className="
           inline-flex
-          h-11
+          h-8
           items-center
           justify-center
           rounded-full
           border
-          border-white/45
-          bg-[rgba(90,55,38,0.78)]
-          px-4
-          text-sm
+          border-white/20
+          bg-black/20
+          px-3
+          text-[11px]
           font-medium
-          text-[#fff8ed]
-          shadow-[0_8px_24px_rgba(38,29,22,0.2)]
-          backdrop-blur-md
+          text-white/75
+          shadow-sm
+          backdrop-blur-sm
           transition
-          hover:bg-[rgba(90,55,38,0.95)]
+          hover:border-white/35
+          hover:bg-black/35
+          hover:text-white
           focus-visible:outline-none
-          focus-visible:ring-4
-          focus-visible:ring-white/70
+          focus-visible:ring-2
+          focus-visible:ring-white/55
           disabled:cursor-not-allowed
-          disabled:opacity-60
+          disabled:opacity-50
         "
       >
         {signingOut
