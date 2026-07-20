@@ -21,6 +21,14 @@ import {
 } from "@/lib/circle/secure-circle-client";
 
 import {
+  advanceSecureCircleGoal,
+  archiveSecureCircleGoal,
+  createSecureCircleGoal,
+  readSecureCircleGoals,
+  type SecureCircleGoal,
+} from "@/lib/circle/secure-goals-client";
+
+import {
   assignMandatoryCircleTraining,
   canMemberJoinCircle,
   getActiveCircleModule,
@@ -39,9 +47,6 @@ type CircleProfile =
 
 type CircleMember =
   CircleState["members"][number];
-
-type CircleGoal =
-  CircleState["goals"][number];
 
 type CircleDocument =
   CircleState["documents"][number];
@@ -161,7 +166,19 @@ export default function CirclePage() {
     );
 
   const members = circle.members;
-  const goals = circle.goals;
+
+  const [goals, setGoals] =
+    useState<SecureCircleGoal[]>([]);
+
+  const [goalsLoading, setGoalsLoading] =
+    useState(true);
+
+  const [goalWorkingId, setGoalWorkingId] =
+    useState("");
+
+  const [goalMessage, setGoalMessage] =
+    useState("");
+
   const documents = circle.documents;
   const meetings = circle.meetings;
   const responsibilities =
@@ -286,18 +303,6 @@ export default function CirclePage() {
       ...current,
       members: resolveStateUpdate(
         current.members,
-        update,
-      ),
-    }));
-  }
-
-  function setGoals(
-    update: StateUpdate<CircleGoal[]>,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      goals: resolveStateUpdate(
-        current.goals,
         update,
       ),
     }));
@@ -540,7 +545,18 @@ export default function CirclePage() {
           return;
         }
 
+        const secureGoals =
+          await readSecureCircleGoals(
+            secureWorkspace.circle.id,
+          );
+
+        if (!active) {
+          return;
+        }
+
         setWorkspace(secureWorkspace);
+        setGoals(secureGoals);
+        setGoalsLoading(false);
         setProfileState({
           personName:
             secureWorkspace.participant
@@ -567,6 +583,7 @@ export default function CirclePage() {
           return;
         }
 
+        setGoalsLoading(false);
         setAccessError(
           error instanceof Error
             ? error.message
@@ -614,7 +631,8 @@ export default function CirclePage() {
     () =>
       goals.filter(
         (goal) =>
-          goal.status !== "Complete",
+          goal.goal_status !== "achieved" &&
+          goal.goal_status !== "archived",
       ).length,
     [goals],
   );
@@ -687,29 +705,49 @@ export default function CirclePage() {
     setMemberRelationship("");
   }
 
-  function addGoal() {
+  async function addGoal() {
     const title = goalTitle.trim();
 
-    if (!title) {
+    if (!workspace || !title) {
       return;
     }
 
-    setGoals((current) => [
-      ...current,
-      {
-        id: createId(),
-        title,
-        owner:
-          goalOwner.trim() ||
-          profile.preferredName ||
-          profile.personName ||
-          "Whole circle",
-        status: "Planning",
-      },
-    ]);
+    setGoalWorkingId("new");
+    setGoalMessage("");
 
-    setGoalTitle("");
-    setGoalOwner("");
+    try {
+      const createdGoal =
+        await createSecureCircleGoal({
+          circleId: workspace.circle.id,
+          participantId:
+            workspace.participant.id,
+          title,
+          ownerName:
+            goalOwner.trim() ||
+            profile.preferredName ||
+            profile.personName ||
+            "Whole circle",
+        });
+
+      setGoals((current) => [
+        ...current,
+        createdGoal,
+      ]);
+
+      setGoalTitle("");
+      setGoalOwner("");
+      setGoalMessage(
+        "Goal saved securely.",
+      );
+    } catch (error) {
+      setGoalMessage(
+        error instanceof Error
+          ? error.message
+          : "The goal could not be saved.",
+      );
+    } finally {
+      setGoalWorkingId("");
+    }
   }
 
   function addDocument() {
@@ -840,12 +878,35 @@ export default function CirclePage() {
     );
   }
 
-  function removeGoal(goalId: string) {
-    setGoals((current) =>
-      current.filter(
-        (goal) => goal.id !== goalId,
-      ),
-    );
+  async function removeGoal(
+    goalId: string,
+  ) {
+    setGoalWorkingId(goalId);
+    setGoalMessage("");
+
+    try {
+      await archiveSecureCircleGoal(
+        goalId,
+      );
+
+      setGoals((current) =>
+        current.filter(
+          (goal) => goal.id !== goalId,
+        ),
+      );
+
+      setGoalMessage(
+        "Goal archived securely.",
+      );
+    } catch (error) {
+      setGoalMessage(
+        error instanceof Error
+          ? error.message
+          : "The goal could not be archived.",
+      );
+    } finally {
+      setGoalWorkingId("");
+    }
   }
 
   function removeDocument(
@@ -892,28 +953,38 @@ export default function CirclePage() {
     );
   }
 
-  function advanceGoal(
-    goalId: string,
+  async function advanceGoal(
+    goal: SecureCircleGoal,
   ) {
-    const statuses = [
-      "Planning",
-      "Active",
-      "Complete",
-    ] as const;
+    setGoalWorkingId(goal.id);
+    setGoalMessage("");
 
-    setGoals((current) =>
-      current.map((goal) =>
-        goal.id === goalId
-          ? {
-              ...goal,
-              status: getNextStatus(
-                goal.status,
-                statuses,
-              ),
-            }
-          : goal,
-      ),
-    );
+    try {
+      const updatedGoal =
+        await advanceSecureCircleGoal(
+          goal,
+        );
+
+      setGoals((current) =>
+        current.map((item) =>
+          item.id === updatedGoal.id
+            ? updatedGoal
+            : item,
+        ),
+      );
+
+      setGoalMessage(
+        "Goal status updated securely.",
+      );
+    } catch (error) {
+      setGoalMessage(
+        error instanceof Error
+          ? error.message
+          : "The goal status could not be updated.",
+      );
+    } finally {
+      setGoalWorkingId("");
+    }
   }
 
   function advanceDocument(
@@ -1600,7 +1671,7 @@ export default function CirclePage() {
                       if (
                         event.key === "Enter"
                       ) {
-                        addGoal();
+                        void addGoal();
                       }
                     }}
                     placeholder="Lead person"
@@ -1610,14 +1681,32 @@ export default function CirclePage() {
 
                 <button
                   type="button"
-                  onClick={addGoal}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+                  onClick={() => {
+                    void addGoal();
+                  }}
+                  disabled={
+                    goalWorkingId === "new" ||
+                    !goalTitle.trim()
+                  }
+                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  Add goal
+                  {goalWorkingId === "new"
+                    ? "Saving goal…"
+                    : "Add goal"}
                 </button>
 
+                {goalMessage && (
+                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                    {goalMessage}
+                  </p>
+                )}
+
                 <div className="mt-6 space-y-3">
-                  {goals.length === 0 ? (
+                  {goalsLoading ? (
+                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                      Loading secure goals…
+                    </div>
+                  ) : goals.length === 0 ? (
                     <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
                       No goals have been added
                       yet.
@@ -1634,7 +1723,7 @@ export default function CirclePage() {
                           </p>
 
                           <p className="mt-1 text-sm text-[#756151]">
-                            Lead: {goal.owner}
+                            Lead: {goal.owner_name || "Whole circle"}
                           </p>
                         </div>
 
@@ -1642,25 +1731,39 @@ export default function CirclePage() {
                           <button
                             type="button"
                             onClick={() =>
-                              advanceGoal(
-                                goal.id,
+                              void advanceGoal(
+                                goal,
                               )
                             }
-                            className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
+                            disabled={
+                              goalWorkingId === goal.id
+                            }
+                            className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
                           >
-                            {goal.status}
+                            {goalWorkingId === goal.id
+                              ? "Saving…"
+                              : goal.goal_status === "planning"
+                                ? "Planning"
+                                : goal.goal_status === "active"
+                                  ? "Active"
+                                  : goal.goal_status === "achieved"
+                                    ? "Achieved"
+                                    : goal.goal_status}
                           </button>
 
                           <button
                             type="button"
                             onClick={() =>
-                              removeGoal(
+                              void removeGoal(
                                 goal.id,
                               )
                             }
-                            className="px-2 py-2 text-sm text-[#98765e]"
+                            disabled={
+                              goalWorkingId === goal.id
+                            }
+                            className="px-2 py-2 text-sm text-[#98765e] disabled:cursor-not-allowed disabled:opacity-55"
                           >
-                            Remove
+                            Archive
                           </button>
                         </div>
                       </article>
