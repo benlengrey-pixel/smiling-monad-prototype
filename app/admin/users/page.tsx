@@ -28,6 +28,26 @@ type AdminUserRow = {
   created_at: string;
 };
 
+const BOOTSTRAP_ADMIN_EMAILS =
+  new Set([
+    "thesmilingmonad@gmail.com",
+    "benlengrey@gmail.com",
+  ]);
+
+function normalizeEmail(
+  value: string,
+): string {
+  return value.trim().toLowerCase();
+}
+
+function isBootstrapAdministrator(
+  email: string,
+): boolean {
+  return BOOTSTRAP_ADMIN_EMAILS.has(
+    normalizeEmail(email),
+  );
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] =
     useState<AdminUserRow[]>([]);
@@ -184,13 +204,34 @@ export default function AdminUsersPage() {
   }, []);
 
   async function updateAccess(
-    userId: string,
+    user: AdminUserRow,
     updates: {
       access_status?: AccessStatus;
       is_admin?: boolean;
     },
   ) {
-    setBusyUserId(userId);
+    const protectedAdministrator =
+      isBootstrapAdministrator(
+        user.email,
+      );
+
+    if (
+      protectedAdministrator &&
+      (
+        updates.access_status ===
+          "pending" ||
+        updates.access_status ===
+          "suspended" ||
+        updates.is_admin === false
+      )
+    ) {
+      setMessage(
+        "The bootstrap administrator account cannot be suspended, returned to pending or stripped of administrator access.",
+      );
+      return;
+    }
+
+    setBusyUserId(user.user_id);
     setMessage("");
 
     try {
@@ -203,6 +244,16 @@ export default function AdminUsersPage() {
       > = {
         ...updates,
       };
+
+      if (
+        updates.is_admin === true &&
+        updates.access_status === undefined
+      ) {
+        payload.access_status =
+          "approved";
+        payload.approved_at =
+          new Date().toISOString();
+      }
 
       if (
         updates.access_status ===
@@ -219,26 +270,49 @@ export default function AdminUsersPage() {
           "suspended"
       ) {
         payload.approved_at = null;
+
+        if (
+          updates.is_admin === undefined
+        ) {
+          payload.is_admin = false;
+        }
       }
 
       const { error } =
         await supabase
           .from("user_access")
           .update(payload)
-          .eq("user_id", userId);
+          .eq(
+            "user_id",
+            user.user_id,
+          );
 
       if (error) {
         throw error;
       }
 
       setUsers((currentUsers) =>
-        currentUsers.map((user) =>
-          user.user_id === userId
-            ? {
-                ...user,
-                ...updates,
-              }
-            : user,
+        currentUsers.map(
+          (currentUser) =>
+            currentUser.user_id ===
+            user.user_id
+              ? {
+                  ...currentUser,
+                  ...updates,
+                  access_status:
+                    (payload.access_status as
+                      | AccessStatus
+                      | undefined) ??
+                    updates.access_status ??
+                    currentUser.access_status,
+                  is_admin:
+                    (payload.is_admin as
+                      | boolean
+                      | undefined) ??
+                    updates.is_admin ??
+                    currentUser.is_admin,
+                }
+              : currentUser,
         ),
       );
 
@@ -357,6 +431,11 @@ export default function AdminUsersPage() {
                   busyUserId ===
                   user.user_id;
 
+                const protectedAdministrator =
+                  isBootstrapAdministrator(
+                    user.email,
+                  );
+
                 return (
                   <article
                     key={user.user_id}
@@ -372,7 +451,13 @@ export default function AdminUsersPage() {
 
                           {user.is_admin ? (
                             <span className="rounded-full bg-[#e7ddc8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em]">
-                              Admin
+                              Administrator
+                            </span>
+                          ) : null}
+
+                          {protectedAdministrator ? (
+                            <span className="rounded-full bg-[#dce8d7] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em]">
+                              Protected bootstrap
                             </span>
                           ) : null}
 
@@ -386,7 +471,10 @@ export default function AdminUsersPage() {
                         </p>
 
                         <p className="mt-2 text-sm text-black/55">
-                          Role: {user.role}
+                          Account role:{" "}
+                          {user.is_admin
+                            ? "Administrator"
+                            : user.role}
                           {user.general_location
                             ? ` · ${user.general_location}`
                             : ""}
@@ -399,7 +487,7 @@ export default function AdminUsersPage() {
                           disabled={busy}
                           onClick={() =>
                             void updateAccess(
-                              user.user_id,
+                              user,
                               {
                                 access_status:
                                   "approved",
@@ -413,51 +501,60 @@ export default function AdminUsersPage() {
 
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={
+                            busy ||
+                            protectedAdministrator
+                          }
                           onClick={() =>
                             void updateAccess(
-                              user.user_id,
+                              user,
                               {
                                 access_status:
                                   "suspended",
                               },
                             )
                           }
-                          className="rounded-full bg-[#765143] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                          className="rounded-full bg-[#765143] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
                         >
                           Suspend
                         </button>
 
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={
+                            busy ||
+                            protectedAdministrator
+                          }
                           onClick={() =>
                             void updateAccess(
-                              user.user_id,
+                              user,
                               {
                                 access_status:
                                   "pending",
                               },
                             )
                           }
-                          className="rounded-full border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                          className="rounded-full border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
                         >
                           Set pending
                         </button>
 
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={
+                            busy ||
+                            protectedAdministrator
+                          }
                           onClick={() =>
                             void updateAccess(
-                              user.user_id,
+                              user,
                               {
                                 is_admin:
                                   !user.is_admin,
                               },
                             )
                           }
-                          className="rounded-full border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                          className="rounded-full border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
                         >
                           {user.is_admin
                             ? "Remove admin"
