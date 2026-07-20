@@ -26,9 +26,6 @@ export default function AccessPendingPage() {
   const [loading, setLoading] =
     useState(true);
 
-  const [signingOut, setSigningOut] =
-    useState(false);
-
   useEffect(() => {
     let active = true;
 
@@ -101,57 +98,6 @@ export default function AccessPendingPage() {
     };
   }, []);
 
-  async function signOut() {
-    if (signingOut) {
-      return;
-    }
-
-    setSigningOut(true);
-
-    try {
-      const supabase =
-        getSupabaseBrowserClient();
-
-      await supabase.auth.signOut({
-        scope: "local",
-      });
-    } catch {
-      // Continue with local session cleanup.
-    }
-
-    try {
-      Object.keys(
-        window.localStorage,
-      ).forEach((key) => {
-        if (
-          key.startsWith("sb-") ||
-          key.includes("supabase")
-        ) {
-          window.localStorage.removeItem(
-            key,
-          );
-        }
-      });
-
-      Object.keys(
-        window.sessionStorage,
-      ).forEach((key) => {
-        if (
-          key.startsWith("sb-") ||
-          key.includes("supabase")
-        ) {
-          window.sessionStorage.removeItem(
-            key,
-          );
-        }
-      });
-    } finally {
-      window.location.replace(
-        "/sign-in",
-      );
-    }
-  }
-
   function checkAgain() {
     window.location.replace(
       status === "approved"
@@ -223,18 +169,12 @@ export default function AccessPendingPage() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() =>
-              void signOut()
-            }
-            disabled={signingOut}
-            className="rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-semibold disabled:opacity-50"
+          <Link
+            href="/sign-out"
+            className="rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-semibold"
           >
-            {signingOut
-              ? "Signing out…"
-              : "Sign out"}
-          </button>
+            Sign out
+          </Link>
         </div>
       </div>
     </main>
