@@ -83,10 +83,17 @@ export type SecureParticipantProfileUpdate = {
   decisionSupport?: string;
 };
 
-type BootstrapResult = {
+type WorkspaceDatabaseResult = {
   participant: SecureParticipant;
   circle: SecureCircle;
   membership: SecureCircleMember;
+};
+
+type WorkspaceRpcResult = {
+  participant: SecureParticipant;
+  circle: SecureCircle;
+  membership: SecureCircleMember;
+  created: boolean;
 };
 
 function getClient(): SupabaseClient {
@@ -104,6 +111,50 @@ function requireText(
   }
 
   return cleaned;
+}
+
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function readWorkspaceRpcResult(
+  value: unknown,
+): WorkspaceRpcResult {
+  if (!isRecord(value)) {
+    throw new Error(
+      "The Circle workspace response was invalid.",
+    );
+  }
+
+  const participant = value.participant;
+  const circle = value.circle;
+  const membership = value.membership;
+
+  if (
+    !isRecord(participant) ||
+    !isRecord(circle) ||
+    !isRecord(membership)
+  ) {
+    throw new Error(
+      "The Circle workspace response was incomplete.",
+    );
+  }
+
+  return {
+    participant:
+      participant as unknown as SecureParticipant,
+    circle:
+      circle as unknown as SecureCircle,
+    membership:
+      membership as unknown as SecureCircleMember,
+    created: value.created === true,
+  };
 }
 
 async function requireAuthenticatedUser(
@@ -130,34 +181,18 @@ async function requireAuthenticatedUser(
 async function findExistingWorkspace(
   supabase: SupabaseClient,
   user: User,
-): Promise<BootstrapResult | null> {
+): Promise<WorkspaceDatabaseResult | null> {
   const {
-    data: memberships,
+    data: membershipRows,
     error: membershipError,
   } = await supabase
     .from("circle_members")
-    .select(
-      [
-        "id",
-        "circle_id",
-        "user_id",
-        "invited_email",
-        "display_name",
-        "role",
-        "relationship",
-        "membership_status",
-        "invited_by",
-        "invited_at",
-        "accepted_at",
-        "removed_at",
-        "access_starts_at",
-        "access_ends_at",
-        "created_at",
-        "updated_at",
-      ].join(","),
-    )
+    .select("*")
     .eq("user_id", user.id)
     .eq("membership_status", "active")
+    .or(
+      `access_starts_at.is.null,access_starts_at.lte.${new Date().toISOString()}`,
+    )
     .order("created_at", {
       ascending: true,
     })
@@ -168,16 +203,25 @@ async function findExistingWorkspace(
   }
 
   const membership =
-    memberships?.[0] as
-      | SecureCircleMember
-      | undefined;
+    membershipRows &&
+    membershipRows.length > 0
+      ? (membershipRows[0] as unknown as SecureCircleMember)
+      : null;
 
   if (!membership) {
     return null;
   }
 
+  if (
+    membership.access_ends_at &&
+    new Date(membership.access_ends_at).getTime() <=
+      Date.now()
+  ) {
+    return null;
+  }
+
   const {
-    data: circle,
+    data: circleData,
     error: circleError,
   } = await supabase
     .from("circles")
@@ -189,16 +233,16 @@ async function findExistingWorkspace(
     throw circleError;
   }
 
+  const circle =
+    circleData as unknown as SecureCircle;
+
   const {
-    data: participant,
+    data: participantData,
     error: participantError,
   } = await supabase
     .from("participants")
     .select("*")
-    .eq(
-      "id",
-      (circle as SecureCircle).participant_id,
-    )
+    .eq("id", circle.participant_id)
     .single();
 
   if (participantError) {
@@ -207,109 +251,36 @@ async function findExistingWorkspace(
 
   return {
     participant:
-      participant as SecureParticipant,
-    circle: circle as SecureCircle,
+      participantData as unknown as SecureParticipant,
+    circle,
     membership,
   };
 }
 
-async function createWorkspace(
+async function createWorkspaceWithRpc(
   supabase: SupabaseClient,
-  user: User,
-): Promise<BootstrapResult> {
-  const defaultDisplayName =
-    typeof user.user_metadata?.full_name ===
-      "string" &&
-    user.user_metadata.full_name.trim()
-      ? user.user_metadata.full_name.trim()
-      : user.email?.split("@")[0] ||
-        "Circle owner";
+): Promise<WorkspaceDatabaseResult> {
+  const { data, error } = await supabase.rpc(
+    "sm_open_or_create_circle_workspace",
+  );
 
-  const participantId =
-    globalThis.crypto.randomUUID();
-
-  const circleId =
-    globalThis.crypto.randomUUID();
-
-  const {
-    data: participant,
-    error: participantError,
-  } = await supabase
-    .from("participants")
-    .insert({
-      id: participantId,
-      created_by: user.id,
-      full_name: defaultDisplayName,
-      preferred_name: defaultDisplayName,
-      status: "active",
-      what_matters: "",
-      communication_support: "",
-      decision_support: "",
-    })
-    .select()
-    .single();
-
-  if (participantError) {
-    throw participantError;
+  if (error) {
+    throw error;
   }
 
-  const {
-    data: circle,
-    error: circleError,
-  } = await supabase
-    .from("circles")
-    .insert({
-      id: circleId,
-      participant_id: participantId,
-      created_by: user.id,
-      name: `${defaultDisplayName}'s Circle of Support`,
-      status: "active",
-      purpose:
-        "Coordinate support around the life, choices and goals of the person.",
-    })
-    .select()
-    .single();
-
-  if (circleError) {
-    throw circleError;
-  }
-
-  const {
-    data: membership,
-    error: membershipError,
-  } = await supabase
-    .from("circle_members")
-    .insert({
-      circle_id: circleId,
-      user_id: user.id,
-      display_name: defaultDisplayName,
-      role: "circle_manager",
-      relationship: "Circle creator",
-      membership_status: "active",
-      invited_by: user.id,
-      accepted_at:
-        new Date().toISOString(),
-      access_starts_at:
-        new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (membershipError) {
-    throw membershipError;
-  }
+  const workspace =
+    readWorkspaceRpcResult(data);
 
   return {
-    participant:
-      participant as SecureParticipant,
-    circle: circle as SecureCircle,
-    membership:
-      membership as SecureCircleMember,
+    participant: workspace.participant,
+    circle: workspace.circle,
+    membership: workspace.membership,
   };
 }
 
 export async function openSecureCircleWorkspace(): Promise<SecureCircleWorkspace> {
   const supabase = getClient();
+
   const user =
     await requireAuthenticatedUser(
       supabase,
@@ -323,9 +294,8 @@ export async function openSecureCircleWorkspace(): Promise<SecureCircleWorkspace
 
   const workspace =
     existingWorkspace ??
-    (await createWorkspace(
+    (await createWorkspaceWithRpc(
       supabase,
-      user,
     ));
 
   return {
@@ -336,6 +306,7 @@ export async function openSecureCircleWorkspace(): Promise<SecureCircleWorkspace
 
 export async function refreshSecureCircleWorkspace(): Promise<SecureCircleWorkspace> {
   const supabase = getClient();
+
   const user =
     await requireAuthenticatedUser(
       supabase,
@@ -364,10 +335,10 @@ export async function updateSecureParticipantProfile(
   update: SecureParticipantProfileUpdate,
 ): Promise<SecureParticipant> {
   const supabase = getClient();
-  const user =
-    await requireAuthenticatedUser(
-      supabase,
-    );
+
+  await requireAuthenticatedUser(
+    supabase,
+  );
 
   const fullName = requireText(
     update.fullName,
@@ -399,11 +370,9 @@ export async function updateSecureParticipantProfile(
       decision_support:
         update.decisionSupport?.trim() ??
         "",
-      updated_at:
-        new Date().toISOString(),
     })
     .eq("id", participantId)
-    .select()
+    .select("*")
     .single();
 
   if (error) {
@@ -416,7 +385,5 @@ export async function updateSecureParticipantProfile(
     );
   }
 
-  void user;
-
-  return data as SecureParticipant;
+  return data as unknown as SecureParticipant;
 }
