@@ -56,10 +56,11 @@ export default function OfficeEnvironment({
           cursor-pointer
           rounded-[10px]
           outline-none
-          sm:right-[17%]
-          sm:top-[20%]
-          sm:h-[23%]
-          sm:w-[17%]
+          sm:left-[56.5%]
+          sm:right-auto
+          sm:top-[10%]
+          sm:h-[31%]
+          sm:w-[12%]
         "
       />
 
@@ -79,10 +80,10 @@ export default function OfficeEnvironment({
           rounded-t-[48%]
           rounded-b-[18px]
           outline-none
-          sm:left-[5%]
-          sm:top-[16%]
-          sm:h-[48%]
-          sm:w-[32%]
+          sm:left-[20%]
+          sm:top-[15%]
+          sm:h-[55%]
+          sm:w-[28%]
         "
       />
 
