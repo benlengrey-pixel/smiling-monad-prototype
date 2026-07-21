@@ -32,10 +32,7 @@ import {
   archiveSecureCircleDocument,
   createSecureDocumentDownloadUrl,
   readSecureCircleDocuments,
-  uploadSecureCircleDocument,
   type SecureCircleDocument,
-  type SecureDocumentCategory,
-  type SecureDocumentSensitivity,
 } from "@/lib/circle/secure-documents-client";
 
 import {
@@ -87,9 +84,6 @@ type ActivePanel =
 
 const ACTIVE_CIRCLE_PANEL_KEY =
   "smiling-monad-active-circle-panel";
-
-const DOCUMENT_DRAFT_KEY =
-  "smiling-monad-document-draft";
 
 type StateUpdate<T> =
   | T
@@ -281,31 +275,6 @@ export default function CirclePage() {
 
   const [documentMessage, setDocumentMessage] =
     useState("");
-
-  const [documentTitle, setDocumentTitle] =
-    useState("");
-
-  const [
-    documentDescription,
-    setDocumentDescription,
-  ] = useState("");
-
-  const [
-    documentCategory,
-    setDocumentCategory,
-  ] =
-    useState<SecureDocumentCategory>(
-      "other",
-    );
-
-  const [
-    documentSensitivity,
-    setDocumentSensitivity,
-  ] =
-    useState<SecureDocumentSensitivity>(
-      "personal",
-    );
-
 
   function commitCircle(
     updater: (
@@ -507,72 +476,6 @@ export default function CirclePage() {
   }, [
     activePanel,
     panelNavigationReady,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const savedDraft =
-      window.sessionStorage.getItem(
-        DOCUMENT_DRAFT_KEY,
-      );
-
-    if (!savedDraft) {
-      return;
-    }
-
-    try {
-      const draft = JSON.parse(
-        savedDraft,
-      ) as {
-        title?: string;
-        description?: string;
-        category?: SecureDocumentCategory;
-        sensitivity?: SecureDocumentSensitivity;
-      };
-
-      setDocumentTitle(
-        draft.title ?? "",
-      );
-      setDocumentDescription(
-        draft.description ?? "",
-      );
-      setDocumentCategory(
-        draft.category ?? "other",
-      );
-      setDocumentSensitivity(
-        draft.sensitivity ?? "personal",
-      );
-    } catch {
-      window.sessionStorage.removeItem(
-        DOCUMENT_DRAFT_KEY,
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.sessionStorage.setItem(
-      DOCUMENT_DRAFT_KEY,
-      JSON.stringify({
-        title: documentTitle,
-        description:
-          documentDescription,
-        category: documentCategory,
-        sensitivity:
-          documentSensitivity,
-      }),
-    );
-  }, [
-    documentTitle,
-    documentDescription,
-    documentCategory,
-    documentSensitivity,
   ]);
 
   const [
@@ -983,76 +886,6 @@ export default function CirclePage() {
       );
     } finally {
       setGoalWorkingId("");
-    }
-  }
-
-  async function handleDocumentFileSelected(
-    file: File | null,
-  ) {
-    if (
-      !workspace ||
-      documentWorkingId ||
-      !file
-    ) {
-      return;
-    }
-
-    if (!documentTitle.trim()) {
-      setDocumentMessage(
-        "Enter the document title before choosing the file.",
-      );
-      return;
-    }
-
-    setDocumentWorkingId("new");
-    setDocumentMessage(
-      "Uploading selected file securely…",
-    );
-
-    try {
-      const createdDocument =
-        await uploadSecureCircleDocument({
-          circleId: workspace.circle.id,
-          participantId:
-            workspace.participant.id,
-          title: documentTitle,
-          description:
-            documentDescription,
-          category: documentCategory,
-          sensitivity:
-            documentSensitivity,
-          file,
-        });
-
-      setDocuments((current) => [
-        createdDocument,
-        ...current,
-      ]);
-
-      setDocumentTitle("");
-      setDocumentDescription("");
-      setDocumentCategory("other");
-      setDocumentSensitivity(
-        "personal",
-      );
-
-      if (typeof window !== "undefined") {
-        window.sessionStorage.removeItem(
-          DOCUMENT_DRAFT_KEY,
-        );
-      }
-
-      setDocumentMessage(
-        "Document uploaded securely.",
-      );
-    } catch (error) {
-      setDocumentMessage(
-        error instanceof Error
-          ? error.message
-          : "The document could not be uploaded.",
-      );
-    } finally {
-      setDocumentWorkingId("");
     }
   }
 
@@ -2341,116 +2174,12 @@ export default function CirclePage() {
                   uploaded, opened or archived.
                 </p>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <input
-                    value={documentTitle}
-                    onChange={(event) =>
-                      setDocumentTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Document title"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <select
-                    value={documentCategory}
-                    onChange={(event) =>
-                      setDocumentCategory(
-                        event.target
-                          .value as SecureDocumentCategory,
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  >
-                    <option value="plan">Plan</option>
-                    <option value="agreement">
-                      Agreement
-                    </option>
-                    <option value="report">Report</option>
-                    <option value="meeting">
-                      Meeting
-                    </option>
-                    <option value="assessment">
-                      Assessment
-                    </option>
-                    <option value="health">Health</option>
-                    <option value="financial">
-                      Financial
-                    </option>
-                    <option value="consent">
-                      Consent
-                    </option>
-                    <option value="correspondence">
-                      Correspondence
-                    </option>
-                    <option value="other">Other</option>
-                  </select>
-
-                  <select
-                    value={documentSensitivity}
-                    onChange={(event) =>
-                      setDocumentSensitivity(
-                        event.target
-                          .value as SecureDocumentSensitivity,
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  >
-                    <option value="general">
-                      General
-                    </option>
-                    <option value="personal">
-                      Personal
-                    </option>
-                    <option value="health">
-                      Health
-                    </option>
-                    <option value="financial">
-                      Financial
-                    </option>
-                    <option value="restricted">
-                      Restricted
-                    </option>
-                  </select>
-
-                  <input
-                    id="circle-document-file"
-                    type="file"
-                    disabled={
-                      documentWorkingId === "new"
-                    }
-                    onChange={(event) => {
-                      const selectedFile =
-                        event.target.files?.[0] ??
-                        null;
-
-                      void handleDocumentFileSelected(
-                        selectedFile,
-                      );
-
-                      event.currentTarget.value = "";
-                    }}
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 text-sm outline-none focus:border-[#71523b] disabled:cursor-not-allowed disabled:opacity-55"
-                  />
-                </div>
-
-                <textarea
-                  value={documentDescription}
-                  onChange={(event) =>
-                    setDocumentDescription(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Optional description"
-                  className="mt-3 min-h-28 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                />
-
-                <div className="mt-3 rounded-[18px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                  Enter the document details first, then
-                  choose the file. The secure upload starts
-                  immediately after file selection.
-                </div>
+                <Link
+                  href="/circle/documents/upload"
+                  className="mt-6 flex w-full items-center justify-center rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+                >
+                  Upload a secure document
+                </Link>
 
                 <button
                   type="button"
