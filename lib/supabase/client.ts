@@ -6,6 +6,9 @@ import {
 const FALLBACK_SUPABASE_URL =
   "https://kosfujyebwsmdvbolhur.supabase.co";
 
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_-c6GF8W9T-GzvTPgpxwytw_U6LLw1iK";
+
 let browserClient:
   | SupabaseClient
   | undefined;
@@ -39,10 +42,27 @@ function getValidSupabaseUrl(
       return cleanedValue;
     }
   } catch {
-    // Use the known project URL below.
+    // Use the known project URL.
   }
 
   return FALLBACK_SUPABASE_URL;
+}
+
+function getValidPublishableKey(
+  value: string | undefined,
+): string {
+  const cleanedValue =
+    cleanEnvironmentValue(value);
+
+  if (
+    cleanedValue.startsWith(
+      "sb_publishable_",
+    )
+  ) {
+    return cleanedValue;
+  }
+
+  return FALLBACK_SUPABASE_PUBLISHABLE_KEY;
 }
 
 export function getSupabaseBrowserClient(): SupabaseClient {
@@ -52,16 +72,10 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     );
 
   const supabasePublishableKey =
-    cleanEnvironmentValue(
+    getValidPublishableKey(
       process.env
         .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
-
-  if (!supabasePublishableKey) {
-    throw new Error(
-      "Missing Supabase publishable key.",
-    );
-  }
 
   if (!browserClient) {
     browserClient = createClient(
