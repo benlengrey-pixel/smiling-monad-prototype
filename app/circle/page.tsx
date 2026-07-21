@@ -788,7 +788,7 @@ export default function CirclePage() {
       setGoalMessage(
         error instanceof Error
           ? error.message
-          : "The goal could not be saved.",
+          : "Two-step security is required.",
       );
     } finally {
       setGoalWorkingId("");
