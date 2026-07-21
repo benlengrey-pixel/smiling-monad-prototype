@@ -29,6 +29,23 @@ import {
 } from "@/lib/circle/secure-goals-client";
 
 import {
+  createSecureBudgetItem,
+  createSecureMeeting,
+  createSecureResponsibility,
+  inviteSecureCircleMember,
+  readSecureCircleOperations,
+  updateSecureBudgetItem,
+  updateSecureCircleMember,
+  updateSecureMeeting,
+  updateSecureResponsibility,
+  type SecureCircleBudgetItem,
+  type SecureCircleMeeting,
+  type SecureCircleMemberRecord,
+  type SecureCircleResponsibility,
+  type SecureMemberRole,
+} from "@/lib/circle/secure-circle-operations-client";
+
+import {
   assignMandatoryCircleTraining,
   canMemberJoinCircle,
   getActiveCircleModule,
@@ -45,20 +62,8 @@ type CircleState =
 type CircleProfile =
   CircleState["profile"];
 
-type CircleMember =
-  CircleState["members"][number];
-
 type CircleDocument =
   CircleState["documents"][number];
-
-type CircleMeeting =
-  CircleState["meetings"][number];
-
-type CircleResponsibility =
-  CircleState["responsibilities"][number];
-
-type CircleBudgetItem =
-  CircleState["budgets"][number];
 
 type ActivePanel =
   | "overview"
@@ -165,10 +170,29 @@ export default function CirclePage() {
       emptyCircle,
     );
 
-  const members = circle.members;
+  const [members, setMembers] =
+    useState<SecureCircleMemberRecord[]>([]);
 
   const [goals, setGoals] =
     useState<SecureCircleGoal[]>([]);
+
+  const [meetings, setMeetings] =
+    useState<SecureCircleMeeting[]>([]);
+
+  const [responsibilities, setResponsibilities] =
+    useState<SecureCircleResponsibility[]>([]);
+
+  const [budgets, setBudgets] =
+    useState<SecureCircleBudgetItem[]>([]);
+
+  const [operationsLoading, setOperationsLoading] =
+    useState(true);
+
+  const [operationWorkingId, setOperationWorkingId] =
+    useState("");
+
+  const [operationMessage, setOperationMessage] =
+    useState("");
 
   const [goalsLoading, setGoalsLoading] =
     useState(true);
@@ -180,11 +204,6 @@ export default function CirclePage() {
     useState("");
 
   const documents = circle.documents;
-  const meetings = circle.meetings;
-  const responsibilities =
-    circle.responsibilities;
-
-  const budgets = circle.budgets;
 
   function commitCircle(
     updater: (
@@ -294,20 +313,6 @@ export default function CirclePage() {
     }
   }
 
-  function setMembers(
-    update: StateUpdate<
-      CircleMember[]
-    >,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      members: resolveStateUpdate(
-        current.members,
-        update,
-      ),
-    }));
-  }
-
   function setDocuments(
     update: StateUpdate<
       CircleDocument[]
@@ -317,49 +322,6 @@ export default function CirclePage() {
       ...current,
       documents: resolveStateUpdate(
         current.documents,
-        update,
-      ),
-    }));
-  }
-
-  function setMeetings(
-    update: StateUpdate<
-      CircleMeeting[]
-    >,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      meetings: resolveStateUpdate(
-        current.meetings,
-        update,
-      ),
-    }));
-  }
-
-  function setResponsibilities(
-    update: StateUpdate<
-      CircleResponsibility[]
-    >,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      responsibilities:
-        resolveStateUpdate(
-          current.responsibilities,
-          update,
-        ),
-    }));
-  }
-
-  function setBudgets(
-    update: StateUpdate<
-      CircleBudgetItem[]
-    >,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      budgets: resolveStateUpdate(
-        current.budgets,
         update,
       ),
     }));
@@ -446,6 +408,9 @@ export default function CirclePage() {
     useState("");
 
   const [memberRole, setMemberRole] =
+    useState<SecureMemberRole>("circle_member");
+
+  const [memberEmail, setMemberEmail] =
     useState("");
 
   const [
@@ -500,8 +465,8 @@ export default function CirclePage() {
     budgetCategory,
     setBudgetCategory,
   ] = useState<
-    CircleBudgetItem["category"]
-  >("Core");
+    SecureCircleBudgetItem["category"]
+  >("core");
 
   const [
     budgetAllocated,
@@ -545,10 +510,15 @@ export default function CirclePage() {
           return;
         }
 
-        const secureGoals =
-          await readSecureCircleGoals(
-            secureWorkspace.circle.id,
-          );
+        const [secureGoals, secureOperations] =
+          await Promise.all([
+            readSecureCircleGoals(
+              secureWorkspace.circle.id,
+            ),
+            readSecureCircleOperations(
+              secureWorkspace.circle.id,
+            ),
+          ]);
 
         if (!active) {
           return;
@@ -556,7 +526,14 @@ export default function CirclePage() {
 
         setWorkspace(secureWorkspace);
         setGoals(secureGoals);
+        setMembers(secureOperations.members);
+        setMeetings(secureOperations.meetings);
+        setResponsibilities(
+          secureOperations.responsibilities,
+        );
+        setBudgets(secureOperations.budgets);
         setGoalsLoading(false);
+        setOperationsLoading(false);
         setProfileState({
           personName:
             secureWorkspace.participant
@@ -584,6 +561,7 @@ export default function CirclePage() {
         }
 
         setGoalsLoading(false);
+        setOperationsLoading(false);
         setAccessError(
           error instanceof Error
             ? error.message
@@ -642,8 +620,8 @@ export default function CirclePage() {
       () =>
         responsibilities.filter(
           (responsibility) =>
-            responsibility.status !==
-            "Complete",
+            responsibility.responsibility_status !==
+            "complete",
         ).length,
       [responsibilities],
     );
@@ -679,30 +657,45 @@ export default function CirclePage() {
     [budgets],
   );
 
-  function addMember() {
-    const name = memberName.trim();
-
-    if (!name) {
+  async function addMember() {
+    if (!workspace || operationWorkingId) {
       return;
     }
 
-    setMembers((current) => [
-      ...current,
-      {
-        id: createId(),
-        name,
-        role:
-          memberRole.trim() ||
-          "Circle member",
-        relationship:
-          memberRelationship.trim() ||
-          "Support relationship",
-      },
-    ]);
+    setOperationWorkingId("member-new");
+    setOperationMessage("");
 
-    setMemberName("");
-    setMemberRole("");
-    setMemberRelationship("");
+    try {
+      const createdMember =
+        await inviteSecureCircleMember({
+          circleId: workspace.circle.id,
+          email: memberEmail,
+          displayName: memberName,
+          role: memberRole,
+          relationship: memberRelationship,
+        });
+
+      setMembers((current) => [
+        ...current,
+        createdMember,
+      ]);
+
+      setMemberName("");
+      setMemberEmail("");
+      setMemberRole("circle_member");
+      setMemberRelationship("");
+      setOperationMessage(
+        "Circle invitation saved securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The Circle invitation could not be saved.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
   async function addGoal() {
@@ -773,109 +766,185 @@ export default function CirclePage() {
     setDocumentCategory("Plan");
   }
 
-  function addMeeting() {
-    const title =
-      meetingTitle.trim();
-
-    if (!title) {
+  async function addMeeting() {
+    if (!workspace || operationWorkingId) {
       return;
     }
 
-    setMeetings((current) => [
-      ...current,
-      {
-        id: createId(),
-        title,
-        date: meetingDate,
-        purpose:
-          meetingPurpose.trim() ||
-          "Circle coordination",
-      },
-    ]);
+    setOperationWorkingId("meeting-new");
+    setOperationMessage("");
 
-    setMeetingTitle("");
-    setMeetingDate("");
-    setMeetingPurpose("");
+    try {
+      const createdMeeting =
+        await createSecureMeeting({
+          circleId: workspace.circle.id,
+          participantId: workspace.participant.id,
+          title: meetingTitle,
+          meetingDate,
+          purpose:
+            meetingPurpose.trim() ||
+            "Circle coordination",
+        });
+
+      setMeetings((current) => [
+        ...current,
+        createdMeeting,
+      ]);
+
+      setMeetingTitle("");
+      setMeetingDate("");
+      setMeetingPurpose("");
+      setOperationMessage(
+        "Meeting saved securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The meeting could not be saved.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function addResponsibility() {
-    const title =
-      responsibilityTitle.trim();
-
-    if (!title) {
+  async function addResponsibility() {
+    if (!workspace || operationWorkingId) {
       return;
     }
 
-    setResponsibilities(
-      (current) => [
-        ...current,
-        {
-          id: createId(),
-          title,
-          owner:
+    setOperationWorkingId("responsibility-new");
+    setOperationMessage("");
+
+    try {
+      const createdResponsibility =
+        await createSecureResponsibility({
+          circleId: workspace.circle.id,
+          participantId: workspace.participant.id,
+          title: responsibilityTitle,
+          ownerName:
             responsibilityOwner.trim() ||
             "Whole circle",
-          status: "Open",
-        },
-      ],
-    );
+        });
 
-    setResponsibilityTitle("");
-    setResponsibilityOwner("");
+      setResponsibilities((current) => [
+        ...current,
+        createdResponsibility,
+      ]);
+
+      setResponsibilityTitle("");
+      setResponsibilityOwner("");
+      setOperationMessage(
+        "Responsibility saved securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The responsibility could not be saved.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function addBudgetItem() {
-    const title = budgetTitle.trim();
+  async function addBudgetItem() {
+    if (!workspace || operationWorkingId) {
+      return;
+    }
+
     const allocated =
-      Number.parseFloat(
-        budgetAllocated,
-      );
+      Number.parseFloat(budgetAllocated);
     const spent =
       Number.parseFloat(budgetSpent);
 
     if (
-      !title ||
+      !budgetTitle.trim() ||
       !Number.isFinite(allocated) ||
       allocated < 0
     ) {
+      setOperationMessage(
+        "Enter a budget title and a valid allocated amount.",
+      );
       return;
     }
 
-    setBudgets((current) => [
-      ...current,
-      {
-        id: createId(),
-        title,
-        category: budgetCategory,
-        allocated,
-        spent:
-          Number.isFinite(spent) &&
-          spent >= 0
-            ? spent
-            : 0,
-        owner:
-          budgetOwner.trim() ||
-          "Whole circle",
-        status: "Active",
-      },
-    ]);
+    setOperationWorkingId("budget-new");
+    setOperationMessage("");
 
-    setBudgetTitle("");
-    setBudgetCategory("Core");
-    setBudgetAllocated("");
-    setBudgetSpent("");
-    setBudgetOwner("");
+    try {
+      const createdBudget =
+        await createSecureBudgetItem({
+          circleId: workspace.circle.id,
+          participantId: workspace.participant.id,
+          title: budgetTitle,
+          category: budgetCategory,
+          allocated,
+          spent:
+            Number.isFinite(spent) && spent >= 0
+              ? spent
+              : 0,
+          ownerName:
+            budgetOwner.trim() ||
+            "Whole circle",
+        });
+
+      setBudgets((current) => [
+        ...current,
+        createdBudget,
+      ]);
+
+      setBudgetTitle("");
+      setBudgetCategory("core");
+      setBudgetAllocated("");
+      setBudgetSpent("");
+      setBudgetOwner("");
+      setOperationMessage(
+        "Budget item saved securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The budget item could not be saved.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function removeMember(
+  async function removeMember(
     memberId: string,
   ) {
-    setMembers((current) =>
-      current.filter(
-        (member) =>
-          member.id !== memberId,
-      ),
-    );
+    setOperationWorkingId(memberId);
+    setOperationMessage("");
+
+    try {
+      await updateSecureCircleMember(
+        memberId,
+        {
+          membership_status: "removed",
+        },
+      );
+
+      setMembers((current) =>
+        current.filter(
+          (member) => member.id !== memberId,
+        ),
+      );
+
+      setOperationMessage(
+        "Circle access removed securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "Circle access could not be removed.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
   async function removeGoal(
@@ -920,37 +989,94 @@ export default function CirclePage() {
     );
   }
 
-  function removeMeeting(
+  async function removeMeeting(
     meetingId: string,
   ) {
-    setMeetings((current) =>
-      current.filter(
-        (meeting) =>
-          meeting.id !== meetingId,
-      ),
-    );
+    setOperationWorkingId(meetingId);
+    setOperationMessage("");
+
+    try {
+      await updateSecureMeeting(
+        meetingId,
+        { meeting_status: "archived" },
+      );
+      setMeetings((current) =>
+        current.filter(
+          (meeting) => meeting.id !== meetingId,
+        ),
+      );
+      setOperationMessage(
+        "Meeting archived securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The meeting could not be archived.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function removeResponsibility(
+  async function removeResponsibility(
     responsibilityId: string,
   ) {
-    setResponsibilities((current) =>
-      current.filter(
-        (responsibility) =>
-          responsibility.id !==
-          responsibilityId,
-      ),
-    );
+    setOperationWorkingId(responsibilityId);
+    setOperationMessage("");
+
+    try {
+      await updateSecureResponsibility(
+        responsibilityId,
+        { responsibility_status: "archived" },
+      );
+      setResponsibilities((current) =>
+        current.filter(
+          (item) => item.id !== responsibilityId,
+        ),
+      );
+      setOperationMessage(
+        "Responsibility archived securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The responsibility could not be archived.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function removeBudgetItem(
+  async function removeBudgetItem(
     budgetId: string,
   ) {
-    setBudgets((current) =>
-      current.filter(
-        (item) => item.id !== budgetId,
-      ),
-    );
+    setOperationWorkingId(budgetId);
+    setOperationMessage("");
+
+    try {
+      await updateSecureBudgetItem(
+        budgetId,
+        { budget_status: "archived" },
+      );
+      setBudgets((current) =>
+        current.filter(
+          (item) => item.id !== budgetId,
+        ),
+      );
+      setOperationMessage(
+        "Budget item archived securely.",
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The budget item could not be archived.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
   async function advanceGoal(
@@ -1011,55 +1137,86 @@ export default function CirclePage() {
     );
   }
 
-  function advanceResponsibility(
-    responsibilityId: string,
+  async function advanceResponsibility(
+    responsibility: SecureCircleResponsibility,
   ) {
-    const statuses = [
-      "Open",
-      "In progress",
-      "Complete",
-    ] as const;
+    const statuses =
+      ["open", "in_progress", "complete"] as const;
+    const currentIndex =
+      statuses.indexOf(
+        responsibility.responsibility_status as
+          (typeof statuses)[number],
+      );
+    const nextStatus =
+      currentIndex < 0 ||
+      currentIndex === statuses.length - 1
+        ? "open"
+        : statuses[currentIndex + 1];
 
-    setResponsibilities((current) =>
-      current.map(
-        (responsibility) =>
-          responsibility.id ===
-          responsibilityId
-            ? {
-                ...responsibility,
-                status:
-                  getNextStatus(
-                    responsibility.status,
-                    statuses,
-                  ),
-              }
-            : responsibility,
-      ),
-    );
+    setOperationWorkingId(responsibility.id);
+
+    try {
+      const updated =
+        await updateSecureResponsibility(
+          responsibility.id,
+          { responsibility_status: nextStatus },
+        );
+      setResponsibilities((current) =>
+        current.map((item) =>
+          item.id === updated.id ? updated : item,
+        ),
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The responsibility could not be updated.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
-  function advanceBudgetStatus(
-    budgetId: string,
+  async function advanceBudgetStatus(
+    item: SecureCircleBudgetItem,
   ) {
-    const statuses = [
-      "Active",
-      "Review needed",
-      "Closed",
-    ] as const;
+    const statuses =
+      ["active", "review_needed", "closed"] as const;
+    const currentIndex =
+      statuses.indexOf(
+        item.budget_status as
+          (typeof statuses)[number],
+      );
+    const nextStatus =
+      currentIndex < 0 ||
+      currentIndex === statuses.length - 1
+        ? "active"
+        : statuses[currentIndex + 1];
 
-    setBudgets((current) =>
-      current.map((item) =>
-        item.id === budgetId
-          ? {
-              ...item,
-              status: getNextStatus(
-                item.status,
-                statuses,
-              ),
-            }
-          : item,
-      ),
-    );
+    setOperationWorkingId(item.id);
+
+    try {
+      const updated =
+        await updateSecureBudgetItem(
+          item.id,
+          { budget_status: nextStatus },
+        );
+      setBudgets((current) =>
+        current.map((currentItem) =>
+          currentItem.id === updated.id
+            ? updated
+            : currentItem,
+        ),
+      );
+    } catch (error) {
+      setOperationMessage(
+        error instanceof Error
+          ? error.message
+          : "The budget item could not be updated.",
+      );
+    } finally {
+      setOperationWorkingId("");
+    }
   }
 
   const completedTrainingRequirements =
@@ -1121,7 +1278,7 @@ export default function CirclePage() {
           activeTrainingModule.id,
         memberId: member.id,
         memberDisplayName:
-          member.name,
+          member.display_name,
         memberEmail:
           trainingMemberEmail,
         audience: trainingAudience,
@@ -1129,7 +1286,7 @@ export default function CirclePage() {
 
       setTrainingMemberEmail("");
       setTrainingMessage(
-        `${activeTrainingModule.title} is now required for ${member.name}.`,
+        `${activeTrainingModule.title} is now required for ${member.display_name}.`,
       );
     } catch (error) {
       setTrainingMessage(
@@ -1533,43 +1690,54 @@ export default function CirclePage() {
                   Circle members
                 </h1>
 
-                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <div className="mt-6 grid gap-3 md:grid-cols-2">
                   <input
                     value={memberName}
                     onChange={(event) =>
-                      setMemberName(
-                        event.target.value,
-                      )
+                      setMemberName(event.target.value)
                     }
                     placeholder="Name"
                     className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
                   />
 
                   <input
-                    value={memberRole}
+                    type="email"
+                    value={memberEmail}
                     onChange={(event) =>
-                      setMemberRole(
-                        event.target.value,
-                      )
+                      setMemberEmail(event.target.value)
                     }
-                    placeholder="Role"
+                    placeholder="Email"
                     className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
                   />
 
-                  <input
-                    value={
-                      memberRelationship
+                  <select
+                    value={memberRole}
+                    onChange={(event) =>
+                      setMemberRole(
+                        event.target.value as SecureMemberRole,
+                      )
                     }
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  >
+                    <option value="circle_member">Circle member</option>
+                    <option value="family">Family</option>
+                    <option value="support_worker">Support worker</option>
+                    <option value="support_coordinator">Support coordinator</option>
+                    <option value="professional">Professional</option>
+                    <option value="nominee">Nominee</option>
+                    <option value="circle_manager">Circle manager</option>
+                  </select>
+
+                  <input
+                    value={memberRelationship}
                     onChange={(event) =>
                       setMemberRelationship(
                         event.target.value,
                       )
                     }
                     onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter"
-                      ) {
-                        addMember();
+                      if (event.key === "Enter") {
+                        void addMember();
                       }
                     }}
                     placeholder="Relationship"
@@ -1579,14 +1747,33 @@ export default function CirclePage() {
 
                 <button
                   type="button"
-                  onClick={addMember}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+                  onClick={() => {
+                    void addMember();
+                  }}
+                  disabled={
+                    operationWorkingId === "member-new" ||
+                    !memberName.trim() ||
+                    !memberEmail.trim()
+                  }
+                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  Add circle member
+                  {operationWorkingId === "member-new"
+                    ? "Saving invitation…"
+                    : "Invite circle member"}
                 </button>
 
+                {operationMessage && (
+                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                    {operationMessage}
+                  </p>
+                )}
+
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {members.length === 0 ? (
+                  {operationsLoading ? (
+                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151] sm:col-span-2">
+                      Loading secure Circle members…
+                    </div>
+                  ) : members.length === 0 ? (
                     <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151] sm:col-span-2">
                       No circle members have been
                       added yet.
@@ -1599,7 +1786,7 @@ export default function CirclePage() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#60432f] font-serif text-lg text-white">
-                            {member.name
+                            {member.display_name
                               .charAt(0)
                               .toUpperCase()}
                           </div>
@@ -1607,7 +1794,7 @@ export default function CirclePage() {
                           <button
                             type="button"
                             onClick={() =>
-                              removeMember(
+                              void removeMember(
                                 member.id,
                               )
                             }
@@ -1618,7 +1805,7 @@ export default function CirclePage() {
                         </div>
 
                         <p className="mt-3 font-serif text-xl">
-                          {member.name}
+                          {member.display_name}
                         </p>
 
                         <p className="mt-1 text-sm text-[#756151]">
@@ -1820,7 +2007,7 @@ export default function CirclePage() {
                     <option value="Meeting">
                       Meeting
                     </option>
-                    <option value="Other">
+                    <option value="other">
                       Other
                     </option>
                   </select>
@@ -1951,7 +2138,9 @@ export default function CirclePage() {
 
                 <button
                   type="button"
-                  onClick={addMeeting}
+                  onClick={() => {
+                    void addMeeting();
+                  }}
                   className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
                 >
                   Add meeting
@@ -1979,7 +2168,7 @@ export default function CirclePage() {
                               </p>
 
                               <p className="mt-1 text-sm text-[#756151]">
-                                {meeting.date ||
+                                {meeting.meeting_date ||
                                   "Date not set"}
                               </p>
 
@@ -1993,13 +2182,13 @@ export default function CirclePage() {
                             <button
                               type="button"
                               onClick={() =>
-                                removeMeeting(
+                                void removeMeeting(
                                   meeting.id,
                                 )
                               }
                               className="text-sm text-[#98765e]"
                             >
-                              Remove
+                              Archive
                             </button>
                           </div>
                         </article>
@@ -2056,7 +2245,7 @@ export default function CirclePage() {
                       if (
                         event.key === "Enter"
                       ) {
-                        addResponsibility();
+                        void addResponsibility();
                       }
                     }}
                     placeholder="Responsible person"
@@ -2066,9 +2255,9 @@ export default function CirclePage() {
 
                 <button
                   type="button"
-                  onClick={
-                    addResponsibility
-                  }
+                  onClick={() => {
+                    void addResponsibility();
+                  }}
                   className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
                 >
                   Add responsibility
@@ -2100,7 +2289,7 @@ export default function CirclePage() {
                             <p className="mt-1 text-sm text-[#756151]">
                               Responsible:{" "}
                               {
-                                responsibility.owner
+                                responsibility.owner_name
                               }
                             </p>
                           </div>
@@ -2110,26 +2299,26 @@ export default function CirclePage() {
                               type="button"
                               onClick={() =>
                                 advanceResponsibility(
-                                  responsibility.id,
+                                  responsibility,
                                 )
                               }
                               className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
                             >
                               {
-                                responsibility.status
+                                responsibility.responsibility_status
                               }
                             </button>
 
                             <button
                               type="button"
                               onClick={() =>
-                                removeResponsibility(
+                                void removeResponsibility(
                                   responsibility.id,
                                 )
                               }
                               className="px-2 py-2 text-sm text-[#98765e]"
                             >
-                              Remove
+                              Archive
                             </button>
                           </div>
                         </article>
@@ -2210,16 +2399,16 @@ export default function CirclePage() {
                     onChange={(event) =>
                       setBudgetCategory(
                         event.target
-                          .value as CircleBudgetItem["category"],
+                          .value as SecureCircleBudgetItem["category"],
                       )
                     }
                     className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
                   >
-                    <option value="Core">Core</option>
-                    <option value="Capacity Building">
+                    <option value="core">Core</option>
+                    <option value="capacity_building">
                       Capacity Building
                     </option>
-                    <option value="Capital">
+                    <option value="capital">
                       Capital
                     </option>
                     <option value="Other">
@@ -2276,7 +2465,9 @@ export default function CirclePage() {
 
                 <button
                   type="button"
-                  onClick={addBudgetItem}
+                  onClick={() => {
+                    void addBudgetItem();
+                  }}
                   className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
                 >
                   Add budget item
@@ -2319,7 +2510,7 @@ export default function CirclePage() {
 
                               <p className="mt-1 text-sm text-[#756151]">
                                 {item.category} · Responsible:{" "}
-                                {item.owner}
+                                {item.owner_name}
                               </p>
                             </div>
 
@@ -2328,24 +2519,28 @@ export default function CirclePage() {
                                 type="button"
                                 onClick={() =>
                                   advanceBudgetStatus(
-                                    item.id,
+                                    item,
                                   )
                                 }
                                 className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
                               >
-                                {item.status}
+                                {item.budget_status === "review_needed"
+                                  ? "Review needed"
+                                  : item.budget_status === "closed"
+                                    ? "Closed"
+                                    : "Active"}
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() =>
-                                  removeBudgetItem(
+                                  void removeBudgetItem(
                                     item.id,
                                   )
                                 }
                                 className="px-2 py-2 text-sm text-[#98765e]"
                               >
-                                Remove
+                                Archive
                               </button>
                             </div>
                           </div>
@@ -2535,7 +2730,7 @@ export default function CirclePage() {
                           key={member.id}
                           value={member.id}
                         >
-                          {member.name}
+                          {member.display_name}
                         </option>
                       ))}
                     </select>
