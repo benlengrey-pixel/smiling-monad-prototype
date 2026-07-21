@@ -120,7 +120,7 @@ async function requireUser(
   } = await supabase.auth.getUser();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   if (!user) {
@@ -194,7 +194,7 @@ export async function readSecureCircleOperations(
     budgets,
   ]) {
     if (result.error) {
-      throw result.error;
+      throw new Error(result.error.message);
     }
   }
 
@@ -249,7 +249,7 @@ export async function inviteSecureCircleMember(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleMemberRecord;
@@ -281,7 +281,7 @@ export async function updateSecureCircleMember(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleMemberRecord;
@@ -320,7 +320,7 @@ export async function createSecureMeeting(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleMeeting;
@@ -353,7 +353,7 @@ export async function updateSecureMeeting(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleMeeting;
@@ -389,7 +389,7 @@ export async function createSecureResponsibility(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleResponsibility;
@@ -422,7 +422,7 @@ export async function updateSecureResponsibility(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleResponsibility;
@@ -465,7 +465,7 @@ export async function createSecureBudgetItem(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleBudgetItem;
@@ -500,7 +500,7 @@ export async function updateSecureBudgetItem(
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data as unknown as SecureCircleBudgetItem;
