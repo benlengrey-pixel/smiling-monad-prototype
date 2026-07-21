@@ -1,8 +1,4 @@
-import type {
-  ReactNode,
-} from "react";
-
-import RequireSignedInUser from "../../components/access/RequireSignedInUser";
+import type { ReactNode } from "react";
 
 type SchoolLayoutProps = {
   children: ReactNode;
@@ -11,9 +7,5 @@ type SchoolLayoutProps = {
 export default function SchoolLayout({
   children,
 }: SchoolLayoutProps) {
-  return (
-    <RequireSignedInUser>
-      {children}
-    </RequireSignedInUser>
-  );
+  return children;
 }
