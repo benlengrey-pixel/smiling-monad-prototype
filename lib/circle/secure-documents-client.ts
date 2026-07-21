@@ -103,6 +103,7 @@ function openMfa(
 async function requireUser(
   supabase: SupabaseClient,
   returnTo: string,
+  redirectToSignIn: boolean,
 ): Promise<User> {
   const {
     data: { user },
@@ -110,7 +111,9 @@ async function requireUser(
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    openSignIn(returnTo);
+    if (redirectToSignIn) {
+      openSignIn(returnTo);
+    }
 
     throw new Error(
       "Please sign in to continue.",
@@ -123,11 +126,12 @@ async function requireUser(
 async function requireAal2(
   supabase: SupabaseClient,
   returnTo: string,
-  redirectToMfa: boolean,
+  redirectToAuthentication: boolean,
 ): Promise<User> {
   const user = await requireUser(
     supabase,
     returnTo,
+    redirectToAuthentication,
   );
 
   const {
@@ -141,7 +145,7 @@ async function requireAal2(
     error ||
     assurance.currentLevel !== "aal2"
   ) {
-    if (redirectToMfa) {
+    if (redirectToAuthentication) {
       openMfa(returnTo);
     }
 
