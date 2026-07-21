@@ -336,7 +336,7 @@ export default function GlobalCompanionDock() {
         result.execution.navigation
       ) {
         router.push(
-          result.execution.navigation,
+          result.execution.navigation.href,
         );
       }
 
@@ -434,11 +434,6 @@ export default function GlobalCompanionDock() {
     setExpanded(true);
   }
 
-  /*
-   * The Office already owns this same dock.
-   * Hiding the global copy there prevents
-   * two chatboxes appearing at once.
-   */
   if (pathname === "/office") {
     return null;
   }
