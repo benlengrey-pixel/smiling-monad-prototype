@@ -21,6 +21,7 @@ type RequireSignedInUserProps = {
 type AccessStatus =
   | "checking"
   | "approved"
+  | "mfa-required"
   | "pending"
   | "suspended"
   | "signed-out"
@@ -37,9 +38,9 @@ export default function RequireSignedInUser({
 
   useEffect(() => {
     let active = true;
-    let unsubscribe:
-      | (() => void)
-      | undefined;
+
+    const supabase =
+      getSupabaseBrowserClient();
 
     function openSignIn() {
       const returnTo =
@@ -52,11 +53,21 @@ export default function RequireSignedInUser({
       );
     }
 
-    async function checkAccess() {
-      try {
-        const supabase =
-          getSupabaseBrowserClient();
+    function openMfa() {
+      const returnTo =
+        encodeURIComponent(
+          pathname || "/office",
+        );
 
+      router.replace(
+        `/security/mfa?returnTo=${returnTo}`,
+      );
+    }
+
+    async function checkAccess() {
+      setAccessStatus("checking");
+
+      try {
         const {
           data: { user },
           error: userError,
@@ -88,16 +99,13 @@ export default function RequireSignedInUser({
         }
 
         if (accessError) {
-          throw accessError;
+          throw new Error(
+            accessError.message,
+          );
         }
 
         const status =
           accessRecord?.access_status;
-
-        if (status === "approved") {
-          setAccessStatus("approved");
-          return;
-        }
 
         if (status === "suspended") {
           setAccessStatus("suspended");
@@ -107,64 +115,71 @@ export default function RequireSignedInUser({
           return;
         }
 
-        setAccessStatus("pending");
-        router.replace(
-          "/access-pending",
-        );
-      } catch {
+        if (status !== "approved") {
+          setAccessStatus("pending");
+          router.replace(
+            "/access-pending",
+          );
+          return;
+        }
+
+        const {
+          data: assurance,
+          error: assuranceError,
+        } =
+          await supabase.auth.mfa
+            .getAuthenticatorAssuranceLevel();
+
         if (!active) {
           return;
         }
 
+        if (assuranceError) {
+          throw new Error(
+            assuranceError.message,
+          );
+        }
+
         if (
-          process.env.NODE_ENV ===
-          "development"
+          assurance.currentLevel !== "aal2"
         ) {
-          setAccessStatus("approved");
+          setAccessStatus("mfa-required");
+          openMfa();
           return;
         }
 
-        setAccessStatus("error");
-        router.replace(
-          "/access-pending",
+        setAccessStatus("approved");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        console.error(
+          "Secure access check failed:",
+          error,
         );
+
+        setAccessStatus("error");
       }
     }
 
     void checkAccess();
 
-    try {
-      const supabase =
-        getSupabaseBrowserClient();
+    const {
+      data: subscription,
+    } = supabase.auth.onAuthStateChange(
+      () => {
+        if (!active) {
+          return;
+        }
 
-      const {
-        data: subscription,
-      } = supabase.auth.onAuthStateChange(
-        () => {
-          if (!active) {
-            return;
-          }
-
-          setAccessStatus("checking");
-          void checkAccess();
-        },
-      );
-
-      unsubscribe = () => {
-        subscription.subscription.unsubscribe();
-      };
-    } catch {
-      if (
-        process.env.NODE_ENV ===
-        "development"
-      ) {
-        setAccessStatus("approved");
-      }
-    }
+        void checkAccess();
+      },
+    );
 
     return () => {
       active = false;
-      unsubscribe?.();
+      subscription.subscription.unsubscribe();
     };
   }, [pathname, router]);
 
@@ -177,18 +192,22 @@ export default function RequireSignedInUser({
           </p>
 
           <p className="mt-3 text-lg font-semibold">
-            {accessStatus === "pending"
-              ? "Waiting for approval…"
+            {accessStatus ===
+            "mfa-required"
+              ? "Opening two-step security…"
               : accessStatus ===
-                  "suspended"
-                ? "Access is paused…"
+                  "pending"
+                ? "Waiting for approval…"
                 : accessStatus ===
-                    "signed-out"
-                  ? "Opening sign in…"
+                    "suspended"
+                  ? "Access is paused…"
                   : accessStatus ===
-                      "error"
-                    ? "Access could not be confirmed…"
-                    : "Checking secure access…"}
+                      "signed-out"
+                    ? "Opening sign in…"
+                    : accessStatus ===
+                        "error"
+                      ? "Secure access could not be confirmed."
+                      : "Checking secure access…"}
           </p>
         </div>
       </main>
