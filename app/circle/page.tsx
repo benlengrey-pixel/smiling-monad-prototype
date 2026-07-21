@@ -142,6 +142,58 @@ function getNextStatus<
   return statuses[currentIndex + 1];
 }
 
+function describeUnknownError(
+  error: unknown,
+): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null
+  ) {
+    const candidate = error as {
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      code?: unknown;
+    };
+
+    const parts = [
+      candidate.message,
+      candidate.details,
+      candidate.hint,
+      candidate.code
+        ? `Code: ${String(candidate.code)}`
+        : null,
+    ].filter(
+      (value): value is string =>
+        typeof value === "string" &&
+        value.trim().length > 0,
+    );
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+
+  if (
+    typeof error === "string" &&
+    error.trim()
+  ) {
+    return error;
+  }
+
+  return "Your Circle of Support could not be opened.";
+}
+
 export default function CirclePage() {
   const [loaded, setLoaded] =
     useState(false);
@@ -563,9 +615,7 @@ export default function CirclePage() {
         setGoalsLoading(false);
         setOperationsLoading(false);
         setAccessError(
-          error instanceof Error
-            ? error.message
-            : "Your Circle of Support could not be opened.",
+          describeUnknownError(error),
         );
       } finally {
         if (active) {
@@ -2871,4 +2921,3 @@ export default function CirclePage() {
       )}
     </main>
   );
-}
