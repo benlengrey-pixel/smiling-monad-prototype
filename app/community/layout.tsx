@@ -1,8 +1,4 @@
-import type {
-  ReactNode,
-} from "react";
-
-import RequireSignedInUser from "../../components/access/RequireSignedInUser";
+import type { ReactNode } from "react";
 
 type CommunityLayoutProps = {
   children: ReactNode;
@@ -11,9 +7,5 @@ type CommunityLayoutProps = {
 export default function CommunityLayout({
   children,
 }: CommunityLayoutProps) {
-  return (
-    <RequireSignedInUser>
-      {children}
-    </RequireSignedInUser>
-  );
+  return children;
 }
