@@ -60,6 +60,7 @@ import {
 } from "@/lib/circle/secure-circle-operations-client";
 
 import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 import {
   assignMandatoryCircleTraining,
@@ -219,6 +220,9 @@ export default function CirclePage() {
     useState<SecureCircleWorkspace | null>(
       null,
     );
+
+  const [currentUserId, setCurrentUserId] =
+    useState("");
 
   const [accessError, setAccessError] =
     useState("");
@@ -626,6 +630,19 @@ export default function CirclePage() {
 
     async function openWorkspace() {
       try {
+        const supabase =
+          getSupabaseBrowserClient();
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (active) {
+          setCurrentUserId(
+            user?.id ?? "",
+          );
+        }
+
         const secureWorkspace =
           await openSecureCircleWorkspace();
 
@@ -1063,8 +1080,10 @@ export default function CirclePage() {
     }
 
     const senderName =
-      profile.preferredName.trim() ||
-      profile.personName.trim() ||
+      members.find(
+        (member) =>
+          member.user_id === currentUserId,
+      )?.display_name.trim() ||
       "Circle member";
 
     setCircleMessageWorking(true);
