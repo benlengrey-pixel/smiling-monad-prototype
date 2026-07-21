@@ -434,7 +434,10 @@ export default function GlobalCompanionDock() {
     setExpanded(true);
   }
 
-  if (pathname === "/office") {
+  if (
+    pathname === "/" ||
+    pathname === "/office"
+  ) {
     return null;
   }
 
