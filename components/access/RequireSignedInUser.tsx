@@ -14,27 +14,28 @@ import {
   getSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 
-type RequireSignedInUserProps = {
+type RequireAuthenticatedUserProps = {
   children: ReactNode;
 };
 
-type AccessStatus =
+type AuthenticationStatus =
   | "checking"
-  | "approved"
-  | "mfa-required"
-  | "pending"
-  | "suspended"
+  | "authenticated"
   | "signed-out"
   | "error";
 
-export default function RequireSignedInUser({
+export default function RequireAuthenticatedUser({
   children,
-}: RequireSignedInUserProps) {
+}: RequireAuthenticatedUserProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [accessStatus, setAccessStatus] =
-    useState<AccessStatus>("checking");
+  const [
+    authenticationStatus,
+    setAuthenticationStatus,
+  ] = useState<AuthenticationStatus>(
+    "checking",
+  );
 
   useEffect(() => {
     let active = true;
@@ -53,117 +54,49 @@ export default function RequireSignedInUser({
       );
     }
 
-    function openMfa() {
-      const returnTo =
-        encodeURIComponent(
-          pathname || "/office",
-        );
-
-      router.replace(
-        `/security/mfa?returnTo=${returnTo}`,
+    async function checkAuthentication() {
+      setAuthenticationStatus(
+        "checking",
       );
-    }
-
-    async function checkAccess() {
-      setAccessStatus("checking");
 
       try {
         const {
           data: { user },
-          error: userError,
+          error,
         } = await supabase.auth.getUser();
 
         if (!active) {
           return;
         }
 
-        if (userError || !user) {
-          setAccessStatus("signed-out");
+        if (error || !user) {
+          setAuthenticationStatus(
+            "signed-out",
+          );
           openSignIn();
           return;
         }
 
-        const {
-          data: accessRecord,
-          error: accessError,
-        } = await supabase
-          .from("user_access")
-          .select(
-            "access_status, is_admin",
-          )
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (!active) {
-          return;
-        }
-
-        if (accessError) {
-          throw new Error(
-            accessError.message,
-          );
-        }
-
-        const status =
-          accessRecord?.access_status;
-
-        if (status === "suspended") {
-          setAccessStatus("suspended");
-          router.replace(
-            "/access-pending",
-          );
-          return;
-        }
-
-        if (status !== "approved") {
-          setAccessStatus("pending");
-          router.replace(
-            "/access-pending",
-          );
-          return;
-        }
-
-        const {
-          data: assurance,
-          error: assuranceError,
-        } =
-          await supabase.auth.mfa
-            .getAuthenticatorAssuranceLevel();
-
-        if (!active) {
-          return;
-        }
-
-        if (assuranceError) {
-          throw new Error(
-            assuranceError.message,
-          );
-        }
-
-        if (
-          assurance.currentLevel !== "aal2"
-        ) {
-          setAccessStatus("mfa-required");
-          openMfa();
-          return;
-        }
-
-        setAccessStatus("approved");
+        setAuthenticationStatus(
+          "authenticated",
+        );
       } catch (error) {
         if (!active) {
           return;
         }
 
         console.error(
-          "Secure access check failed:",
+          "Authentication check failed:",
           error,
         );
 
-        setAccessStatus("error");
+        setAuthenticationStatus(
+          "error",
+        );
       }
     }
 
-    void checkAccess();
+    void checkAuthentication();
 
     const {
       data: subscription,
@@ -173,7 +106,7 @@ export default function RequireSignedInUser({
           return;
         }
 
-        void checkAccess();
+        void checkAuthentication();
       },
     );
 
@@ -183,7 +116,10 @@ export default function RequireSignedInUser({
     };
   }, [pathname, router]);
 
-  if (accessStatus !== "approved") {
+  if (
+    authenticationStatus !==
+    "authenticated"
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f4efe5] px-5 text-[#2c2a26]">
         <div className="rounded-3xl border border-black/10 bg-white/80 px-7 py-6 text-center shadow-sm">
@@ -192,22 +128,13 @@ export default function RequireSignedInUser({
           </p>
 
           <p className="mt-3 text-lg font-semibold">
-            {accessStatus ===
-            "mfa-required"
-              ? "Opening two-step security…"
-              : accessStatus ===
-                  "pending"
-                ? "Waiting for approval…"
-                : accessStatus ===
-                    "suspended"
-                  ? "Access is paused…"
-                  : accessStatus ===
-                      "signed-out"
-                    ? "Opening sign in…"
-                    : accessStatus ===
-                        "error"
-                      ? "Secure access could not be confirmed."
-                      : "Checking secure access…"}
+            {authenticationStatus ===
+            "signed-out"
+              ? "Opening sign in…"
+              : authenticationStatus ===
+                  "error"
+                ? "Sign-in could not be confirmed."
+                : "Checking sign in…"}
           </p>
         </div>
       </main>
