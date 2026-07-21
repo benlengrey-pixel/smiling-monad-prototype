@@ -147,7 +147,7 @@ export default function MfaSecurityPage() {
         const unfinishedFactors =
           factors.totp.filter(
             (factor) =>
-              factor.status ===
+              String(factor.status) ===
               "unverified",
           );
 
@@ -211,7 +211,8 @@ export default function MfaSecurityPage() {
     const unfinishedFactors =
       factors.totp.filter(
         (factor) =>
-          factor.status === "unverified",
+          String(factor.status) ===
+          "unverified",
       );
 
     for (
