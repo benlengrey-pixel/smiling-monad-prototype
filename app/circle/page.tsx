@@ -38,6 +38,7 @@ import {
 import {
   readSecureCircleMessages,
   sendSecureCircleMessage,
+  subscribeToSecureCircleMessages,
   type SecureCircleMessage,
 } from "@/lib/circle/secure-circle-messages-client";
 
@@ -797,6 +798,36 @@ export default function CirclePage() {
     return () => {
       active = false;
     };
+  }, [activePanel, workspace]);
+
+  useEffect(() => {
+    if (
+      activePanel !== "conversation" ||
+      !workspace
+    ) {
+      return;
+    }
+
+    return subscribeToSecureCircleMessages(
+      workspace.circle.id,
+      (message) => {
+        setCircleMessages((current) => {
+          if (
+            current.some(
+              (item) =>
+                item.id === message.id,
+            )
+          ) {
+            return current;
+          }
+
+          return [
+            ...current,
+            message,
+          ];
+        });
+      },
+    );
   }, [activePanel, workspace]);
 
   useEffect(() => {
