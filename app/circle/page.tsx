@@ -907,10 +907,8 @@ export default function CirclePage() {
           secureDocument,
         );
 
-      window.open(
+      window.location.assign(
         signedUrl,
-        "_blank",
-        "noopener,noreferrer",
       );
     } catch (error) {
       setDocumentMessage(
