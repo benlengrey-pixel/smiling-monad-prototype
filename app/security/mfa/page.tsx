@@ -56,8 +56,10 @@ export default function MfaSecurityPage() {
   const [enrollment, setEnrollment] =
     useState<TotpEnrollment | null>(null);
 
-  const [verifiedFactorId, setVerifiedFactorId] =
-    useState("");
+  const [
+    existingFactorId,
+    setExistingFactorId,
+  ] = useState("");
 
   const [code, setCode] =
     useState("");
@@ -67,6 +69,54 @@ export default function MfaSecurityPage() {
 
   const [working, setWorking] =
     useState(false);
+
+  async function inspectFactors() {
+    const supabase =
+      getSupabaseBrowserClient();
+
+    const {
+      data: factors,
+      error,
+    } =
+      await supabase.auth.mfa
+        .listFactors();
+
+    if (error) {
+      throw error;
+    }
+
+    const verifiedFactor =
+      factors.totp.find(
+        (factor) =>
+          factor.status === "verified",
+      );
+
+    if (verifiedFactor) {
+      setExistingFactorId(
+        verifiedFactor.id,
+      );
+      setEnrollment(null);
+      setStatus("verify");
+      return;
+    }
+
+    if (factors.totp.length > 0) {
+      setExistingFactorId(
+        factors.totp[0].id,
+      );
+
+      setMessage(
+        "An unfinished authenticator setup was found. Reset it before setting up the authenticator again.",
+      );
+
+      setStatus("enrol");
+      return;
+    }
+
+    setExistingFactorId("");
+    setMessage("");
+    setStatus("enrol");
+  }
 
   useEffect(() => {
     let active = true;
@@ -88,7 +138,10 @@ export default function MfaSecurityPage() {
 
         if (userError || !user) {
           router.replace(
-            "/sign-in?returnTo=%2Fsecurity%2Fmfa",
+            `/sign-in?returnTo=${encodeURIComponent(
+              window.location.pathname +
+                window.location.search,
+            )}`,
           );
           return;
         }
@@ -105,7 +158,8 @@ export default function MfaSecurityPage() {
         }
 
         if (
-          assurance.currentLevel === "aal2"
+          assurance.currentLevel ===
+          "aal2"
         ) {
           setStatus("complete");
 
@@ -118,59 +172,7 @@ export default function MfaSecurityPage() {
           return;
         }
 
-        const {
-          data: factors,
-          error: factorsError,
-        } =
-          await supabase.auth.mfa
-            .listFactors();
-
-        if (factorsError) {
-          throw factorsError;
-        }
-
-        const verifiedTotp =
-          factors.totp.find(
-            (factor) =>
-              factor.status === "verified",
-          );
-
-        if (verifiedTotp) {
-          setVerifiedFactorId(
-            verifiedTotp.id,
-          );
-
-          setStatus("verify");
-          return;
-        }
-
-        const unfinishedFactors =
-          factors.totp.filter(
-            (factor) =>
-              String(factor.status) ===
-              "unverified",
-          );
-
-        for (
-          const factor
-          of unfinishedFactors
-        ) {
-          const {
-            error: unenrollError,
-          } =
-            await supabase.auth.mfa
-              .unenroll({
-                factorId: factor.id,
-              });
-
-          if (unenrollError) {
-            throw unenrollError;
-          }
-        }
-
-        if (active) {
-          setStatus("enrol");
-        }
+        await inspectFactors();
       } catch (error) {
         if (!active) {
           return;
@@ -193,48 +195,59 @@ export default function MfaSecurityPage() {
     };
   }, [router]);
 
-  async function removeUnfinishedFactors() {
-    const supabase =
-      getSupabaseBrowserClient();
-
-    const {
-      data: factors,
-      error: factorsError,
-    } =
-      await supabase.auth.mfa
-        .listFactors();
-
-    if (factorsError) {
-      throw factorsError;
+  async function resetAuthenticator() {
+    if (
+      working ||
+      !existingFactorId
+    ) {
+      return;
     }
 
-    const unfinishedFactors =
-      factors.totp.filter(
-        (factor) =>
-          String(factor.status) ===
-          "unverified",
-      );
+    setWorking(true);
+    setMessage("");
 
-    for (
-      const factor
-      of unfinishedFactors
-    ) {
-      const {
-        error: unenrollError,
-      } =
+    try {
+      const supabase =
+        getSupabaseBrowserClient();
+
+      const { error } =
         await supabase.auth.mfa
           .unenroll({
-            factorId: factor.id,
+            factorId:
+              existingFactorId,
           });
 
-      if (unenrollError) {
-        throw unenrollError;
+      if (error) {
+        throw error;
       }
+
+      setExistingFactorId("");
+      setEnrollment(null);
+      setCode("");
+      setMessage(
+        "The old authenticator setup was removed. You can now set it up again.",
+      );
+      setStatus("enrol");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The authenticator could not be reset.",
+      );
+    } finally {
+      setWorking(false);
     }
   }
 
   async function beginEnrollment() {
     if (working) {
+      return;
+    }
+
+    if (existingFactorId) {
+      setMessage(
+        "Reset the existing authenticator before creating a new one.",
+      );
       return;
     }
 
@@ -245,8 +258,6 @@ export default function MfaSecurityPage() {
     try {
       const supabase =
         getSupabaseBrowserClient();
-
-      await removeUnfinishedFactors();
 
       const { data, error } =
         await supabase.auth.mfa
@@ -268,7 +279,9 @@ export default function MfaSecurityPage() {
           data.totp.secret,
       });
 
-      setVerifiedFactorId("");
+      setExistingFactorId(
+        data.id,
+      );
       setStatus("verify");
     } catch (error) {
       setMessage(
@@ -295,7 +308,7 @@ export default function MfaSecurityPage() {
 
     const factorId =
       enrollment?.factorId ||
-      verifiedFactorId;
+      existingFactorId;
 
     if (
       !factorId ||
@@ -368,18 +381,35 @@ export default function MfaSecurityPage() {
         ) : null}
 
         {status === "enrol" ? (
-          <button
-            type="button"
-            onClick={() => {
-              void beginEnrollment();
-            }}
-            disabled={working}
-            className="mt-7 w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white disabled:opacity-50"
-          >
-            {working
-              ? "Preparing authenticator…"
-              : "Set up authenticator"}
-          </button>
+          <div className="mt-7 space-y-3">
+            {existingFactorId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void resetAuthenticator();
+                }}
+                disabled={working}
+                className="w-full rounded-full border border-[#60432f] px-6 py-3 font-semibold text-[#60432f] disabled:opacity-50"
+              >
+                {working
+                  ? "Resetting authenticator…"
+                  : "Reset existing authenticator"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  void beginEnrollment();
+                }}
+                disabled={working}
+                className="w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white disabled:opacity-50"
+              >
+                {working
+                  ? "Preparing authenticator…"
+                  : "Set up authenticator"}
+              </button>
+            )}
+          </div>
         ) : null}
 
         {status === "verify" ? (
@@ -450,6 +480,19 @@ export default function MfaSecurityPage() {
                   : "Verify and continue"}
               </button>
             </form>
+
+            {!enrollment ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void resetAuthenticator();
+                }}
+                disabled={working}
+                className="mt-3 w-full rounded-full border border-black/15 px-6 py-3 font-semibold"
+              >
+                Reset authenticator
+              </button>
+            ) : null}
           </>
         ) : null}
 
