@@ -51,39 +51,18 @@ function describeError(error: unknown): string {
   return "The Circle invitation request could not be completed.";
 }
 
-async function requireAal2(): Promise<void> {
+async function requireSignedInUser(): Promise<void> {
   const supabase =
     getSupabaseBrowserClient();
 
   const {
     data: { user },
-    error: userError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
+  if (error || !user) {
     throw new Error(
       "You must be signed in.",
-    );
-  }
-
-  const {
-    data: assurance,
-    error: assuranceError,
-  } =
-    await supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel();
-
-  if (assuranceError) {
-    throw new Error(
-      assuranceError.message,
-    );
-  }
-
-  if (
-    assurance.currentLevel !== "aal2"
-  ) {
-    throw new Error(
-      "Two-step security is required.",
     );
   }
 }
@@ -91,7 +70,7 @@ async function requireAal2(): Promise<void> {
 export async function readMySecureCircleInvitations(): Promise<
   SecureCircleInvitation[]
 > {
-  await requireAal2();
+  await requireSignedInUser();
 
   const supabase =
     getSupabaseBrowserClient();
@@ -124,7 +103,7 @@ export async function acceptSecureCircleInvitation(
     );
   }
 
-  await requireAal2();
+  await requireSignedInUser();
 
   const supabase =
     getSupabaseBrowserClient();
