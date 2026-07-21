@@ -70,6 +70,7 @@ export type SecureCircleWorkspace = {
   participant: SecureParticipant;
   circle: SecureCircle;
   membership: SecureCircleMember;
+  privateAccess: boolean;
 };
 
 export type SecureParticipantProfileUpdate = {
@@ -87,6 +88,7 @@ type WorkspaceDatabaseResult = {
   participant: SecureParticipant;
   circle: SecureCircle;
   membership: SecureCircleMember;
+  privateAccess: boolean;
 };
 
 type WorkspaceRpcResult = {
@@ -107,7 +109,9 @@ function requireText(
   const cleaned = value.trim();
 
   if (!cleaned) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      `${fieldName} is required.`,
+    );
   }
 
   return cleaned;
@@ -178,13 +182,69 @@ async function requireAuthenticatedUser(
   return user;
 }
 
-async function findExistingWorkspace(
+async function hasPrivateAccess(
+  supabase: SupabaseClient,
+): Promise<boolean> {
+  const {
+    data,
+    error,
+  } =
+    await supabase.auth.mfa
+      .getAuthenticatorAssuranceLevel();
+
+  if (error) {
+    return false;
+  }
+
+  return data.currentLevel === "aal2";
+}
+
+function createPrivateParticipantPlaceholder(
+  membership: SecureCircleMember,
+): SecureParticipant {
+  return {
+    id: "",
+    created_by: "",
+    full_name:
+      "Private participant information",
+    preferred_name: "",
+    status: "active",
+    date_of_birth: null,
+    pronouns: "",
+    contact_email: "",
+    contact_phone: "",
+    what_matters: "",
+    communication_support: "",
+    decision_support: "",
+    created_at: membership.created_at,
+    updated_at: membership.updated_at,
+  };
+}
+
+function createLimitedCircle(
+  membership: SecureCircleMember,
+): SecureCircle {
+  return {
+    id: membership.circle_id,
+    participant_id: "",
+    created_by:
+      membership.invited_by ?? "",
+    name: "Circle of Support",
+    status: "active",
+    purpose:
+      "People and relationships",
+    created_at: membership.created_at,
+    updated_at: membership.updated_at,
+  };
+}
+
+async function findActiveMembership(
   supabase: SupabaseClient,
   user: User,
-): Promise<WorkspaceDatabaseResult | null> {
+): Promise<SecureCircleMember | null> {
   const {
-    data: membershipRows,
-    error: membershipError,
+    data,
+    error,
   } = await supabase
     .from("circle_members")
     .select("*")
@@ -198,14 +258,13 @@ async function findExistingWorkspace(
     })
     .limit(1);
 
-  if (membershipError) {
-    throw membershipError;
+  if (error) {
+    throw error;
   }
 
   const membership =
-    membershipRows &&
-    membershipRows.length > 0
-      ? (membershipRows[0] as unknown as SecureCircleMember)
+    data && data.length > 0
+      ? (data[0] as unknown as SecureCircleMember)
       : null;
 
   if (!membership) {
@@ -214,12 +273,20 @@ async function findExistingWorkspace(
 
   if (
     membership.access_ends_at &&
-    new Date(membership.access_ends_at).getTime() <=
-      Date.now()
+    new Date(
+      membership.access_ends_at,
+    ).getTime() <= Date.now()
   ) {
     return null;
   }
 
+  return membership;
+}
+
+async function loadPrivateWorkspace(
+  supabase: SupabaseClient,
+  membership: SecureCircleMember,
+): Promise<WorkspaceDatabaseResult> {
   const {
     data: circleData,
     error: circleError,
@@ -227,10 +294,25 @@ async function findExistingWorkspace(
     .from("circles")
     .select("*")
     .eq("id", membership.circle_id)
-    .single();
+    .maybeSingle();
 
   if (circleError) {
     throw circleError;
+  }
+
+  if (!circleData) {
+    return {
+      participant:
+        createPrivateParticipantPlaceholder(
+          membership,
+        ),
+      circle:
+        createLimitedCircle(
+          membership,
+        ),
+      membership,
+      privateAccess: false,
+    };
   }
 
   const circle =
@@ -242,11 +324,26 @@ async function findExistingWorkspace(
   } = await supabase
     .from("participants")
     .select("*")
-    .eq("id", circle.participant_id)
-    .single();
+    .eq(
+      "id",
+      circle.participant_id,
+    )
+    .maybeSingle();
 
   if (participantError) {
     throw participantError;
+  }
+
+  if (!participantData) {
+    return {
+      participant:
+        createPrivateParticipantPlaceholder(
+          membership,
+        ),
+      circle,
+      membership,
+      privateAccess: false,
+    };
   }
 
   return {
@@ -254,15 +351,68 @@ async function findExistingWorkspace(
       participantData as unknown as SecureParticipant,
     circle,
     membership,
+    privateAccess: true,
   };
+}
+
+async function findExistingWorkspace(
+  supabase: SupabaseClient,
+  user: User,
+): Promise<WorkspaceDatabaseResult | null> {
+  const membership =
+    await findActiveMembership(
+      supabase,
+      user,
+    );
+
+  if (!membership) {
+    return null;
+  }
+
+  const privateAccess =
+    await hasPrivateAccess(
+      supabase,
+    );
+
+  if (!privateAccess) {
+    return {
+      participant:
+        createPrivateParticipantPlaceholder(
+          membership,
+        ),
+      circle:
+        createLimitedCircle(
+          membership,
+        ),
+      membership,
+      privateAccess: false,
+    };
+  }
+
+  return loadPrivateWorkspace(
+    supabase,
+    membership,
+  );
 }
 
 async function createWorkspaceWithRpc(
   supabase: SupabaseClient,
 ): Promise<WorkspaceDatabaseResult> {
-  const { data, error } = await supabase.rpc(
-    "sm_open_or_create_circle_workspace",
-  );
+  const privateAccess =
+    await hasPrivateAccess(
+      supabase,
+    );
+
+  if (!privateAccess) {
+    throw new Error(
+      "No active Circle invitation was found for this account.",
+    );
+  }
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_open_or_create_circle_workspace",
+    );
 
   if (error) {
     throw error;
@@ -272,9 +422,13 @@ async function createWorkspaceWithRpc(
     readWorkspaceRpcResult(data);
 
   return {
-    participant: workspace.participant,
-    circle: workspace.circle,
-    membership: workspace.membership,
+    participant:
+      workspace.participant,
+    circle:
+      workspace.circle,
+    membership:
+      workspace.membership,
+    privateAccess: true,
   };
 }
 
@@ -340,10 +494,28 @@ export async function updateSecureParticipantProfile(
     supabase,
   );
 
-  const fullName = requireText(
-    update.fullName,
-    "Full name",
-  );
+  const privateAccess =
+    await hasPrivateAccess(
+      supabase,
+    );
+
+  if (!privateAccess) {
+    throw new Error(
+      "Complete the security check before changing private participant information.",
+    );
+  }
+
+  if (!participantId) {
+    throw new Error(
+      "Private participant information is not open.",
+    );
+  }
+
+  const fullName =
+    requireText(
+      update.fullName,
+      "Full name",
+    );
 
   const preferredName =
     update.preferredName.trim() ||
@@ -356,13 +528,17 @@ export async function updateSecureParticipantProfile(
     .from("participants")
     .update({
       full_name: fullName,
-      preferred_name: preferredName,
+      preferred_name:
+        preferredName,
       pronouns:
-        update.pronouns?.trim() ?? "",
+        update.pronouns?.trim() ??
+        "",
       contact_email:
-        update.contactEmail?.trim() ?? "",
+        update.contactEmail?.trim() ??
+        "",
       contact_phone:
-        update.contactPhone?.trim() ?? "",
+        update.contactPhone?.trim() ??
+        "",
       what_matters:
         update.whatMatters.trim(),
       communication_support:
