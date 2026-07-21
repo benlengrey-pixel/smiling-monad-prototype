@@ -58,6 +58,16 @@ export type SecureCircleDocument = {
   updated_at: string;
 };
 
+type UploadSecureCircleDocumentInput = {
+  circleId: string;
+  participantId: string;
+  title: string;
+  description?: string;
+  category: SecureDocumentCategory;
+  sensitivity: SecureDocumentSensitivity;
+  file: File;
+};
+
 function getClient(): SupabaseClient {
   return getSupabaseBrowserClient();
 }
@@ -160,6 +170,9 @@ function friendlyDocumentError(
   if (
     lowerMessage.includes(
       "row-level security",
+    ) ||
+    lowerMessage.includes(
+      "permission denied",
     )
   ) {
     return new Error(
@@ -167,7 +180,50 @@ function friendlyDocumentError(
     );
   }
 
+  if (
+    lowerMessage.includes(
+      "maximum allowed size",
+    ) ||
+    lowerMessage.includes(
+      "payload too large",
+    )
+  ) {
+    return new Error(
+      "This file is too large to upload.",
+    );
+  }
+
   return new Error(message);
+}
+
+function requiredText(
+  value: string,
+  label: string,
+): string {
+  const clean = value.trim();
+
+  if (!clean) {
+    throw new Error(
+      `${label} is required.`,
+    );
+  }
+
+  return clean;
+}
+
+function safeFilename(
+  filename: string,
+): string {
+  const cleaned = filename
+    .trim()
+    .replace(
+      /[^a-zA-Z0-9._-]+/g,
+      "-",
+    )
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return cleaned || "document";
 }
 
 export async function readSecureCircleDocuments(
@@ -187,7 +243,10 @@ export async function readSecureCircleDocuments(
     .from("documents")
     .select("*")
     .eq("circle_id", circleId)
-    .neq("document_status", "archived")
+    .neq(
+      "document_status",
+      "archived",
+    )
     .order("updated_at", {
       ascending: false,
     });
@@ -201,6 +260,153 @@ export async function readSecureCircleDocuments(
   return (
     data as SecureCircleDocument[] | null
   ) ?? [];
+}
+
+export async function uploadSecureCircleDocument({
+  circleId,
+  participantId,
+  title,
+  description = "",
+  category,
+  sensitivity,
+  file,
+}: UploadSecureCircleDocumentInput): Promise<SecureCircleDocument> {
+  const supabase = getClient();
+
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=documents",
+  );
+
+  const cleanTitle = requiredText(
+    title,
+    "Document title",
+  );
+
+  if (!file || file.size <= 0) {
+    throw new Error(
+      "Choose a document to upload.",
+    );
+  }
+
+  const documentId =
+    globalThis.crypto.randomUUID();
+
+  const filename = safeFilename(
+    file.name,
+  );
+
+  const storagePath = [
+    circleId,
+    participantId,
+    documentId,
+    filename,
+  ].join("/");
+
+  const {
+    error: uploadError,
+  } = await supabase.storage
+    .from("sm-circle-files")
+    .upload(
+      storagePath,
+      file,
+      {
+        cacheControl: "3600",
+        upsert: false,
+        contentType:
+          file.type ||
+          "application/octet-stream",
+      },
+    );
+
+  if (uploadError) {
+    throw friendlyDocumentError(
+      uploadError.message,
+    );
+  }
+
+  const consentRequired =
+    sensitivity === "health" ||
+    sensitivity === "financial" ||
+    sensitivity === "restricted";
+
+  const {
+    data,
+    error: metadataError,
+  } = await supabase
+    .from("documents")
+    .insert({
+      id: documentId,
+      circle_id: circleId,
+      participant_id:
+        participantId,
+      title: cleanTitle,
+      description:
+        description.trim(),
+      category,
+      sensitivity,
+      document_status: "draft",
+      storage_bucket:
+        "sm-circle-files",
+      storage_path: storagePath,
+      original_filename:
+        file.name,
+      mime_type:
+        file.type ||
+        "application/octet-stream",
+      size_bytes: file.size,
+      consent_required:
+        consentRequired,
+      consent_id: null,
+      created_by: user.id,
+      updated_by: user.id,
+    })
+    .select("*")
+    .single();
+
+  if (metadataError) {
+    await supabase.storage
+      .from("sm-circle-files")
+      .remove([storagePath]);
+
+    throw friendlyDocumentError(
+      metadataError.message,
+    );
+  }
+
+  return data as SecureCircleDocument;
+}
+
+export async function createSecureDocumentDownloadUrl(
+  document: SecureCircleDocument,
+): Promise<string> {
+  const supabase = getClient();
+
+  await requireAal2(
+    supabase,
+    "/circle?panel=documents",
+  );
+
+  const {
+    data,
+    error,
+  } = await supabase.storage
+    .from(
+      document.storage_bucket,
+    )
+    .createSignedUrl(
+      document.storage_path,
+      60,
+    );
+
+  if (error || !data?.signedUrl) {
+    throw friendlyDocumentError(
+      error?.message ||
+        "The document could not be opened.",
+    );
+  }
+
+  return data.signedUrl;
 }
 
 export async function archiveSecureCircleDocument(
@@ -218,7 +424,8 @@ export async function archiveSecureCircleDocument(
   } = await supabase
     .from("documents")
     .update({
-      document_status: "archived",
+      document_status:
+        "archived",
       updated_by: user.id,
     })
     .eq("id", documentId);
