@@ -2,6 +2,8 @@ import type {
   ReactNode,
 } from "react";
 
+import RequireAuthenticatedUser from "@/components/access/RequireAuthenticatedUser";
+
 type ConnectionsLayoutProps = {
   children: ReactNode;
 };
@@ -9,5 +11,9 @@ type ConnectionsLayoutProps = {
 export default function ConnectionsLayout({
   children,
 }: ConnectionsLayoutProps) {
-  return children;
+  return (
+    <RequireAuthenticatedUser>
+      {children}
+    </RequireAuthenticatedUser>
+  );
 }
