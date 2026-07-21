@@ -450,10 +450,10 @@ export default function GlobalCompanionDock() {
   return (
     <div
       className={[
-        "pointer-events-none fixed inset-x-0 top-0 z-[1000]",
+        "pointer-events-none fixed inset-x-0 top-0",
         isCirclePage
-          ? "bottom-[5.75rem] sm:bottom-[6.5rem]"
-          : "bottom-0",
+          ? "bottom-[5.75rem] z-40 sm:bottom-[6.5rem]"
+          : "bottom-0 z-[1000]",
       ].join(" ")}
     >
       <ConversationDock
