@@ -30,8 +30,12 @@ import {
 
 import {
   archiveSecureCircleDocument,
+  createSecureDocumentDownloadUrl,
   readSecureCircleDocuments,
+  uploadSecureCircleDocument,
   type SecureCircleDocument,
+  type SecureDocumentCategory,
+  type SecureDocumentSensitivity,
 } from "@/lib/circle/secure-documents-client";
 
 import {
@@ -271,6 +275,33 @@ export default function CirclePage() {
 
   const [documentMessage, setDocumentMessage] =
     useState("");
+
+  const [documentTitle, setDocumentTitle] =
+    useState("");
+
+  const [
+    documentDescription,
+    setDocumentDescription,
+  ] = useState("");
+
+  const [
+    documentCategory,
+    setDocumentCategory,
+  ] =
+    useState<SecureDocumentCategory>(
+      "other",
+    );
+
+  const [
+    documentSensitivity,
+    setDocumentSensitivity,
+  ] =
+    useState<SecureDocumentSensitivity>(
+      "personal",
+    );
+
+  const [documentFile, setDocumentFile] =
+    useState<File | null>(null);
 
   function commitCircle(
     updater: (
@@ -827,6 +858,104 @@ export default function CirclePage() {
       );
     } finally {
       setGoalWorkingId("");
+    }
+  }
+
+  async function uploadDocument() {
+    if (
+      !workspace ||
+      documentWorkingId ||
+      !documentTitle.trim() ||
+      !documentFile
+    ) {
+      return;
+    }
+
+    setDocumentWorkingId("new");
+    setDocumentMessage("");
+
+    try {
+      const createdDocument =
+        await uploadSecureCircleDocument({
+          circleId: workspace.circle.id,
+          participantId:
+            workspace.participant.id,
+          title: documentTitle,
+          description:
+            documentDescription,
+          category: documentCategory,
+          sensitivity:
+            documentSensitivity,
+          file: documentFile,
+        });
+
+      setDocuments((current) => [
+        createdDocument,
+        ...current,
+      ]);
+
+      setDocumentTitle("");
+      setDocumentDescription("");
+      setDocumentCategory("other");
+      setDocumentSensitivity(
+        "personal",
+      );
+      setDocumentFile(null);
+
+      const input =
+        document.getElementById(
+          "circle-document-file",
+        ) as HTMLInputElement | null;
+
+      if (input) {
+        input.value = "";
+      }
+
+      setDocumentMessage(
+        "Document uploaded securely.",
+      );
+    } catch (error) {
+      setDocumentMessage(
+        error instanceof Error
+          ? error.message
+          : "Two-step security is required.",
+      );
+    } finally {
+      setDocumentWorkingId("");
+    }
+  }
+
+  async function openDocument(
+    secureDocument: SecureCircleDocument,
+  ) {
+    if (documentWorkingId) {
+      return;
+    }
+
+    setDocumentWorkingId(
+      secureDocument.id,
+    );
+    setDocumentMessage("");
+
+    try {
+      const signedUrl =
+        await createSecureDocumentDownloadUrl(
+          secureDocument,
+        );
+
+      window.open(
+        signedUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } catch (error) {
+      setDocumentMessage(
+        error instanceof Error
+          ? error.message
+          : "Two-step security is required.",
+      );
+    } finally {
+      setDocumentWorkingId("");
     }
   }
 
@@ -2077,9 +2206,123 @@ export default function CirclePage() {
                 <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
                   Documents are stored in the private
                   Circle file area. Two-step security is
-                  required before document information can
-                  be viewed or changed.
+                  required before documents can be
+                  uploaded, opened or archived.
                 </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={documentTitle}
+                    onChange={(event) =>
+                      setDocumentTitle(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Document title"
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  />
+
+                  <select
+                    value={documentCategory}
+                    onChange={(event) =>
+                      setDocumentCategory(
+                        event.target
+                          .value as SecureDocumentCategory,
+                      )
+                    }
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  >
+                    <option value="plan">Plan</option>
+                    <option value="agreement">
+                      Agreement
+                    </option>
+                    <option value="report">Report</option>
+                    <option value="meeting">
+                      Meeting
+                    </option>
+                    <option value="assessment">
+                      Assessment
+                    </option>
+                    <option value="health">Health</option>
+                    <option value="financial">
+                      Financial
+                    </option>
+                    <option value="consent">
+                      Consent
+                    </option>
+                    <option value="correspondence">
+                      Correspondence
+                    </option>
+                    <option value="other">Other</option>
+                  </select>
+
+                  <select
+                    value={documentSensitivity}
+                    onChange={(event) =>
+                      setDocumentSensitivity(
+                        event.target
+                          .value as SecureDocumentSensitivity,
+                      )
+                    }
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                  >
+                    <option value="general">
+                      General
+                    </option>
+                    <option value="personal">
+                      Personal
+                    </option>
+                    <option value="health">
+                      Health
+                    </option>
+                    <option value="financial">
+                      Financial
+                    </option>
+                    <option value="restricted">
+                      Restricted
+                    </option>
+                  </select>
+
+                  <input
+                    id="circle-document-file"
+                    type="file"
+                    onChange={(event) =>
+                      setDocumentFile(
+                        event.target.files?.[0] ??
+                          null,
+                      )
+                    }
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 text-sm outline-none focus:border-[#71523b]"
+                  />
+                </div>
+
+                <textarea
+                  value={documentDescription}
+                  onChange={(event) =>
+                    setDocumentDescription(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Optional description"
+                  className="mt-3 min-h-28 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void uploadDocument();
+                  }}
+                  disabled={
+                    documentWorkingId === "new" ||
+                    !documentTitle.trim() ||
+                    !documentFile
+                  }
+                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {documentWorkingId === "new"
+                    ? "Uploading securely…"
+                    : "Upload secure document"}
+                </button>
 
                 <button
                   type="button"
@@ -2087,11 +2330,11 @@ export default function CirclePage() {
                     void refreshDocuments();
                   }}
                   disabled={documentsLoading}
-                  className="mt-5 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
+                  className="mt-3 w-full rounded-full border border-[#bfa98d] bg-[#efe3d2] px-6 py-3 font-medium text-[#533d2d] transition hover:bg-[#e6d6c0] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {documentsLoading
-                    ? "Opening secure documents…"
-                    : "Open secure documents"}
+                    ? "Refreshing documents…"
+                    : "Refresh documents"}
                 </button>
 
                 {documentMessage && (
@@ -2112,44 +2355,70 @@ export default function CirclePage() {
                     </div>
                   ) : (
                     documents.map(
-                      (document) => (
+                      (secureDocument) => (
                         <article
-                          key={document.id}
+                          key={secureDocument.id}
                           className="flex flex-col gap-4 rounded-[20px] border border-[#dfd2c1] bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div>
                             <p className="font-serif text-xl">
-                              {document.title}
+                              {secureDocument.title}
                             </p>
 
                             <p className="mt-1 text-sm text-[#756151]">
-                              {document.category} ·{" "}
-                              {document.document_status}
+                              {secureDocument.category} ·{" "}
+                              {
+                                secureDocument.document_status
+                              }{" "}
+                              ·{" "}
+                              {
+                                secureDocument.sensitivity
+                              }
                             </p>
 
                             <p className="mt-2 text-sm text-[#8a786a]">
-                              {document.original_filename}
+                              {
+                                secureDocument.original_filename
+                              }
                             </p>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void removeDocument(
-                                document.id,
-                              );
-                            }}
-                            disabled={
-                              documentWorkingId ===
-                              document.id
-                            }
-                            className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
-                          >
-                            {documentWorkingId ===
-                            document.id
-                              ? "Archiving…"
-                              : "Archive"}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void openDocument(
+                                  secureDocument,
+                                );
+                              }}
+                              disabled={
+                                documentWorkingId ===
+                                secureDocument.id
+                              }
+                              className="rounded-full bg-[#60432f] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55"
+                            >
+                              Open
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void removeDocument(
+                                  secureDocument.id,
+                                );
+                              }}
+                              disabled={
+                                documentWorkingId ===
+                                secureDocument.id
+                              }
+                              className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
+                            >
+                              {documentWorkingId ===
+                              secureDocument.id
+                                ? "Working…"
+                                : "Archive"}
+                            </button>
+                          </div>
                         </article>
                       ),
                     )
