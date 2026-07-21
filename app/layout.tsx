@@ -1,9 +1,15 @@
-import type { Metadata, Viewport } from "next";
+import type {
+  Metadata,
+  Viewport,
+} from "next";
+
+import GlobalCompanionDock from "@/components/companion/GlobalCompanionDock";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "The Smiling Monad",
-  description: "Smiling Monad Office",
+  description: "Smiling Monad Space",
 };
 
 export const viewport: Viewport = {
@@ -20,7 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <GlobalCompanionDock />
+      </body>
     </html>
   );
 }
