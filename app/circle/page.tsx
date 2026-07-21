@@ -88,6 +88,9 @@ type ActivePanel =
 const ACTIVE_CIRCLE_PANEL_KEY =
   "smiling-monad-active-circle-panel";
 
+const DOCUMENT_DRAFT_KEY =
+  "smiling-monad-document-draft";
+
 type StateUpdate<T> =
   | T
   | ((current: T) => T);
@@ -303,8 +306,6 @@ export default function CirclePage() {
       "personal",
     );
 
-  const [documentFile, setDocumentFile] =
-    useState<File | null>(null);
 
   function commitCircle(
     updater: (
@@ -506,6 +507,72 @@ export default function CirclePage() {
   }, [
     activePanel,
     panelNavigationReady,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const savedDraft =
+      window.sessionStorage.getItem(
+        DOCUMENT_DRAFT_KEY,
+      );
+
+    if (!savedDraft) {
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(
+        savedDraft,
+      ) as {
+        title?: string;
+        description?: string;
+        category?: SecureDocumentCategory;
+        sensitivity?: SecureDocumentSensitivity;
+      };
+
+      setDocumentTitle(
+        draft.title ?? "",
+      );
+      setDocumentDescription(
+        draft.description ?? "",
+      );
+      setDocumentCategory(
+        draft.category ?? "other",
+      );
+      setDocumentSensitivity(
+        draft.sensitivity ?? "personal",
+      );
+    } catch {
+      window.sessionStorage.removeItem(
+        DOCUMENT_DRAFT_KEY,
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      DOCUMENT_DRAFT_KEY,
+      JSON.stringify({
+        title: documentTitle,
+        description:
+          documentDescription,
+        category: documentCategory,
+        sensitivity:
+          documentSensitivity,
+      }),
+    );
+  }, [
+    documentTitle,
+    documentDescription,
+    documentCategory,
+    documentSensitivity,
   ]);
 
   const [
@@ -919,18 +986,28 @@ export default function CirclePage() {
     }
   }
 
-  async function uploadDocument() {
+  async function handleDocumentFileSelected(
+    file: File | null,
+  ) {
     if (
       !workspace ||
       documentWorkingId ||
-      !documentTitle.trim() ||
-      !documentFile
+      !file
     ) {
       return;
     }
 
+    if (!documentTitle.trim()) {
+      setDocumentMessage(
+        "Enter the document title before choosing the file.",
+      );
+      return;
+    }
+
     setDocumentWorkingId("new");
-    setDocumentMessage("");
+    setDocumentMessage(
+      "Uploading selected file securely…",
+    );
 
     try {
       const createdDocument =
@@ -944,7 +1021,7 @@ export default function CirclePage() {
           category: documentCategory,
           sensitivity:
             documentSensitivity,
-          file: documentFile,
+          file,
         });
 
       setDocuments((current) => [
@@ -958,15 +1035,11 @@ export default function CirclePage() {
       setDocumentSensitivity(
         "personal",
       );
-      setDocumentFile(null);
 
-      const input =
-        document.getElementById(
-          "circle-document-file",
-        ) as HTMLInputElement | null;
-
-      if (input) {
-        input.value = "";
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(
+          DOCUMENT_DRAFT_KEY,
+        );
       }
 
       setDocumentMessage(
@@ -976,7 +1049,7 @@ export default function CirclePage() {
       setDocumentMessage(
         error instanceof Error
           ? error.message
-          : "Two-step security is required.",
+          : "The document could not be uploaded.",
       );
     } finally {
       setDocumentWorkingId("");
@@ -2344,13 +2417,21 @@ export default function CirclePage() {
                   <input
                     id="circle-document-file"
                     type="file"
-                    onChange={(event) =>
-                      setDocumentFile(
-                        event.target.files?.[0] ??
-                          null,
-                      )
+                    disabled={
+                      documentWorkingId === "new"
                     }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 text-sm outline-none focus:border-[#71523b]"
+                    onChange={(event) => {
+                      const selectedFile =
+                        event.target.files?.[0] ??
+                        null;
+
+                      void handleDocumentFileSelected(
+                        selectedFile,
+                      );
+
+                      event.currentTarget.value = "";
+                    }}
+                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 text-sm outline-none focus:border-[#71523b] disabled:cursor-not-allowed disabled:opacity-55"
                   />
                 </div>
 
@@ -2365,22 +2446,11 @@ export default function CirclePage() {
                   className="mt-3 min-h-28 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
                 />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    void uploadDocument();
-                  }}
-                  disabled={
-                    documentWorkingId === "new" ||
-                    !documentTitle.trim() ||
-                    !documentFile
-                  }
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {documentWorkingId === "new"
-                    ? "Uploading securely…"
-                    : "Upload secure document"}
-                </button>
+                <div className="mt-3 rounded-[18px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                  Enter the document details first, then
+                  choose the file. The secure upload starts
+                  immediately after file selection.
+                </div>
 
                 <button
                   type="button"
