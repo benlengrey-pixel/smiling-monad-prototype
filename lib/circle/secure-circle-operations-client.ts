@@ -111,25 +111,6 @@ function getClient(): SupabaseClient {
   return getSupabaseBrowserClient();
 }
 
-async function requireUser(
-  supabase: SupabaseClient,
-): Promise<User> {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!user) {
-    throw new Error("You must be signed in.");
-  }
-
-  return user;
-}
-
 function required(
   value: string,
   label: string,
@@ -143,6 +124,118 @@ function required(
   return clean;
 }
 
+function openSignIn(returnTo: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.location.assign(
+    `/sign-in?returnTo=${encodeURIComponent(
+      returnTo,
+    )}`,
+  );
+}
+
+function openMfa(returnTo: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.location.assign(
+    `/security/mfa?returnTo=${encodeURIComponent(
+      returnTo,
+    )}`,
+  );
+}
+
+async function requireUser(
+  supabase: SupabaseClient,
+  returnTo = "/circle",
+): Promise<User> {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    openSignIn(returnTo);
+
+    throw new Error(
+      "Please sign in to continue.",
+    );
+  }
+
+  return user;
+}
+
+async function requireAal2(
+  supabase: SupabaseClient,
+  returnTo: string,
+): Promise<User> {
+  const user = await requireUser(
+    supabase,
+    returnTo,
+  );
+
+  const {
+    data: assurance,
+    error,
+  } =
+    await supabase.auth.mfa
+      .getAuthenticatorAssuranceLevel();
+
+  if (error) {
+    throw new Error(
+      "Your security level could not be checked.",
+    );
+  }
+
+  if (assurance.currentLevel !== "aal2") {
+    openMfa(returnTo);
+
+    throw new Error(
+      "Opening the security check…",
+    );
+  }
+
+  return user;
+}
+
+function friendlyDatabaseError(
+  message: string,
+): Error {
+  const lowerMessage =
+    message.toLowerCase();
+
+  if (
+    lowerMessage.includes(
+      "sm_require_aal2",
+    ) ||
+    lowerMessage.includes(
+      "row-level security",
+    )
+  ) {
+    return new Error(
+      "A security check is required before changing private Circle information.",
+    );
+  }
+
+  if (
+    lowerMessage.includes(
+      "duplicate key",
+    ) ||
+    lowerMessage.includes(
+      "unique constraint",
+    )
+  ) {
+    return new Error(
+      "This person already has a Circle invitation.",
+    );
+  }
+
+  return new Error(message);
+}
+
 export async function readSecureCircleOperations(
   circleId: string,
 ): Promise<{
@@ -153,7 +246,10 @@ export async function readSecureCircleOperations(
 }> {
   const supabase = getClient();
 
-  await requireUser(supabase);
+  await requireAal2(
+    supabase,
+    "/circle",
+  );
 
   const [
     members,
@@ -165,25 +261,42 @@ export async function readSecureCircleOperations(
       .from("circle_members")
       .select("*")
       .eq("circle_id", circleId)
-      .neq("membership_status", "removed")
+      .neq(
+        "membership_status",
+        "removed",
+      )
       .order("created_at"),
+
     supabase
       .from("circle_meetings")
       .select("*")
       .eq("circle_id", circleId)
-      .neq("meeting_status", "archived")
+      .neq(
+        "meeting_status",
+        "archived",
+      )
       .order("meeting_date"),
+
     supabase
-      .from("circle_responsibilities")
+      .from(
+        "circle_responsibilities",
+      )
       .select("*")
       .eq("circle_id", circleId)
-      .neq("responsibility_status", "archived")
+      .neq(
+        "responsibility_status",
+        "archived",
+      )
       .order("created_at"),
+
     supabase
       .from("circle_budget_items")
       .select("*")
       .eq("circle_id", circleId)
-      .neq("budget_status", "archived")
+      .neq(
+        "budget_status",
+        "archived",
+      )
       .order("created_at"),
   ]);
 
@@ -194,7 +307,9 @@ export async function readSecureCircleOperations(
     budgets,
   ]) {
     if (result.error) {
-      throw new Error(result.error.message);
+      throw friendlyDatabaseError(
+        result.error.message,
+      );
     }
   }
 
@@ -202,12 +317,15 @@ export async function readSecureCircleOperations(
     members:
       (members.data ??
         []) as unknown as SecureCircleMemberRecord[],
+
     meetings:
       (meetings.data ??
         []) as unknown as SecureCircleMeeting[],
+
     responsibilities:
       (responsibilities.data ??
         []) as unknown as SecureCircleResponsibility[],
+
     budgets:
       (budgets.data ??
         []) as unknown as SecureCircleBudgetItem[],
@@ -223,33 +341,70 @@ export async function inviteSecureCircleMember(
     relationship: string;
   },
 ): Promise<SecureCircleMemberRecord> {
-  const supabase = getClient();
-  const user = await requireUser(supabase);
+  const cleanEmail =
+    required(
+      input.email,
+      "Email",
+    ).toLowerCase();
 
-  const { data, error } = await supabase
-    .from("circle_members")
-    .insert({
-      circle_id: input.circleId,
-      user_id: null,
-      invited_email: required(
-        input.email,
-        "Email",
-      ).toLowerCase(),
-      display_name: required(
-        input.displayName,
-        "Name",
-      ),
-      role: input.role,
-      relationship:
-        input.relationship.trim(),
-      membership_status: "invited",
-      invited_by: user.id,
-    })
-    .select("*")
-    .single();
+  const cleanName =
+    required(
+      input.displayName,
+      "Name",
+    );
+
+  if (
+    typeof window !== "undefined"
+  ) {
+    window.sessionStorage.setItem(
+      "smiling-monad-circle-invite-draft",
+      JSON.stringify({
+        name: cleanName,
+        email: cleanEmail,
+        role: input.role,
+        relationship:
+          input.relationship.trim(),
+      }),
+    );
+  }
+
+  const supabase = getClient();
+
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=members",
+  );
+
+  const { data, error } =
+    await supabase
+      .from("circle_members")
+      .insert({
+        circle_id: input.circleId,
+        user_id: null,
+        invited_email: cleanEmail,
+        display_name: cleanName,
+        role: input.role,
+        relationship:
+          input.relationship.trim(),
+        membership_status:
+          "invited",
+        invited_by: user.id,
+      })
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
+  }
+
+  if (
+    typeof window !== "undefined"
+  ) {
+    window.sessionStorage.removeItem(
+      "smiling-monad-circle-invite-draft",
+    );
   }
 
   return data as unknown as SecureCircleMemberRecord;
@@ -271,17 +426,23 @@ export async function updateSecureCircleMember(
 ): Promise<SecureCircleMemberRecord> {
   const supabase = getClient();
 
-  await requireUser(supabase);
+  await requireAal2(
+    supabase,
+    "/circle?panel=members",
+  );
 
-  const { data, error } = await supabase
-    .from("circle_members")
-    .update(update)
-    .eq("id", memberId)
-    .select("*")
-    .single();
+  const { data, error } =
+    await supabase
+      .from("circle_members")
+      .update(update)
+      .eq("id", memberId)
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleMemberRecord;
@@ -297,30 +458,38 @@ export async function createSecureMeeting(
   },
 ): Promise<SecureCircleMeeting> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_meetings")
-    .insert({
-      circle_id: input.circleId,
-      participant_id:
-        input.participantId,
-      title: required(
-        input.title,
-        "Meeting title",
-      ),
-      meeting_date:
-        input.meetingDate || null,
-      purpose:
-        input.purpose?.trim() ?? "",
-      created_by: user.id,
-      updated_by: user.id,
-    })
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=meetings",
+  );
+
+  const { data, error } =
+    await supabase
+      .from("circle_meetings")
+      .insert({
+        circle_id: input.circleId,
+        participant_id:
+          input.participantId,
+        title: required(
+          input.title,
+          "Meeting title",
+        ),
+        meeting_date:
+          input.meetingDate || null,
+        purpose:
+          input.purpose?.trim() ??
+          "",
+        created_by: user.id,
+        updated_by: user.id,
+      })
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleMeeting;
@@ -340,20 +509,27 @@ export async function updateSecureMeeting(
   >,
 ): Promise<SecureCircleMeeting> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_meetings")
-    .update({
-      ...update,
-      updated_by: user.id,
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=meetings",
+  );
+
+  const { data, error } =
+    await supabase
+      .from("circle_meetings")
+      .update({
+        ...update,
+        updated_by: user.id,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleMeeting;
@@ -368,28 +544,38 @@ export async function createSecureResponsibility(
   },
 ): Promise<SecureCircleResponsibility> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_responsibilities")
-    .insert({
-      circle_id: input.circleId,
-      participant_id:
-        input.participantId,
-      title: required(
-        input.title,
-        "Responsibility",
-      ),
-      owner_name:
-        input.ownerName?.trim() ?? "",
-      created_by: user.id,
-      updated_by: user.id,
-    })
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=responsibilities",
+  );
+
+  const { data, error } =
+    await supabase
+      .from(
+        "circle_responsibilities",
+      )
+      .insert({
+        circle_id: input.circleId,
+        participant_id:
+          input.participantId,
+        title: required(
+          input.title,
+          "Responsibility",
+        ),
+        owner_name:
+          input.ownerName?.trim() ??
+          "",
+        created_by: user.id,
+        updated_by: user.id,
+      })
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleResponsibility;
@@ -409,20 +595,29 @@ export async function updateSecureResponsibility(
   >,
 ): Promise<SecureCircleResponsibility> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_responsibilities")
-    .update({
-      ...update,
-      updated_by: user.id,
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=responsibilities",
+  );
+
+  const { data, error } =
+    await supabase
+      .from(
+        "circle_responsibilities",
+      )
+      .update({
+        ...update,
+        updated_by: user.id,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleResponsibility;
@@ -441,31 +636,39 @@ export async function createSecureBudgetItem(
   },
 ): Promise<SecureCircleBudgetItem> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_budget_items")
-    .insert({
-      circle_id: input.circleId,
-      participant_id:
-        input.participantId,
-      title: required(
-        input.title,
-        "Budget title",
-      ),
-      category: input.category,
-      allocated: input.allocated,
-      spent: input.spent,
-      owner_name:
-        input.ownerName?.trim() ?? "",
-      created_by: user.id,
-      updated_by: user.id,
-    })
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=budget",
+  );
+
+  const { data, error } =
+    await supabase
+      .from("circle_budget_items")
+      .insert({
+        circle_id: input.circleId,
+        participant_id:
+          input.participantId,
+        title: required(
+          input.title,
+          "Budget title",
+        ),
+        category: input.category,
+        allocated: input.allocated,
+        spent: input.spent,
+        owner_name:
+          input.ownerName?.trim() ??
+          "",
+        created_by: user.id,
+        updated_by: user.id,
+      })
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleBudgetItem;
@@ -487,20 +690,27 @@ export async function updateSecureBudgetItem(
   >,
 ): Promise<SecureCircleBudgetItem> {
   const supabase = getClient();
-  const user = await requireUser(supabase);
 
-  const { data, error } = await supabase
-    .from("circle_budget_items")
-    .update({
-      ...update,
-      updated_by: user.id,
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
+  const user = await requireAal2(
+    supabase,
+    "/circle?panel=budget",
+  );
+
+  const { data, error } =
+    await supabase
+      .from("circle_budget_items")
+      .update({
+        ...update,
+        updated_by: user.id,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
 
   if (error) {
-    throw new Error(error.message);
+    throw friendlyDatabaseError(
+      error.message,
+    );
   }
 
   return data as unknown as SecureCircleBudgetItem;
