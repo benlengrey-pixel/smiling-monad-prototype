@@ -123,6 +123,7 @@ async function requireUser(
 async function requireAal2(
   supabase: SupabaseClient,
   returnTo: string,
+  redirectToMfa: boolean,
 ): Promise<User> {
   const user = await requireUser(
     supabase,
@@ -140,7 +141,9 @@ async function requireAal2(
     error ||
     assurance.currentLevel !== "aal2"
   ) {
-    openMfa(returnTo);
+    if (redirectToMfa) {
+      openMfa(returnTo);
+    }
 
     throw new Error(
       "Two-step security is required.",
@@ -160,7 +163,10 @@ function friendlyDocumentError(
     lowerMessage.includes(
       "sm_require_aal2",
     ) ||
-    lowerMessage.includes("aal2")
+    lowerMessage.includes("aal2") ||
+    lowerMessage.includes(
+      "two-step security",
+    )
   ) {
     return new Error(
       "Two-step security is required.",
@@ -234,6 +240,7 @@ export async function readSecureCircleDocuments(
   await requireAal2(
     supabase,
     "/circle?panel=documents",
+    true,
   );
 
   const {
@@ -276,6 +283,7 @@ export async function uploadSecureCircleDocument({
   const user = await requireAal2(
     supabase,
     "/circle?panel=documents",
+    false,
   );
 
   const cleanTitle = requiredText(
@@ -385,6 +393,7 @@ export async function createSecureDocumentDownloadUrl(
   await requireAal2(
     supabase,
     "/circle?panel=documents",
+    false,
   );
 
   const {
@@ -417,6 +426,7 @@ export async function archiveSecureCircleDocument(
   const user = await requireAal2(
     supabase,
     "/circle?panel=documents",
+    false,
   );
 
   const {
