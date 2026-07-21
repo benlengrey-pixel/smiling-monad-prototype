@@ -1,10 +1,5 @@
-"use client";
-
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type CircleLayoutProps = {
   children: ReactNode;
@@ -13,66 +8,36 @@ type CircleLayoutProps = {
 export default function CircleLayout({
   children,
 }: CircleLayoutProps) {
-  const router = useRouter();
+  return (
+    <div className="min-h-screen bg-[#f4efe5]">
+      <nav className="sticky top-0 z-50 border-b border-black/10 bg-[#f4efe5]/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">
+          <Link
+            href="/circle"
+            className="text-sm font-semibold text-[#2c2a26]"
+          >
+            Circle of Support
+          </Link>
 
-  const [checkingAccess, setCheckingAccess] =
-    useState(true);
+          <div className="flex items-center gap-2">
+            <Link
+              href="/circle"
+              className="rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[#2c2a26]"
+            >
+              Circle
+            </Link>
 
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-
-    let active = true;
-
-    async function checkAccess() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!active) {
-          return;
-        }
-
-        if (!session?.user) {
-          router.replace("/");
-          return;
-        }
-
-        setCheckingAccess(false);
-      } catch {
-        if (active) {
-          router.replace("/");
-        }
-      }
-    }
-
-    void checkAccess();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session?.user) {
-          router.replace("/");
-        }
-      },
-    );
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
-
-  if (checkingAccess) {
-    return (
-      <main className="flex h-[100svh] w-full items-center justify-center bg-[#5b4936] text-[#fff8ed]">
-        <div className="rounded-full border border-white/35 bg-black/30 px-6 py-3 font-serif text-lg shadow-lg backdrop-blur-md">
-          Opening your Circle of Support…
+            <Link
+              href="/circle/conversation"
+              className="rounded-full bg-[#60432f] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Conversation
+            </Link>
+          </div>
         </div>
-      </main>
-    );
-  }
+      </nav>
 
-  return children;
+      {children}
+    </div>
+  );
 }
