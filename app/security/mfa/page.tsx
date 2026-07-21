@@ -22,6 +22,31 @@ type TotpEnrollment = {
   secret: string;
 };
 
+function getReturnPath(): string {
+  if (typeof window === "undefined") {
+    return "/office";
+  }
+
+  const parameters =
+    new URLSearchParams(
+      window.location.search,
+    );
+
+  const returnTo =
+    parameters.get("returnTo");
+
+  if (
+    returnTo &&
+    returnTo.startsWith("/") &&
+    !returnTo.startsWith("//") &&
+    returnTo !== "/security/mfa"
+  ) {
+    return returnTo;
+  }
+
+  return "/office";
+}
+
 export default function MfaSecurityPage() {
   const router = useRouter();
 
@@ -34,9 +59,14 @@ export default function MfaSecurityPage() {
   const [verifiedFactorId, setVerifiedFactorId] =
     useState("");
 
-  const [code, setCode] = useState("");
-  const [message, setMessage] = useState("");
-  const [working, setWorking] = useState(false);
+  const [code, setCode] =
+    useState("");
+
+  const [message, setMessage] =
+    useState("");
+
+  const [working, setWorking] =
+    useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +79,8 @@ export default function MfaSecurityPage() {
         const {
           data: { user },
           error: userError,
-        } = await supabase.auth.getUser();
+        } =
+          await supabase.auth.getUser();
 
         if (!active) {
           return;
@@ -77,6 +108,13 @@ export default function MfaSecurityPage() {
           assurance.currentLevel === "aal2"
         ) {
           setStatus("complete");
+
+          window.setTimeout(() => {
+            router.replace(
+              getReturnPath(),
+            );
+          }, 800);
+
           return;
         }
 
@@ -84,7 +122,8 @@ export default function MfaSecurityPage() {
           data: factors,
           error: factorsError,
         } =
-          await supabase.auth.mfa.listFactors();
+          await supabase.auth.mfa
+            .listFactors();
 
         if (factorsError) {
           throw factorsError;
@@ -100,11 +139,38 @@ export default function MfaSecurityPage() {
           setVerifiedFactorId(
             verifiedTotp.id,
           );
+
           setStatus("verify");
           return;
         }
 
-        setStatus("enrol");
+        const unfinishedFactors =
+          factors.totp.filter(
+            (factor) =>
+              factor.status ===
+              "unverified",
+          );
+
+        for (
+          const factor
+          of unfinishedFactors
+        ) {
+          const {
+            error: unenrollError,
+          } =
+            await supabase.auth.mfa
+              .unenroll({
+                factorId: factor.id,
+              });
+
+          if (unenrollError) {
+            throw unenrollError;
+          }
+        }
+
+        if (active) {
+          setStatus("enrol");
+        }
       } catch (error) {
         if (!active) {
           return;
@@ -127,6 +193,45 @@ export default function MfaSecurityPage() {
     };
   }, [router]);
 
+  async function removeUnfinishedFactors() {
+    const supabase =
+      getSupabaseBrowserClient();
+
+    const {
+      data: factors,
+      error: factorsError,
+    } =
+      await supabase.auth.mfa
+        .listFactors();
+
+    if (factorsError) {
+      throw factorsError;
+    }
+
+    const unfinishedFactors =
+      factors.totp.filter(
+        (factor) =>
+          factor.status === "unverified",
+      );
+
+    for (
+      const factor
+      of unfinishedFactors
+    ) {
+      const {
+        error: unenrollError,
+      } =
+        await supabase.auth.mfa
+          .unenroll({
+            factorId: factor.id,
+          });
+
+      if (unenrollError) {
+        throw unenrollError;
+      }
+    }
+  }
+
   async function beginEnrollment() {
     if (working) {
       return;
@@ -134,17 +239,21 @@ export default function MfaSecurityPage() {
 
     setWorking(true);
     setMessage("");
+    setEnrollment(null);
 
     try {
       const supabase =
         getSupabaseBrowserClient();
 
+      await removeUnfinishedFactors();
+
       const { data, error } =
-        await supabase.auth.mfa.enroll({
-          factorType: "totp",
-          friendlyName:
-            "Smiling Monad authenticator",
-        });
+        await supabase.auth.mfa
+          .enroll({
+            factorType: "totp",
+            friendlyName:
+              "Smiling Monad authenticator",
+          });
 
       if (error) {
         throw error;
@@ -152,10 +261,13 @@ export default function MfaSecurityPage() {
 
       setEnrollment({
         factorId: data.id,
-        qrCode: data.totp.qr_code,
-        secret: data.totp.secret,
+        qrCode:
+          data.totp.qr_code,
+        secret:
+          data.totp.secret,
       });
 
+      setVerifiedFactorId("");
       setStatus("verify");
     } catch (error) {
       setMessage(
@@ -163,6 +275,8 @@ export default function MfaSecurityPage() {
           ? error.message
           : "Authenticator setup could not begin.",
       );
+
+      setStatus("enrol");
     } finally {
       setWorking(false);
     }
@@ -173,15 +287,19 @@ export default function MfaSecurityPage() {
   ) {
     event.preventDefault();
 
-    const cleanCode = code
-      .replace(/\s/g, "")
-      .trim();
+    const cleanCode =
+      code
+        .replace(/\s/g, "")
+        .trim();
 
     const factorId =
       enrollment?.factorId ||
       verifiedFactorId;
 
-    if (!factorId || cleanCode.length !== 6) {
+    if (
+      !factorId ||
+      cleanCode.length !== 6
+    ) {
       setMessage(
         "Enter the six-digit code from your authenticator app.",
       );
@@ -210,7 +328,9 @@ export default function MfaSecurityPage() {
       setCode("");
 
       window.setTimeout(() => {
-        router.replace("/office");
+        router.replace(
+          getReturnPath(),
+        );
       }, 800);
     } catch (error) {
       setMessage(
@@ -337,6 +457,18 @@ export default function MfaSecurityPage() {
             Two-step security is active. Opening the
             Smiling Monad Space…
           </p>
+        ) : null}
+
+        {status === "error" ? (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.reload();
+            }}
+            className="mt-7 w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white"
+          >
+            Check security again
+          </button>
         ) : null}
 
         {message ? (
