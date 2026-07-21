@@ -448,6 +448,39 @@ export default function GlobalCompanionDock() {
       "/circle/",
     );
 
+  if (!expanded) {
+    return (
+      <div
+        className={[
+          "pointer-events-none fixed z-[1000] flex items-center gap-2",
+          isCirclePage
+            ? "bottom-[6.5rem] right-4 sm:bottom-[7rem] sm:right-6"
+            : "bottom-4 right-4 sm:bottom-6 sm:right-6",
+        ].join(" ")}
+      >
+        <button
+          type="button"
+          onClick={startVoice}
+          aria-label="Talk to Kimi"
+          title="Talk to Kimi"
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-[rgba(64,45,31,0.9)] text-xl text-white shadow-[0_10px_28px_rgba(31,21,14,0.34)] backdrop-blur-md transition hover:scale-105 hover:bg-[rgba(64,45,31,1)] focus:outline-none focus:ring-2 focus:ring-white/70"
+        >
+          <span aria-hidden="true">🎙️</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={chooseText}
+          aria-label="Type to Kimi"
+          title="Type to Kimi"
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-[rgba(255,248,238,0.94)] text-xl text-[#4c392b] shadow-[0_10px_28px_rgba(31,21,14,0.28)] backdrop-blur-md transition hover:scale-105 hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#6e513d]/50"
+        >
+          <span aria-hidden="true">⌨️</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={[
