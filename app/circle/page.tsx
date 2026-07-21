@@ -29,6 +29,12 @@ import {
 } from "@/lib/circle/secure-goals-client";
 
 import {
+  archiveSecureCircleDocument,
+  readSecureCircleDocuments,
+  type SecureCircleDocument,
+} from "@/lib/circle/secure-documents-client";
+
+import {
   createSecureBudgetItem,
   createSecureMeeting,
   createSecureResponsibility,
@@ -63,9 +69,6 @@ type CircleState =
 
 type CircleProfile =
   CircleState["profile"];
-
-type CircleDocument =
-  CircleState["documents"][number];
 
 type ActivePanel =
   | "overview"
@@ -257,7 +260,17 @@ export default function CirclePage() {
   const [goalMessage, setGoalMessage] =
     useState("");
 
-  const documents = circle.documents;
+  const [documents, setDocuments] =
+    useState<SecureCircleDocument[]>([]);
+
+  const [documentsLoading, setDocumentsLoading] =
+    useState(false);
+
+  const [documentWorkingId, setDocumentWorkingId] =
+    useState("");
+
+  const [documentMessage, setDocumentMessage] =
+    useState("");
 
   function commitCircle(
     updater: (
@@ -367,20 +380,6 @@ export default function CirclePage() {
     }
   }
 
-  function setDocuments(
-    update: StateUpdate<
-      CircleDocument[]
-    >,
-  ) {
-    commitCircle((current) => ({
-      ...current,
-      documents: resolveStateUpdate(
-        current.documents,
-        update,
-      ),
-    }));
-  }
-
   const [activePanel, setActivePanel] =
     useState<ActivePanel | null>(
       null,
@@ -477,19 +476,6 @@ export default function CirclePage() {
 
   const [goalOwner, setGoalOwner] =
     useState("");
-
-  const [
-    documentTitle,
-    setDocumentTitle,
-  ] = useState("");
-
-  const [
-    documentCategory,
-    setDocumentCategory,
-  ] =
-    useState<CircleDocument["category"]>(
-      "Plan",
-    );
 
   const [meetingTitle, setMeetingTitle] =
     useState("");
@@ -634,6 +620,55 @@ export default function CirclePage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadDocuments() {
+      if (
+        activePanel !== "documents" ||
+        !workspace
+      ) {
+        return;
+      }
+
+      setDocumentsLoading(true);
+      setDocumentMessage("");
+
+      try {
+        const secureDocuments =
+          await readSecureCircleDocuments(
+            workspace.circle.id,
+          );
+
+        if (!active) {
+          return;
+        }
+
+        setDocuments(secureDocuments);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setDocumentMessage(
+          error instanceof Error
+            ? error.message
+            : "Two-step security is required.",
+        );
+      } finally {
+        if (active) {
+          setDocumentsLoading(false);
+        }
+      }
+    }
+
+    void loadDocuments();
+
+    return () => {
+      active = false;
+    };
+  }, [activePanel, workspace]);
+
+  useEffect(() => {
     const refreshTraining = () => {
       setActiveTrainingModule(
         getActiveCircleModule(
@@ -683,8 +718,8 @@ export default function CirclePage() {
       () =>
         documents.filter(
           (document) =>
-            document.status ===
-            "Review needed",
+            document.document_status ===
+            "review_needed",
         ).length,
       [documents],
     );
@@ -795,27 +830,30 @@ export default function CirclePage() {
     }
   }
 
-  function addDocument() {
-    const title =
-      documentTitle.trim();
-
-    if (!title) {
+  async function refreshDocuments() {
+    if (!workspace || documentsLoading) {
       return;
     }
 
-    setDocuments((current) => [
-      ...current,
-      {
-        id: createId(),
-        title,
-        category:
-          documentCategory,
-        status: "Draft",
-      },
-    ]);
+    setDocumentsLoading(true);
+    setDocumentMessage("");
 
-    setDocumentTitle("");
-    setDocumentCategory("Plan");
+    try {
+      const secureDocuments =
+        await readSecureCircleDocuments(
+          workspace.circle.id,
+        );
+
+      setDocuments(secureDocuments);
+    } catch (error) {
+      setDocumentMessage(
+        error instanceof Error
+          ? error.message
+          : "Two-step security is required.",
+      );
+    } finally {
+      setDocumentsLoading(false);
+    }
   }
 
   async function addMeeting() {
@@ -1030,15 +1068,40 @@ export default function CirclePage() {
     }
   }
 
-  function removeDocument(
+  async function removeDocument(
     documentId: string,
   ) {
-    setDocuments((current) =>
-      current.filter(
-        (document) =>
-          document.id !== documentId,
-      ),
-    );
+    if (documentWorkingId) {
+      return;
+    }
+
+    setDocumentWorkingId(documentId);
+    setDocumentMessage("");
+
+    try {
+      await archiveSecureCircleDocument(
+        documentId,
+      );
+
+      setDocuments((current) =>
+        current.filter(
+          (document) =>
+            document.id !== documentId,
+        ),
+      );
+
+      setDocumentMessage(
+        "Document archived securely.",
+      );
+    } catch (error) {
+      setDocumentMessage(
+        error instanceof Error
+          ? error.message
+          : "Two-step security is required.",
+      );
+    } finally {
+      setDocumentWorkingId("");
+    }
   }
 
   async function removeMeeting(
@@ -1163,30 +1226,6 @@ export default function CirclePage() {
     } finally {
       setGoalWorkingId("");
     }
-  }
-
-  function advanceDocument(
-    documentId: string,
-  ) {
-    const statuses = [
-      "Draft",
-      "Current",
-      "Review needed",
-    ] as const;
-
-    setDocuments((current) =>
-      current.map((document) =>
-        document.id === documentId
-          ? {
-              ...document,
-              status: getNextStatus(
-                document.status,
-                statuses,
-              ),
-            }
-          : document,
-      ),
-    );
   }
 
   async function advanceResponsibility(
@@ -2035,61 +2074,41 @@ export default function CirclePage() {
                   Documents and records
                 </h1>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_0.6fr]">
-                  <input
-                    value={documentTitle}
-                    onChange={(event) =>
-                      setDocumentTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Document title"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <select
-                    value={
-                      documentCategory
-                    }
-                    onChange={(event) =>
-                      setDocumentCategory(
-                        event.target
-                          .value as CircleDocument["category"],
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  >
-                    <option value="Plan">
-                      Plan
-                    </option>
-                    <option value="Agreement">
-                      Agreement
-                    </option>
-                    <option value="Report">
-                      Report
-                    </option>
-                    <option value="Meeting">
-                      Meeting
-                    </option>
-                    <option value="other">
-                      Other
-                    </option>
-                  </select>
-                </div>
+                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
+                  Documents are stored in the private
+                  Circle file area. Two-step security is
+                  required before document information can
+                  be viewed or changed.
+                </p>
 
                 <button
                   type="button"
-                  onClick={addDocument}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+                  onClick={() => {
+                    void refreshDocuments();
+                  }}
+                  disabled={documentsLoading}
+                  className="mt-5 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  Add document
+                  {documentsLoading
+                    ? "Opening secure documents…"
+                    : "Open secure documents"}
                 </button>
 
+                {documentMessage && (
+                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                    {documentMessage}
+                  </p>
+                )}
+
                 <div className="mt-6 space-y-3">
-                  {documents.length === 0 ? (
+                  {documentsLoading ? (
                     <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No shared documents have
-                      been added yet.
+                      Loading secure documents…
+                    </div>
+                  ) : documents.length === 0 ? (
+                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                      No secure documents are currently
+                      available.
                     </div>
                   ) : (
                     documents.map(
@@ -2100,45 +2119,37 @@ export default function CirclePage() {
                         >
                           <div>
                             <p className="font-serif text-xl">
-                              {
-                                document.title
-                              }
+                              {document.title}
                             </p>
 
                             <p className="mt-1 text-sm text-[#756151]">
-                              {
-                                document.category
-                              }
+                              {document.category} ·{" "}
+                              {document.document_status}
+                            </p>
+
+                            <p className="mt-2 text-sm text-[#8a786a]">
+                              {document.original_filename}
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                advanceDocument(
-                                  document.id,
-                                )
-                              }
-                              className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
-                            >
-                              {
-                                document.status
-                              }
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeDocument(
-                                  document.id,
-                                )
-                              }
-                              className="px-2 py-2 text-sm text-[#98765e]"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void removeDocument(
+                                document.id,
+                              );
+                            }}
+                            disabled={
+                              documentWorkingId ===
+                              document.id
+                            }
+                            className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
+                          >
+                            {documentWorkingId ===
+                            document.id
+                              ? "Archiving…"
+                              : "Archive"}
+                          </button>
                         </article>
                       ),
                     )
