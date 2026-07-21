@@ -436,7 +436,8 @@ export default function GlobalCompanionDock() {
 
   if (
     pathname === "/" ||
-    pathname === "/office"
+    pathname === "/office" ||
+    pathname === "/security/mfa"
   ) {
     return null;
   }
