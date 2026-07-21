@@ -168,6 +168,25 @@ async function requireUser(
   return user;
 }
 
+async function hasAal2(
+  supabase: SupabaseClient,
+): Promise<boolean> {
+  const {
+    data: assurance,
+    error,
+  } =
+    await supabase.auth.mfa
+      .getAuthenticatorAssuranceLevel();
+
+  if (error) {
+    return false;
+  }
+
+  return (
+    assurance.currentLevel === "aal2"
+  );
+}
+
 async function requireAal2(
   supabase: SupabaseClient,
   returnTo: string,
@@ -177,20 +196,11 @@ async function requireAal2(
     returnTo,
   );
 
-  const {
-    data: assurance,
-    error,
-  } =
-    await supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel();
+  const secure = await hasAal2(
+    supabase,
+  );
 
-  if (error) {
-    throw new Error(
-      "Your security level could not be checked.",
-    );
-  }
-
-  if (assurance.currentLevel !== "aal2") {
+  if (!secure) {
     openMfa(returnTo);
 
     throw new Error(
@@ -210,13 +220,20 @@ function friendlyDatabaseError(
   if (
     lowerMessage.includes(
       "sm_require_aal2",
-    ) ||
+    )
+  ) {
+    return new Error(
+      "A security check is required before changing private participant information.",
+    );
+  }
+
+  if (
     lowerMessage.includes(
       "row-level security",
     )
   ) {
     return new Error(
-      "A security check is required before changing private Circle information.",
+      "You do not have permission to make this change.",
     );
   }
 
@@ -246,18 +263,13 @@ export async function readSecureCircleOperations(
 }> {
   const supabase = getClient();
 
-  await requireAal2(
+  await requireUser(
     supabase,
     "/circle",
   );
 
-  const [
-    members,
-    meetings,
-    responsibilities,
-    budgets,
-  ] = await Promise.all([
-    supabase
+  const membersResult =
+    await supabase
       .from("circle_members")
       .select("*")
       .eq("circle_id", circleId)
@@ -265,8 +277,34 @@ export async function readSecureCircleOperations(
         "membership_status",
         "removed",
       )
-      .order("created_at"),
+      .order("created_at");
 
+  if (membersResult.error) {
+    throw friendlyDatabaseError(
+      membersResult.error.message,
+    );
+  }
+
+  const secure = await hasAal2(
+    supabase,
+  );
+
+  if (!secure) {
+    return {
+      members:
+        (membersResult.data ??
+          []) as unknown as SecureCircleMemberRecord[],
+      meetings: [],
+      responsibilities: [],
+      budgets: [],
+    };
+  }
+
+  const [
+    meetingsResult,
+    responsibilitiesResult,
+    budgetsResult,
+  ] = await Promise.all([
     supabase
       .from("circle_meetings")
       .select("*")
@@ -301,10 +339,9 @@ export async function readSecureCircleOperations(
   ]);
 
   for (const result of [
-    members,
-    meetings,
-    responsibilities,
-    budgets,
+    meetingsResult,
+    responsibilitiesResult,
+    budgetsResult,
   ]) {
     if (result.error) {
       throw friendlyDatabaseError(
@@ -315,19 +352,19 @@ export async function readSecureCircleOperations(
 
   return {
     members:
-      (members.data ??
+      (membersResult.data ??
         []) as unknown as SecureCircleMemberRecord[],
 
     meetings:
-      (meetings.data ??
+      (meetingsResult.data ??
         []) as unknown as SecureCircleMeeting[],
 
     responsibilities:
-      (responsibilities.data ??
+      (responsibilitiesResult.data ??
         []) as unknown as SecureCircleResponsibility[],
 
     budgets:
-      (budgets.data ??
+      (budgetsResult.data ??
         []) as unknown as SecureCircleBudgetItem[],
   };
 }
@@ -353,24 +390,9 @@ export async function inviteSecureCircleMember(
       "Name",
     );
 
-  if (
-    typeof window !== "undefined"
-  ) {
-    window.sessionStorage.setItem(
-      "smiling-monad-circle-invite-draft",
-      JSON.stringify({
-        name: cleanName,
-        email: cleanEmail,
-        role: input.role,
-        relationship:
-          input.relationship.trim(),
-      }),
-    );
-  }
-
   const supabase = getClient();
 
-  const user = await requireAal2(
+  const user = await requireUser(
     supabase,
     "/circle?panel=members",
   );
@@ -399,14 +421,6 @@ export async function inviteSecureCircleMember(
     );
   }
 
-  if (
-    typeof window !== "undefined"
-  ) {
-    window.sessionStorage.removeItem(
-      "smiling-monad-circle-invite-draft",
-    );
-  }
-
   return data as unknown as SecureCircleMemberRecord;
 }
 
@@ -426,7 +440,7 @@ export async function updateSecureCircleMember(
 ): Promise<SecureCircleMemberRecord> {
   const supabase = getClient();
 
-  await requireAal2(
+  await requireUser(
     supabase,
     "/circle?panel=members",
   );
