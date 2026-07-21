@@ -45,6 +45,8 @@ import {
   type SecureMemberRole,
 } from "@/lib/circle/secure-circle-operations-client";
 
+import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
+
 import {
   assignMandatoryCircleTraining,
   canMemberJoinCircle,
@@ -1612,121 +1614,133 @@ export default function CirclePage() {
                   paperwork.
                 </p>
 
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <label className="block">
+                <ParticipantPrivacyGate
+                  participantId={
+                    workspace.participant.id
+                  }
+                  circleId={workspace.circle.id}
+                  participantName={
+                    profile.preferredName ||
+                    profile.personName ||
+                    "this person"
+                  }
+                >
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-sm font-medium">
+                        Full name
+                      </span>
+
+                      <input
+                        value={
+                          profile.personName
+                        }
+                        onChange={(event) =>
+                          setProfile(
+                            (current) => ({
+                              ...current,
+                              personName:
+                                event.target
+                                  .value,
+                            }),
+                          )
+                        }
+                        onBlur={() => {
+                          void saveProfile();
+                        }}
+                        className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm font-medium">
+                        Preferred name
+                      </span>
+
+                      <input
+                        value={
+                          profile.preferredName
+                        }
+                        onChange={(event) =>
+                          setProfile(
+                            (current) => ({
+                              ...current,
+                              preferredName:
+                                event.target
+                                  .value,
+                            }),
+                          )
+                        }
+                        onBlur={() => {
+                          void saveProfile();
+                        }}
+                        className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="mt-4 block">
                     <span className="text-sm font-medium">
-                      Full name
+                      What matters to this person?
                     </span>
 
-                    <input
+                    <textarea
                       value={
-                        profile.personName
+                        profile.whatMatters
                       }
                       onChange={(event) =>
                         setProfile(
                           (current) => ({
                             ...current,
-                            personName:
-                              event.target
-                                .value,
+                            whatMatters:
+                              event.target.value,
                           }),
                         )
                       }
                       onBlur={() => {
                         void saveProfile();
                       }}
-                      className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                      placeholder="Important relationships, routines, interests, hopes, preferences and things that help life feel right."
+                      className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
                     />
                   </label>
 
-                  <label className="block">
+                  <label className="mt-4 block">
                     <span className="text-sm font-medium">
-                      Preferred name
+                      Communication and decision
+                      support
                     </span>
 
-                    <input
+                    <textarea
                       value={
-                        profile.preferredName
+                        profile.communication
                       }
                       onChange={(event) =>
                         setProfile(
                           (current) => ({
                             ...current,
-                            preferredName:
-                              event.target
-                                .value,
+                            communication:
+                              event.target.value,
                           }),
                         )
                       }
                       onBlur={() => {
                         void saveProfile();
                       }}
-                      className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                      placeholder="How the person communicates, understands information, expresses consent, makes choices and shows when something is wrong."
+                      className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
                     />
                   </label>
-                </div>
 
-                <label className="mt-4 block">
-                  <span className="text-sm font-medium">
-                    What matters to this person?
-                  </span>
-
-                  <textarea
-                    value={
-                      profile.whatMatters
-                    }
-                    onChange={(event) =>
-                      setProfile(
-                        (current) => ({
-                          ...current,
-                          whatMatters:
-                            event.target.value,
-                        }),
-                      )
-                    }
-                    onBlur={() => {
-                      void saveProfile();
-                    }}
-                    placeholder="Important relationships, routines, interests, hopes, preferences and things that help life feel right."
-                    className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                  />
-                </label>
-
-                <label className="mt-4 block">
-                  <span className="text-sm font-medium">
-                    Communication and decision
-                    support
-                  </span>
-
-                  <textarea
-                    value={
-                      profile.communication
-                    }
-                    onChange={(event) =>
-                      setProfile(
-                        (current) => ({
-                          ...current,
-                          communication:
-                            event.target.value,
-                        }),
-                      )
-                    }
-                    onBlur={() => {
-                      void saveProfile();
-                    }}
-                    placeholder="How the person communicates, understands information, expresses consent, makes choices and shows when something is wrong."
-                    className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                  />
-                </label>
-
-                <p className="mt-5 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                  {!loaded
-                    ? "Opening your secure Circle profile…"
-                    : profileSaving
-                      ? "Saving securely…"
-                      : profileMessage ||
-                        "Changes save securely when you leave a field."}
-                </p>
+                  <p className="mt-5 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                    {!loaded
+                      ? "Opening your secure Circle profile…"
+                      : profileSaving
+                        ? "Saving securely…"
+                        : profileMessage ||
+                          "Changes save securely when you leave a field."}
+                  </p>
+                </ParticipantPrivacyGate>
               </>
             )}
 
