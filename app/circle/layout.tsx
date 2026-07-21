@@ -9,15 +9,22 @@ export default function CircleLayout({
   children,
 }: CircleLayoutProps) {
   return (
-    <div className="relative min-h-screen">
+    <>
       {children}
 
       <Link
         href="/circle/conversation"
-        className="fixed right-5 top-5 z-[9999] flex min-h-12 items-center justify-center rounded-full border border-white/40 bg-[#60432f]/95 px-5 py-3 text-sm font-semibold text-white shadow-xl backdrop-blur"
+        aria-label="Open Circle conversation"
+        style={{
+          position: "fixed",
+          right: "24px",
+          bottom: "24px",
+          zIndex: 2147483647,
+        }}
+        className="flex min-h-14 items-center justify-center rounded-full border border-white/50 bg-[#60432f] px-6 py-3 text-base font-semibold text-white shadow-2xl"
       >
         Conversation
       </Link>
-    </div>
+    </>
   );
 }
