@@ -1,8 +1,4 @@
-import type {
-  ReactNode,
-} from "react";
-
-import RequireSignedInUser from "../../components/access/RequireSignedInUser";
+import type { ReactNode } from "react";
 
 type MarketLayoutProps = {
   children: ReactNode;
@@ -11,9 +7,5 @@ type MarketLayoutProps = {
 export default function MarketLayout({
   children,
 }: MarketLayoutProps) {
-  return (
-    <RequireSignedInUser>
-      {children}
-    </RequireSignedInUser>
-  );
+  return children;
 }
