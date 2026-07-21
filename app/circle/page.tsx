@@ -85,6 +85,9 @@ type ActivePanel =
   | "budget"
   | "training";
 
+const ACTIVE_CIRCLE_PANEL_KEY =
+  "smiling-monad-active-circle-panel";
+
 type StateUpdate<T> =
   | T
   | ((current: T) => T);
@@ -426,11 +429,6 @@ export default function CirclePage() {
       return;
     }
 
-    const panel =
-      new URLSearchParams(
-        window.location.search,
-      ).get("panel");
-
     const validPanels: ActivePanel[] = [
       "overview",
       "person",
@@ -443,17 +441,30 @@ export default function CirclePage() {
       "training",
     ];
 
-    if (
-      panel &&
-      validPanels.includes(
-        panel as ActivePanel,
-      )
-    ) {
-      setActivePanel(
-        panel as ActivePanel,
-      );
-    }
+    const panelFromUrl =
+      new URLSearchParams(
+        window.location.search,
+      ).get("panel");
 
+    const panelFromSession =
+      window.sessionStorage.getItem(
+        ACTIVE_CIRCLE_PANEL_KEY,
+      );
+
+    const restoredPanel =
+      panelFromUrl &&
+      validPanels.includes(
+        panelFromUrl as ActivePanel,
+      )
+        ? (panelFromUrl as ActivePanel)
+        : panelFromSession &&
+            validPanels.includes(
+              panelFromSession as ActivePanel,
+            )
+          ? (panelFromSession as ActivePanel)
+          : null;
+
+    setActivePanel(restoredPanel);
     setPanelNavigationReady(true);
   }, []);
 
@@ -470,11 +481,20 @@ export default function CirclePage() {
     );
 
     if (activePanel) {
+      window.sessionStorage.setItem(
+        ACTIVE_CIRCLE_PANEL_KEY,
+        activePanel,
+      );
+
       url.searchParams.set(
         "panel",
         activePanel,
       );
     } else {
+      window.sessionStorage.removeItem(
+        ACTIVE_CIRCLE_PANEL_KEY,
+      );
+
       url.searchParams.delete("panel");
     }
 
