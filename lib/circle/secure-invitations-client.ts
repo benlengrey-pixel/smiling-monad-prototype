@@ -32,6 +32,11 @@ export type SecureCircleInvitation = {
   access_ends_at: string | null;
   created_at: string;
   updated_at: string;
+  circle?: {
+    id: string;
+    name: string;
+    purpose: string;
+  } | null;
 };
 
 function describeError(error: unknown): string {
@@ -76,9 +81,26 @@ export async function readMySecureCircleInvitations(): Promise<
     getSupabaseBrowserClient();
 
   const { data, error } =
-    await supabase.rpc(
-      "sm_list_my_circle_invitations",
-    );
+    await supabase
+      .from("circle_members")
+      .select(
+        `
+          *,
+          circle:circles (
+            id,
+            name,
+            purpose
+          )
+        `,
+      )
+      .eq(
+        "membership_status",
+        "invited",
+      )
+      .order(
+        "invited_at",
+        { ascending: false },
+      );
 
   if (error) {
     throw new Error(
@@ -88,11 +110,12 @@ export async function readMySecureCircleInvitations(): Promise<
 
   return (
     data ?? []
-  ) as SecureCircleInvitation[];
+  ) as unknown as SecureCircleInvitation[];
 }
 
-export async function acceptSecureCircleInvitation(
+async function respondToSecureCircleInvitation(
   memberId: string,
+  response: "accept" | "decline",
 ): Promise<SecureCircleInvitation> {
   const cleanMemberId =
     memberId.trim();
@@ -110,10 +133,12 @@ export async function acceptSecureCircleInvitation(
 
   const { data, error } =
     await supabase.rpc(
-      "sm_accept_circle_invitation",
+      "respond_to_circle_invitation",
       {
-        requested_member_id:
+        invitation_id:
           cleanMemberId,
+        invitation_response:
+          response,
       },
     );
 
@@ -125,9 +150,29 @@ export async function acceptSecureCircleInvitation(
 
   if (!data) {
     throw new Error(
-      "The Circle invitation could not be accepted.",
+      response === "accept"
+        ? "The Circle invitation could not be accepted."
+        : "The Circle invitation could not be declined.",
     );
   }
 
   return data as SecureCircleInvitation;
+}
+
+export async function acceptSecureCircleInvitation(
+  memberId: string,
+): Promise<SecureCircleInvitation> {
+  return respondToSecureCircleInvitation(
+    memberId,
+    "accept",
+  );
+}
+
+export async function declineSecureCircleInvitation(
+  memberId: string,
+): Promise<SecureCircleInvitation> {
+  return respondToSecureCircleInvitation(
+    memberId,
+    "decline",
+  );
 }
