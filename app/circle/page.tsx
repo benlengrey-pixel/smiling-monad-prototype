@@ -2175,7 +2175,7 @@ export default function CirclePage() {
                 </p>
 
                 <Link
-                  href="/circle/documents/upload"
+                  href="/secure-document-upload"
                   className="mt-6 flex w-full items-center justify-center rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
                 >
                   Upload a secure document
