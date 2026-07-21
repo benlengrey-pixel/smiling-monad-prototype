@@ -416,6 +416,11 @@ export default function CirclePage() {
       null,
     );
 
+  const [
+    panelNavigationReady,
+    setPanelNavigationReady,
+  ] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -448,7 +453,40 @@ export default function CirclePage() {
         panel as ActivePanel,
       );
     }
+
+    setPanelNavigationReady(true);
   }, []);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !panelNavigationReady
+    ) {
+      return;
+    }
+
+    const url = new URL(
+      window.location.href,
+    );
+
+    if (activePanel) {
+      url.searchParams.set(
+        "panel",
+        activePanel,
+      );
+    } else {
+      url.searchParams.delete("panel");
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, [
+    activePanel,
+    panelNavigationReady,
+  ]);
 
   const [
     activeTrainingModule,
