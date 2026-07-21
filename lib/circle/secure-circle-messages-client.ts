@@ -151,3 +151,52 @@ export async function sendSecureCircleMessage(
 
   return data as unknown as SecureCircleMessage;
 }
+
+export function subscribeToSecureCircleMessages(
+  circleId: string,
+  onMessage: (
+    message: SecureCircleMessage,
+  ) => void,
+): () => void {
+  const cleanCircleId =
+    circleId.trim();
+
+  if (!cleanCircleId) {
+    return () => {};
+  }
+
+  const supabase =
+    getSupabaseBrowserClient();
+
+  const channel = supabase
+    .channel(
+      `circle-messages:${cleanCircleId}`,
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "circle_messages",
+        filter: `circle_id=eq.${cleanCircleId}`,
+      },
+      (payload) => {
+        const message =
+          payload.new as SecureCircleMessage;
+
+        if (
+          message.message_status ===
+          "active"
+        ) {
+          onMessage(message);
+        }
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(
+      channel,
+    );
+  };
+}
