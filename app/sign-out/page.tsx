@@ -1,90 +1,35 @@
 "use client";
 
-import {
-  useEffect,
-} from "react";
+import { useEffect } from "react";
+
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function SignOutPage() {
   useEffect(() => {
-    try {
-      for (
-        let index =
-          window.localStorage.length - 1;
-        index >= 0;
-        index -= 1
-      ) {
-        const key =
-          window.localStorage.key(
-            index,
-          );
+    let active = true;
 
-        if (
-          key &&
-          (
-            key.startsWith("sb-") ||
-            key.toLowerCase().includes(
-              "supabase",
-            )
-          )
-        ) {
-          window.localStorage.removeItem(
-            key,
-          );
-        }
-      }
+    async function signOut() {
+      try {
+        const supabase =
+          getSupabaseBrowserClient();
 
-      for (
-        let index =
-          window.sessionStorage.length - 1;
-        index >= 0;
-        index -= 1
-      ) {
-        const key =
-          window.sessionStorage.key(
-            index,
-          );
-
-        if (
-          key &&
-          (
-            key.startsWith("sb-") ||
-            key.toLowerCase().includes(
-              "supabase",
-            )
-          )
-        ) {
-          window.sessionStorage.removeItem(
-            key,
-          );
-        }
-      }
-
-      document.cookie
-        .split(";")
-        .forEach((cookie) => {
-          const name =
-            cookie
-              .split("=")[0]
-              ?.trim();
-
-          if (
-            name &&
-            (
-              name.startsWith("sb-") ||
-              name
-                .toLowerCase()
-                .includes("supabase")
-            )
-          ) {
-            document.cookie =
-              `${name}=; Max-Age=0; path=/`;
-          }
+        await supabase.auth.signOut({
+          scope: "local",
         });
-    } finally {
-      window.location.replace(
-        "/sign-in",
-      );
+      } finally {
+        if (active) {
+          window.location.replace(
+            "/sign-in",
+          );
+        }
+      }
     }
+
+    void signOut();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
