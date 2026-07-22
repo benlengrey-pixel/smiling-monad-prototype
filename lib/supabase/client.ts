@@ -81,6 +81,13 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     browserClient = createClient(
       supabaseUrl,
       supabasePublishableKey,
+      {
+        auth: {
+          experimental: {
+            passkey: true,
+          },
+        },
+      },
     );
   }
 
