@@ -13,6 +13,13 @@ export type SignedInIdentity = {
   email: string;
 };
 
+export type DeviceConfirmationStatus = {
+  ready: boolean;
+  currentLevel: string | null;
+  nextLevel: string | null;
+  passkeyCount: number;
+};
+
 function readablePasskeyError(
   error: unknown,
 ): string {
@@ -57,6 +64,90 @@ export async function readSignedInIdentity(): Promise<SignedInIdentity> {
   };
 }
 
+export async function readDeviceConfirmationStatus(): Promise<DeviceConfirmationStatus> {
+  await readSignedInIdentity();
+
+  const supabase =
+    getSupabaseBrowserClient();
+
+  const [
+    assuranceResult,
+    passkeyResult,
+  ] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.auth.passkey.list(),
+  ]);
+
+  if (assuranceResult.error) {
+    throw new Error(
+      assuranceResult.error.message,
+    );
+  }
+
+  if (passkeyResult.error) {
+    throw new Error(
+      passkeyResult.error.message,
+    );
+  }
+
+  const passkeyCount =
+    passkeyResult.data?.length ?? 0;
+
+  return {
+    ready: passkeyCount > 0,
+    currentLevel:
+      assuranceResult.data.currentLevel,
+    nextLevel:
+      assuranceResult.data.nextLevel,
+    passkeyCount,
+  };
+}
+
+export async function registerDevicePasskey(): Promise<DeviceConfirmationStatus> {
+  await readSignedInIdentity();
+
+  const supabase =
+    getSupabaseBrowserClient();
+
+  const {
+    data: assurance,
+    error: assuranceError,
+  } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+  if (assuranceError) {
+    throw new Error(
+      assuranceError.message,
+    );
+  }
+
+  if (
+    assurance.nextLevel === "aal2" &&
+    assurance.currentLevel !== "aal2"
+  ) {
+    throw new Error(
+      "Complete your existing two-step security check before setting up fingerprint, face or device PIN.",
+    );
+  }
+
+  try {
+    const {
+      error: registrationError,
+    } =
+      await supabase.auth.registerPasskey();
+
+    if (registrationError) {
+      throw registrationError;
+    }
+  } catch (error) {
+    throw new Error(
+      readablePasskeyError(error),
+    );
+  }
+
+  return readDeviceConfirmationStatus();
+}
+
 export async function confirmIdentityWithPasskey(): Promise<IdentityConfirmationResult> {
   const identity =
     await readSignedInIdentity();
@@ -76,20 +167,9 @@ export async function confirmIdentityWithPasskey(): Promise<IdentityConfirmation
     }
 
     if (!passkeys?.length) {
-      const {
-        error: registrationError,
-      } =
-        await supabase.auth.registerPasskey();
-
-      if (registrationError) {
-        throw registrationError;
-      }
-
-      return {
-        userId: identity.userId,
-        method: "passkey",
-        enrolledNow: true,
-      };
+      throw new Error(
+        "Fingerprint, face or device PIN has not been set up for this account yet.",
+      );
     }
 
     const {
