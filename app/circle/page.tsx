@@ -68,6 +68,11 @@ import {
   addAuditActorNames,
 } from "@/lib/circle/secure-audit-actors";
 
+import {
+  readSecureConsentSummary,
+  type SecureConsentSummary,
+} from "@/lib/circle/secure-consent-status-client";
+
 import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -321,6 +326,11 @@ export default function CirclePage() {
 
   const [auditMessage, setAuditMessage] =
     useState("");
+
+  const [consentSummary, setConsentSummary] =
+    useState<SecureConsentSummary | null>(
+      null,
+    );
 
   function commitCircle(
     updater: (
@@ -684,7 +694,20 @@ export default function CirclePage() {
           return;
         }
 
+        const secureConsentSummary =
+          await readSecureConsentSummary(
+            secureWorkspace.participant.id,
+            secureWorkspace.circle.id,
+          );
+
+        if (!active) {
+          return;
+        }
+
         setWorkspace(secureWorkspace);
+        setConsentSummary(
+          secureConsentSummary,
+        );
         setGoals(secureGoals);
         setMembers(secureOperations.members);
         setMeetings(secureOperations.meetings);
@@ -1943,6 +1966,25 @@ export default function CirclePage() {
                         "training" as ActivePanel,
                     },
                     {
+                      label: "Privacy consent",
+                      value:
+                        consentSummary?.health ===
+                        "current"
+                          ? "Current"
+                          : consentSummary?.health ===
+                              "review_due"
+                            ? "Review"
+                            : consentSummary?.health ===
+                                "expired"
+                              ? "Expired"
+                              : consentSummary?.health ===
+                                  "withdrawn"
+                                ? "Withdrawn"
+                                : "Missing",
+                      panel:
+                        "person" as ActivePanel,
+                    },
+                    {
                       label: "Audit events",
                       value: displayAuditEvents.length,
                       panel:
@@ -1968,6 +2010,67 @@ export default function CirclePage() {
                       </p>
                     </button>
                   ))}
+                </div>
+
+                <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-[#f7efe4] p-5 sm:p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+                    Privacy consent
+                  </p>
+
+                  <p className="mt-2 font-serif text-2xl">
+                    {consentSummary?.message ??
+                      "Checking privacy consent…"}
+                  </p>
+
+                  {consentSummary?.consent ? (
+                    <div className="mt-4 grid gap-2 text-sm leading-6 text-[#6a5b4e] sm:grid-cols-2">
+                      <p>
+                        Given by:{" "}
+                        <span className="font-semibold">
+                          {consentSummary.consent
+                            .given_by_name ||
+                            "Not recorded"}
+                        </span>
+                      </p>
+
+                      <p>
+                        Authority:{" "}
+                        <span className="font-semibold">
+                          {consentSummary.consent
+                            .authority_basis.replaceAll(
+                              "_",
+                              " ",
+                            )}
+                        </span>
+                      </p>
+
+                      <p>
+                        Review due:{" "}
+                        <span className="font-semibold">
+                          {consentSummary.consent
+                            .review_due_at
+                            ? new Date(
+                                consentSummary.consent
+                                  .review_due_at,
+                              ).toLocaleDateString()
+                            : "No date set"}
+                        </span>
+                      </p>
+
+                      <p>
+                        Valid until:{" "}
+                        <span className="font-semibold">
+                          {consentSummary.consent
+                            .valid_until
+                            ? new Date(
+                                consentSummary.consent
+                                  .valid_until,
+                              ).toLocaleDateString()
+                            : "No expiry set"}
+                        </span>
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-[#efe3d3] p-5 sm:p-6">
