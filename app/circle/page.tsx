@@ -64,6 +64,10 @@ import {
   type SecureAuditEvent,
 } from "@/lib/circle/secure-audit-client";
 
+import {
+  addAuditActorNames,
+} from "@/lib/circle/secure-audit-actors";
+
 import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -986,6 +990,20 @@ export default function CirclePage() {
         0,
       ),
     [budgets],
+  );
+
+  const displayAuditEvents = useMemo(
+    () =>
+      addAuditActorNames(
+        auditEvents,
+        members,
+        currentUserId,
+      ),
+    [
+      auditEvents,
+      members,
+      currentUserId,
+    ],
   );
 
   async function addMember() {
@@ -1926,7 +1944,7 @@ export default function CirclePage() {
                     },
                     {
                       label: "Audit events",
-                      value: auditEvents.length,
+                      value: displayAuditEvents.length,
                       panel:
                         "audit" as ActivePanel,
                     },
@@ -3445,13 +3463,13 @@ export default function CirclePage() {
                   <p className="mt-6 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
                     {auditMessage}
                   </p>
-                ) : auditEvents.length === 0 ? (
+                ) : displayAuditEvents.length === 0 ? (
                   <div className="mt-6 rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
                     No audit events are available for this Circle yet.
                   </div>
                 ) : (
                   <div className="mt-6 space-y-3">
-                    {auditEvents.map((event) => (
+                    {displayAuditEvents.map((event) => (
                       <article
                         key={event.id}
                         className="rounded-[18px] border border-[#decfba] bg-[#f7efe4] p-4"
@@ -3464,6 +3482,8 @@ export default function CirclePage() {
                             </p>
 
                             <p className="mt-1 text-sm text-[#756151]">
+                              {event.actor_name}
+                              {" · "}
                               {event.action
                                 .split("_")
                                 .map(
