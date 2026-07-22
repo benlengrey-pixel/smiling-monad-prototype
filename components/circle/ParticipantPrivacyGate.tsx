@@ -154,12 +154,8 @@ export default function ParticipantPrivacyGate({
   const [message, setMessage] =
     useState("");
 
-  const [
-    confirmationMethod,
-    setConfirmationMethod,
-  ] = useState<"passkey" | "email_code">(
-    "passkey",
-  );
+  const confirmationMethod =
+    "email_code" as const;
 
   const [emailCode, setEmailCode] =
     useState("");
@@ -754,123 +750,75 @@ export default function ParticipantPrivacyGate({
         </p>
 
         <p className="mt-2 text-sm leading-6">
-          Use your fingerprint, face or device PIN.
-          You can use a six-digit email code instead.
+          Send a six-digit code to the email address
+          already linked to your signed-in account.
         </p>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => {
-              setConfirmationMethod(
-                "passkey",
-              );
-              setEmailCode("");
-              setEmailCodeSent(false);
-              setMessage("");
-            }}
-            className={`rounded-full px-4 py-3 text-sm font-semibold ${
-              confirmationMethod === "passkey"
-                ? "bg-[#405237] text-white"
-                : "border border-[#9bae90] bg-white text-[#405237]"
-            }`}
-          >
-            Use fingerprint, face or PIN
-          </button>
+        <div className="mt-4 rounded-2xl bg-white/70 p-4">
+          {!emailCodeSent ? (
+            <button
+              type="button"
+              onClick={() => {
+                void sendEmailCode();
+              }}
+              disabled={working}
+              className="w-full rounded-full border border-[#9bae90] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+            >
+              {working
+                ? "Sending code…"
+                : "Send code to my email"}
+            </button>
+          ) : (
+            <>
+              <p className="text-sm leading-6">
+                Enter the six-digit code sent to{" "}
+                <strong>
+                  {emailDestination}
+                </strong>
+                .
+              </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              setConfirmationMethod(
-                "email_code",
-              );
-              setMessage("");
-            }}
-            className={`rounded-full px-4 py-3 text-sm font-semibold ${
-              confirmationMethod === "email_code"
-                ? "bg-[#405237] text-white"
-                : "border border-[#9bae90] bg-white text-[#405237]"
-            }`}
-          >
-            Use an email code
-          </button>
-        </div>
+              <input
+                value={emailCode}
+                onChange={(event) =>
+                  setEmailCode(
+                    event.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 6),
+                  )
+                }
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="Six-digit code"
+                className="mt-3 w-full rounded-2xl border border-[#b9c8b0] bg-white px-4 py-3 text-center text-lg tracking-[0.35em]"
+              />
 
-        {confirmationMethod ===
-        "email_code" ? (
-          <div className="mt-4 rounded-2xl bg-white/70 p-4">
-            {!emailCodeSent ? (
               <button
                 type="button"
                 onClick={() => {
                   void sendEmailCode();
                 }}
                 disabled={working}
-                className="w-full rounded-full border border-[#9bae90] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                className="mt-3 text-sm font-semibold underline"
               >
-                {working
-                  ? "Sending code…"
-                  : "Send code to my email"}
+                Send a new code
               </button>
-            ) : (
-              <>
-                <p className="text-sm leading-6">
-                  Enter the six-digit code sent to{" "}
-                  <strong>
-                    {emailDestination}
-                  </strong>
-                  .
-                </p>
-
-                <input
-                  value={emailCode}
-                  onChange={(event) =>
-                    setEmailCode(
-                      event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 6),
-                    )
-                  }
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="Six-digit code"
-                  className="mt-3 w-full rounded-2xl border border-[#b9c8b0] bg-white px-4 py-3 text-center text-lg tracking-[0.35em]"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void sendEmailCode();
-                  }}
-                  disabled={working}
-                  className="mt-3 text-sm font-semibold underline"
-                >
-                  Send a new code
-                </button>
-              </>
-            )}
-          </div>
-        ) : null}
+            </>
+          )}
+        </div>
       </section>
 
       <button
         type="submit"
         disabled={
           working ||
-          (
-            confirmationMethod ===
-              "email_code" &&
-            emailCode.length !== 6
-          )
+          emailCode.length !== 6
         }
         className="w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white disabled:opacity-50"
       >
         {working
           ? "Confirming your identity…"
-          : confirmationMethod ===
-              "email_code"
-            ? "Verify code and record consent"
-            : "Confirm and record consent"}
+          : "Verify code and record consent"}
       </button>
 
       {message ? (
