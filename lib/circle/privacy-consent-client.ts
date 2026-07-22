@@ -120,51 +120,27 @@ async function confirmSensitiveAction(
   return signedInUserId;
 }
 
-export async function readParticipantConsentGateStatus(
-  participantId: string,
-  circleId: string,
-): Promise<ParticipantConsentGateStatus | null> {
-  await requireSignedInSession();
-
-  const supabase =
-    getSupabaseBrowserClient();
-
-  const { data, error } =
-    await supabase.rpc(
-      "sm_participant_profile_consent_status",
-      {
-        requested_participant_id:
-          participantId,
-        requested_circle_id:
-          circleId,
-      },
+async function insertParticipantPrivacyConsent(
+  input: ParticipantConsentInput,
+  recordedBy: string,
+): Promise<string> {
+  if (
+    !input.participantId ||
+    !input.circleId
+  ) {
+    throw new Error(
+      "This Circle is missing its secure participant or Circle identifier.",
     );
-
-  if (error) {
-    throw new Error(error.message);
   }
 
-  const firstRecord =
-    Array.isArray(data)
-      ? data[0]
-      : data;
+  const currentUserId =
+    await requireSignedInSession();
 
-  return (
-    firstRecord ??
-    null
-  ) as ParticipantConsentGateStatus | null;
-}
-
-export async function createParticipantPrivacyConsent(
-  input: ParticipantConsentInput,
-  confirmation: IdentityConfirmation = {
-    method: "passkey",
-  },
-): Promise<string> {
-  const recordedBy =
-    await confirmSensitiveAction(
-      confirmation,
+  if (currentUserId !== recordedBy) {
+    throw new Error(
+      "The confirmed identity no longer matches the signed-in account.",
     );
+  }
 
   const supabase =
     getSupabaseBrowserClient();
@@ -220,6 +196,68 @@ export async function createParticipantPrivacyConsent(
   }
 
   return data.id;
+}
+
+export async function readParticipantConsentGateStatus(
+  participantId: string,
+  circleId: string,
+): Promise<ParticipantConsentGateStatus | null> {
+  await requireSignedInSession();
+
+  const supabase =
+    getSupabaseBrowserClient();
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_participant_profile_consent_status",
+      {
+        requested_participant_id:
+          participantId,
+        requested_circle_id:
+          circleId,
+      },
+    );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const firstRecord =
+    Array.isArray(data)
+      ? data[0]
+      : data;
+
+  return (
+    firstRecord ??
+    null
+  ) as ParticipantConsentGateStatus | null;
+}
+
+export async function createParticipantPrivacyConsent(
+  input: ParticipantConsentInput,
+  confirmation: IdentityConfirmation = {
+    method: "passkey",
+  },
+): Promise<string> {
+  const recordedBy =
+    await confirmSensitiveAction(
+      confirmation,
+    );
+
+  return insertParticipantPrivacyConsent(
+    input,
+    recordedBy,
+  );
+}
+
+export async function recordConfirmedParticipantPrivacyConsent(
+  input: ParticipantConsentInput,
+  confirmedUserId: string,
+): Promise<string> {
+  return insertParticipantPrivacyConsent(
+    input,
+    confirmedUserId,
+  );
 }
 
 export async function withdrawParticipantPrivacyConsent(
