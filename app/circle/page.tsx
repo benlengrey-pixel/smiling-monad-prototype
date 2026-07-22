@@ -2110,6 +2110,45 @@ export default function CirclePage() {
                   paperwork.
                 </p>
 
+                <div className="mt-6 rounded-[18px] border border-[#d8c7b1] bg-[#f7efe4] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+                        Privacy consent
+                      </p>
+
+                      <p className="mt-2 font-semibold text-[#4c3728]">
+                        {consentSummary?.message ??
+                          "Checking privacy consent…"}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full border border-[#d0bea7] bg-white px-3 py-1 text-xs font-semibold text-[#6d5e50]">
+                      {consentSummary?.health ===
+                      "current"
+                        ? "Current"
+                        : consentSummary?.health ===
+                            "review_due"
+                          ? "Review due"
+                          : consentSummary?.health ===
+                              "expired"
+                            ? "Expired"
+                            : consentSummary?.health ===
+                                "withdrawn"
+                              ? "Withdrawn"
+                              : "Not recorded"}
+                    </span>
+                  </div>
+
+                  {consentSummary?.health &&
+                  consentSummary.health !==
+                    "current" ? (
+                    <p className="mt-3 text-sm leading-6 text-[#6d5e50]">
+                      Personal information should not be relied on until consent is current. Use the consent controls below to review or record consent.
+                    </p>
+                  ) : null}
+                </div>
+
                 <ParticipantPrivacyGate
                   participantId={
                     workspace.participant.id
