@@ -17,6 +17,10 @@ import {
   type ParticipantConsentGateStatus,
 } from "@/lib/circle/privacy-consent-client";
 
+import {
+  sendIdentityEmailCode,
+} from "@/lib/auth/identity-confirmation-client";
+
 type ParticipantPrivacyGateProps = {
   participantId: string;
   circleId: string;
@@ -150,6 +154,22 @@ export default function ParticipantPrivacyGate({
   const [message, setMessage] =
     useState("");
 
+  const [
+    confirmationMethod,
+    setConfirmationMethod,
+  ] = useState<"passkey" | "email_code">(
+    "passkey",
+  );
+
+  const [emailCode, setEmailCode] =
+    useState("");
+
+  const [emailCodeSent, setEmailCodeSent] =
+    useState(false);
+
+  const [emailDestination, setEmailDestination] =
+    useState("");
+
   const [givenByName, setGivenByName] =
     useState("");
 
@@ -260,6 +280,36 @@ export default function ParticipantPrivacyGate({
     );
   }
 
+  async function sendEmailCode() {
+    if (working) {
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+
+    try {
+      const result =
+        await sendIdentityEmailCode();
+
+      setEmailDestination(
+        result.email,
+      );
+      setEmailCodeSent(true);
+      setMessage(
+        `A six-digit code was sent to ${result.email}.`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The email code could not be sent.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function submitConsent(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -310,7 +360,17 @@ export default function ParticipantPrivacyGate({
           toIsoOrNull(expiryDate),
         reviewDueAt:
           toIsoOrNull(reviewDate),
-      });
+      }, confirmationMethod === "email_code"
+        ? {
+            method: "email_code",
+            code: emailCode,
+          }
+        : {
+            method: "passkey",
+          });
+
+      setEmailCode("");
+      setEmailCodeSent(false);
 
       setMessage(
         "Privacy consent recorded securely.",
@@ -688,20 +748,129 @@ export default function ParticipantPrivacyGate({
         />
       </label>
 
-      <div className="rounded-2xl border border-[#bfd0b5] bg-[#e8f0e3] px-4 py-3 text-sm leading-6 text-[#405237]">
-        When you record consent, your device will ask
-        you to confirm it&apos;s you using your
-        fingerprint, face or device PIN.
-      </div>
+      <section className="rounded-[22px] border border-[#bfd0b5] bg-[#e8f0e3] p-4 text-[#405237]">
+        <p className="font-semibold">
+          Confirm it&apos;s you
+        </p>
+
+        <p className="mt-2 text-sm leading-6">
+          Use your fingerprint, face or device PIN.
+          You can use a six-digit email code instead.
+        </p>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmationMethod(
+                "passkey",
+              );
+              setEmailCode("");
+              setEmailCodeSent(false);
+              setMessage("");
+            }}
+            className={`rounded-full px-4 py-3 text-sm font-semibold ${
+              confirmationMethod === "passkey"
+                ? "bg-[#405237] text-white"
+                : "border border-[#9bae90] bg-white text-[#405237]"
+            }`}
+          >
+            Use fingerprint, face or PIN
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmationMethod(
+                "email_code",
+              );
+              setMessage("");
+            }}
+            className={`rounded-full px-4 py-3 text-sm font-semibold ${
+              confirmationMethod === "email_code"
+                ? "bg-[#405237] text-white"
+                : "border border-[#9bae90] bg-white text-[#405237]"
+            }`}
+          >
+            Use an email code
+          </button>
+        </div>
+
+        {confirmationMethod ===
+        "email_code" ? (
+          <div className="mt-4 rounded-2xl bg-white/70 p-4">
+            {!emailCodeSent ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void sendEmailCode();
+                }}
+                disabled={working}
+                className="w-full rounded-full border border-[#9bae90] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+              >
+                {working
+                  ? "Sending code…"
+                  : "Send code to my email"}
+              </button>
+            ) : (
+              <>
+                <p className="text-sm leading-6">
+                  Enter the six-digit code sent to{" "}
+                  <strong>
+                    {emailDestination}
+                  </strong>
+                  .
+                </p>
+
+                <input
+                  value={emailCode}
+                  onChange={(event) =>
+                    setEmailCode(
+                      event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6),
+                    )
+                  }
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="Six-digit code"
+                  className="mt-3 w-full rounded-2xl border border-[#b9c8b0] bg-white px-4 py-3 text-center text-lg tracking-[0.35em]"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void sendEmailCode();
+                  }}
+                  disabled={working}
+                  className="mt-3 text-sm font-semibold underline"
+                >
+                  Send a new code
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
+      </section>
 
       <button
         type="submit"
-        disabled={working}
+        disabled={
+          working ||
+          (
+            confirmationMethod ===
+              "email_code" &&
+            emailCode.length !== 6
+          )
+        }
         className="w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white disabled:opacity-50"
       >
         {working
           ? "Confirming your identity…"
-          : "Confirm and record consent"}
+          : confirmationMethod ===
+              "email_code"
+            ? "Verify code and record consent"
+            : "Confirm and record consent"}
       </button>
 
       {message ? (
