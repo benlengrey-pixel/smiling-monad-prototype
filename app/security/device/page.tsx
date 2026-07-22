@@ -150,29 +150,35 @@ export default function DeviceSecurityPage() {
         {!loading && !status?.ready ? (
           <div className="mt-6">
             {needsExistingMfa ? (
-              <div className="rounded-[22px] border border-[#dfc7a9] bg-[#fff3df] p-4 leading-6 text-[#6d4d2d]">
-                Complete the existing two-step
-                security check for this account,
-                then return here and set up this
-                device.
-              </div>
-            ) : null}
+              <>
+                <div className="rounded-[22px] border border-[#dfc7a9] bg-[#fff3df] p-4 leading-6 text-[#6d4d2d]">
+                  Confirm your existing two-step
+                  security once. You will return here
+                  automatically to set up fingerprint,
+                  face or PIN.
+                </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                void setUpDevice();
-              }}
-              disabled={
-                working ||
-                needsExistingMfa
-              }
-              className="mt-4 w-full rounded-full bg-[#405237] px-6 py-4 text-lg font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {working
-                ? "Setting up device…"
-                : "Set up fingerprint, face or PIN"}
-            </button>
+                <Link
+                  href="/security/mfa?returnTo=%2Fsecurity%2Fdevice"
+                  className="mt-4 block w-full rounded-full bg-[#60432f] px-6 py-4 text-center text-lg font-semibold text-white"
+                >
+                  Complete security check
+                </Link>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  void setUpDevice();
+                }}
+                disabled={working}
+                className="w-full rounded-full bg-[#405237] px-6 py-4 text-lg font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {working
+                  ? "Setting up device…"
+                  : "Set up fingerprint, face or PIN"}
+              </button>
+            )}
           </div>
         ) : null}
 
