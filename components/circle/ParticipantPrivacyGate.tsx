@@ -24,6 +24,9 @@ type ParticipantPrivacyGateProps = {
   children: ReactNode;
 };
 
+const SECURE_WORKSPACE_RELOAD_KEY =
+  "smiling-monad-secure-circle-reloaded";
+
 const informationOptions: Array<{
   value: ConsentInformationCategory;
   label: string;
@@ -238,6 +241,36 @@ export default function ParticipantPrivacyGate({
   }
 
   useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      (!participantId || !circleId)
+    ) {
+      const alreadyReloaded =
+        window.sessionStorage.getItem(
+          SECURE_WORKSPACE_RELOAD_KEY,
+        );
+
+      if (!alreadyReloaded) {
+        window.sessionStorage.setItem(
+          SECURE_WORKSPACE_RELOAD_KEY,
+          "true",
+        );
+
+        window.location.reload();
+        return;
+      }
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      participantId &&
+      circleId
+    ) {
+      window.sessionStorage.removeItem(
+        SECURE_WORKSPACE_RELOAD_KEY,
+      );
+    }
+
     void refreshStatus();
   }, [participantId, circleId]);
 
@@ -382,6 +415,43 @@ export default function ParticipantPrivacyGate({
       <div className="mt-6 rounded-[22px] border border-[#d8c7b1] bg-[#efe3d3] p-5">
         Checking privacy consent and secure access…
       </div>
+    );
+  }
+
+  if (!participantId || !circleId) {
+    return (
+      <section className="mt-6 rounded-[22px] border border-[#dfc7a9] bg-[#fff3df] p-5 text-[#6d4d2d]">
+        <p className="font-semibold">
+          Reopen the secure Circle
+        </p>
+
+        <p className="mt-2 text-sm leading-6">
+          Your device confirmation succeeded, but
+          this page still contains the earlier
+          limited workspace. Reopen it to load the
+          secure participant and Circle identifiers.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (
+              typeof window !== "undefined"
+            ) {
+              window.sessionStorage.removeItem(
+                SECURE_WORKSPACE_RELOAD_KEY,
+              );
+
+              window.location.replace(
+                "/circle?panel=person",
+              );
+            }
+          }}
+          className="mt-4 w-full rounded-full bg-[#60432f] px-5 py-3 font-semibold text-white"
+        >
+          Reopen secure Circle
+        </button>
+      </section>
     );
   }
 
