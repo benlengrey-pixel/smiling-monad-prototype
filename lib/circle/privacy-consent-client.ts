@@ -1,6 +1,9 @@
 "use client";
 
-import { confirmIdentityWithPasskey } from "@/lib/auth/identity-confirmation-client";
+import {
+  confirmIdentityWithEmailCode,
+  confirmIdentityWithPasskey,
+} from "@/lib/auth/identity-confirmation-client";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type ConsentAuthorityBasis =
@@ -35,6 +38,15 @@ export type ConsentPermittedRole =
   | "professional"
   | "circle_manager"
   | "circle_member";
+
+export type IdentityConfirmation =
+  | {
+      method: "passkey";
+    }
+  | {
+      method: "email_code";
+      code: string;
+    };
 
 export type ParticipantConsentInput = {
   participantId: string;
@@ -83,15 +95,21 @@ async function requireSignedInSession(): Promise<string> {
   return user.id;
 }
 
-async function confirmSensitiveAction(): Promise<string> {
+async function confirmSensitiveAction(
+  confirmation: IdentityConfirmation,
+): Promise<string> {
   const signedInUserId =
     await requireSignedInSession();
 
-  const confirmation =
-    await confirmIdentityWithPasskey();
+  const result =
+    confirmation.method === "email_code"
+      ? await confirmIdentityWithEmailCode(
+          confirmation.code,
+        )
+      : await confirmIdentityWithPasskey();
 
   if (
-    confirmation.userId !==
+    result.userId !==
     signedInUserId
   ) {
     throw new Error(
@@ -139,9 +157,14 @@ export async function readParticipantConsentGateStatus(
 
 export async function createParticipantPrivacyConsent(
   input: ParticipantConsentInput,
+  confirmation: IdentityConfirmation = {
+    method: "passkey",
+  },
 ): Promise<string> {
   const recordedBy =
-    await confirmSensitiveAction();
+    await confirmSensitiveAction(
+      confirmation,
+    );
 
   const supabase =
     getSupabaseBrowserClient();
@@ -202,8 +225,13 @@ export async function createParticipantPrivacyConsent(
 export async function withdrawParticipantPrivacyConsent(
   consentId: string,
   reason: string,
+  confirmation: IdentityConfirmation = {
+    method: "passkey",
+  },
 ): Promise<void> {
-  await confirmSensitiveAction();
+  await confirmSensitiveAction(
+    confirmation,
+  );
 
   const cleanReason =
     reason.trim();
