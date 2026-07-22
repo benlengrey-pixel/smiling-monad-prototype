@@ -69,8 +69,11 @@ import {
 } from "@/lib/circle/secure-audit-actors";
 
 import AuditPanel from "@/components/circle/panels/AuditPanel";
+import ConversationPanel from "@/components/circle/panels/ConversationPanel";
 import DocumentsPanel from "@/components/circle/panels/DocumentsPanel";
 import GoalsPanel from "@/components/circle/panels/GoalsPanel";
+import MeetingsPanel from "@/components/circle/panels/MeetingsPanel";
+import ResponsibilitiesPanel from "@/components/circle/panels/ResponsibilitiesPanel";
 
 import {
   readSecureConsentSummary,
@@ -2429,115 +2432,19 @@ export default function CirclePage() {
 
             {activePanel ===
               "conversation" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Shared Circle conversation
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Circle messages
-                </h1>
-
-                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
-                  A shared text conversation for active
-                  Circle members. Kimi’s personal controls
-                  remain separate.
-                </p>
-
-                <div className="mt-6 max-h-[44svh] space-y-3 overflow-y-auto rounded-[22px] border border-[#d8c7b1] bg-[#f5ecdf] p-4 sm:p-5">
-                  {circleMessagesLoading ? (
-                    <p className="rounded-[16px] bg-white/80 px-4 py-3 text-[#756151]">
-                      Loading Circle conversation…
-                    </p>
-                  ) : circleMessages.length === 0 ? (
-                    <p className="rounded-[16px] border border-dashed border-[#cdbba4] bg-white/70 px-4 py-5 text-[#756151]">
-                      No messages yet. Start the Circle
-                      conversation below.
-                    </p>
-                  ) : (
-                    circleMessages.map((message) => (
-                      <article
-                        key={message.id}
-                        className="rounded-[18px] border border-[#dfd2c1] bg-white p-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="font-semibold text-[#4f3b2d]">
-                            {message.sender_name}
-                          </p>
-
-                          <time className="text-xs text-[#8a786a]">
-                            {new Date(
-                              message.created_at,
-                            ).toLocaleString()}
-                          </time>
-                        </div>
-
-                        <p className="mt-2 whitespace-pre-wrap leading-7 text-[#5f5044]">
-                          {message.message_body}
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-
-                <label className="mt-5 block">
-                  <span className="text-sm font-medium">
-                    Message the Circle
-                  </span>
-
-                  <textarea
-                    value={circleMessageText}
-                    onChange={(event) =>
-                      setCircleMessageText(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter" &&
-                        !event.shiftKey
-                      ) {
-                        event.preventDefault();
-                        void sendCircleMessage();
-                      }
-                    }}
-                    maxLength={4000}
-                    placeholder="Write a message for active Circle members…"
-                    className="mt-2 min-h-28 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                  />
-                </label>
-
-                <div className="mt-2 flex items-center justify-between gap-4 text-xs text-[#8a786a]">
-                  <span>
-                    Enter sends · Shift+Enter adds a line
-                  </span>
-                  <span>
-                    {circleMessageText.length}/4000
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void sendCircleMessage();
-                  }}
-                  disabled={
-                    circleMessageWorking ||
-                    !circleMessageText.trim()
-                  }
-                  className="mt-4 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {circleMessageWorking
-                    ? "Sending securely…"
-                    : "Send to Circle"}
-                </button>
-
-                {circleMessageNotice && (
-                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                    {circleMessageNotice}
-                  </p>
-                )}
-              </>
+              <ConversationPanel
+                messages={circleMessages}
+                loading={circleMessagesLoading}
+                working={circleMessageWorking}
+                messageText={circleMessageText}
+                notice={circleMessageNotice}
+                onMessageTextChange={
+                  setCircleMessageText
+                }
+                onSendMessage={() => {
+                  void sendCircleMessage();
+                }}
+              />
             )}
 
             {activePanel === "goals" && (
@@ -2583,249 +2490,57 @@ export default function CirclePage() {
 
             {activePanel ===
               "meetings" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Shared communication
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Meetings
-                </h1>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_0.55fr]">
-                  <input
-                    value={meetingTitle}
-                    onChange={(event) =>
-                      setMeetingTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Meeting title"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    type="date"
-                    value={meetingDate}
-                    onChange={(event) =>
-                      setMeetingDate(
-                        event.target.value,
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-                </div>
-
-                <input
-                  value={meetingPurpose}
-                  onChange={(event) =>
-                    setMeetingPurpose(
-                      event.target.value,
-                    )
-                  }
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter"
-                    ) {
-                      addMeeting();
-                    }
-                  }}
-                  placeholder="Purpose"
-                  className="mt-3 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addMeeting();
-                  }}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-                >
-                  Add meeting
-                </button>
-
-                <div className="mt-6 space-y-3">
-                  {meetings.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No meetings have been
-                      added yet.
-                    </div>
-                  ) : (
-                    meetings.map(
-                      (meeting) => (
-                        <article
-                          key={meeting.id}
-                          className="rounded-[20px] border border-[#dfd2c1] bg-white p-5"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="font-serif text-xl">
-                                {
-                                  meeting.title
-                                }
-                              </p>
-
-                              <p className="mt-1 text-sm text-[#756151]">
-                                {meeting.meeting_date ||
-                                  "Date not set"}
-                              </p>
-
-                              <p className="mt-3 leading-7 text-[#6b5d50]">
-                                {
-                                  meeting.purpose
-                                }
-                              </p>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void removeMeeting(
-                                  meeting.id,
-                                )
-                              }
-                              className="text-sm text-[#98765e]"
-                            >
-                              Archive
-                            </button>
-                          </div>
-                        </article>
-                      ),
-                    )
-                  )}
-                </div>
-              </>
+              <MeetingsPanel
+                meetings={meetings}
+                title={meetingTitle}
+                date={meetingDate}
+                purpose={meetingPurpose}
+                onTitleChange={setMeetingTitle}
+                onDateChange={setMeetingDate}
+                onPurposeChange={
+                  setMeetingPurpose
+                }
+                onAddMeeting={() => {
+                  void addMeeting();
+                }}
+                onArchiveMeeting={(meetingId) => {
+                  void removeMeeting(meetingId);
+                }}
+              />
             )}
 
             {activePanel ===
               "responsibilities" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Clear roles and follow-through
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Responsibilities
-                </h1>
-
-                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
-                  This area can later include
-                  budgets, service agreements,
-                  consent, permissions, funding
-                  responsibilities and who is
-                  completing each agreed action.
-                </p>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_0.65fr]">
-                  <input
-                    value={
-                      responsibilityTitle
-                    }
-                    onChange={(event) =>
-                      setResponsibilityTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Responsibility or action"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    value={
-                      responsibilityOwner
-                    }
-                    onChange={(event) =>
-                      setResponsibilityOwner(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter"
-                      ) {
-                        void addResponsibility();
-                      }
-                    }}
-                    placeholder="Responsible person"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addResponsibility();
-                  }}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-                >
-                  Add responsibility
-                </button>
-
-                <div className="mt-6 space-y-3">
-                  {responsibilities.length ===
-                  0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No responsibilities have
-                      been recorded yet.
-                    </div>
-                  ) : (
-                    responsibilities.map(
-                      (responsibility) => (
-                        <article
-                          key={
-                            responsibility.id
-                          }
-                          className="flex flex-col gap-4 rounded-[20px] border border-[#dfd2c1] bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div>
-                            <p className="font-serif text-xl">
-                              {
-                                responsibility.title
-                              }
-                            </p>
-
-                            <p className="mt-1 text-sm text-[#756151]">
-                              Responsible:{" "}
-                              {
-                                responsibility.owner_name
-                              }
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                advanceResponsibility(
-                                  responsibility,
-                                )
-                              }
-                              className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
-                            >
-                              {
-                                responsibility.responsibility_status
-                              }
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void removeResponsibility(
-                                  responsibility.id,
-                                )
-                              }
-                              className="px-2 py-2 text-sm text-[#98765e]"
-                            >
-                              Archive
-                            </button>
-                          </div>
-                        </article>
-                      ),
-                    )
-                  )}
-                </div>
-
-              </>
+              <ResponsibilitiesPanel
+                responsibilities={
+                  responsibilities
+                }
+                title={responsibilityTitle}
+                owner={responsibilityOwner}
+                onTitleChange={
+                  setResponsibilityTitle
+                }
+                onOwnerChange={
+                  setResponsibilityOwner
+                }
+                onAddResponsibility={() => {
+                  void addResponsibility();
+                }}
+                onAdvanceResponsibility={(
+                  responsibility,
+                ) => {
+                  void advanceResponsibility(
+                    responsibility,
+                  );
+                }}
+                onArchiveResponsibility={(
+                  responsibilityId,
+                ) => {
+                  void removeResponsibility(
+                    responsibilityId,
+                  );
+                }}
+              />
             )}
 
             {activePanel === "budget" && (
