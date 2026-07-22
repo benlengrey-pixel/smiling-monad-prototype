@@ -10,12 +10,15 @@ import {
 import {
   createParticipantPrivacyConsent,
   readParticipantConsentGateStatus,
+  recordConfirmedParticipantPrivacyConsent,
   withdrawParticipantPrivacyConsent,
   type ConsentAuthorityBasis,
   type ConsentInformationCategory,
   type ConsentPermittedRole,
   type ParticipantConsentGateStatus,
+  type ParticipantConsentInput,
 } from "@/lib/circle/privacy-consent-client";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ParticipantPrivacyGateProps = {
   participantId: string;
@@ -26,6 +29,16 @@ type ParticipantPrivacyGateProps = {
 
 const SECURE_WORKSPACE_RELOAD_KEY =
   "smiling-monad-secure-circle-reloaded";
+
+const PENDING_PRIVACY_CONSENT_KEY =
+  "smiling-monad-pending-privacy-consent";
+
+type PendingPrivacyConsent = {
+  version: 1;
+  createdAt: string;
+  previousAccessToken: string;
+  input: ParticipantConsentInput;
+};
 
 const informationOptions: Array<{
   value: ConsentInformationCategory;
@@ -289,6 +302,130 @@ export default function ParticipantPrivacyGate({
     void refreshStatus();
   }, [participantId, circleId]);
 
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !participantId ||
+      !circleId
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    async function resumePendingConsent() {
+      const stored =
+        window.sessionStorage.getItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+        );
+
+      if (!stored) {
+        return;
+      }
+
+      let pending: PendingPrivacyConsent;
+
+      try {
+        pending =
+          JSON.parse(
+            stored,
+          ) as PendingPrivacyConsent;
+      } catch {
+        window.sessionStorage.removeItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+        );
+        return;
+      }
+
+      if (
+        pending.version !== 1 ||
+        pending.input.participantId !==
+          participantId ||
+        pending.input.circleId !==
+          circleId
+      ) {
+        return;
+      }
+
+      const createdAt =
+        new Date(
+          pending.createdAt,
+        ).getTime();
+
+      if (
+        !Number.isFinite(createdAt) ||
+        Date.now() - createdAt >
+          10 * 60 * 1000
+      ) {
+        window.sessionStorage.removeItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+        );
+        return;
+      }
+
+      const supabase =
+        getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (
+        !session ||
+        session.access_token ===
+          pending.previousAccessToken
+      ) {
+        return;
+      }
+
+      setWorking(true);
+      setMessage(
+        "Finishing secure consent recording…",
+      );
+
+      try {
+        await recordConfirmedParticipantPrivacyConsent(
+          pending.input,
+          session.user.id,
+        );
+
+        window.sessionStorage.removeItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+        );
+
+        if (!active) {
+          return;
+        }
+
+        setMessage(
+          "Privacy consent recorded securely.",
+        );
+
+        await refreshStatus();
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Privacy consent could not be completed after identity confirmation.",
+        );
+      } finally {
+        if (active) {
+          setWorking(false);
+        }
+      }
+    }
+
+    void resumePendingConsent();
+
+    return () => {
+      active = false;
+    };
+  }, [participantId, circleId]);
+
   function toggleInformationCategory(
     category: ConsentInformationCategory,
   ) {
@@ -317,6 +454,39 @@ export default function ParticipantPrivacyGate({
     );
   }
 
+  function buildConsentInput(): ParticipantConsentInput {
+    return {
+      participantId,
+      circleId,
+      givenByUserId: null,
+      givenByName,
+      authorityBasis,
+      purpose,
+      informationScope:
+        informationCategories.join(
+          ", ",
+        ),
+      recipientScope:
+        permittedRoles.join(", "),
+      informationCategories,
+      permittedRoles,
+      restrictions,
+      evidenceNotes,
+      consentedAt:
+        new Date(
+          `${consentDate}T00:00:00`,
+        ).toISOString(),
+      validFrom:
+        new Date(
+          `${consentDate}T00:00:00`,
+        ).toISOString(),
+      validUntil:
+        toIsoOrNull(expiryDate),
+      reviewDueAt:
+        toIsoOrNull(reviewDate),
+    };
+  }
+
   async function submitConsent(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -342,36 +512,51 @@ export default function ParticipantPrivacyGate({
     setMessage("");
 
     try {
-      await createParticipantPrivacyConsent({
-        participantId,
-        circleId,
-        givenByUserId: null,
-        givenByName,
-        authorityBasis,
-        purpose,
-        informationScope:
-          informationCategories.join(
-            ", ",
-          ),
-        recipientScope:
-          permittedRoles.join(", "),
-        informationCategories,
-        permittedRoles,
-        restrictions,
-        evidenceNotes,
-        consentedAt:
-          new Date(
-            `${consentDate}T00:00:00`,
-          ).toISOString(),
-        validFrom:
-          new Date(
-            `${consentDate}T00:00:00`,
-          ).toISOString(),
-        validUntil:
-          toIsoOrNull(expiryDate),
-        reviewDueAt:
-          toIsoOrNull(reviewDate),
-      });
+      const input =
+        buildConsentInput();
+
+      const supabase =
+        getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error(
+          "You must be signed in.",
+        );
+      }
+
+      const pending: PendingPrivacyConsent = {
+        version: 1,
+        createdAt:
+          new Date().toISOString(),
+        previousAccessToken:
+          session.access_token,
+        input,
+      };
+
+      if (
+        typeof window !== "undefined"
+      ) {
+        window.sessionStorage.setItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+          JSON.stringify(pending),
+        );
+      }
+
+      await createParticipantPrivacyConsent(
+        input,
+      );
+
+      if (
+        typeof window !== "undefined"
+      ) {
+        window.sessionStorage.removeItem(
+          PENDING_PRIVACY_CONSENT_KEY,
+        );
+      }
 
       setMessage(
         "Privacy consent recorded securely.",
