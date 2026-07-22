@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmIdentityWithPasskey } from "@/lib/auth/identity-confirmation-client";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type ConsentAuthorityBasis =
@@ -64,7 +65,7 @@ export type ParticipantConsentGateStatus = {
   restrictions: string | null;
 };
 
-async function requireSecureSession(): Promise<string> {
+async function requireSignedInSession(): Promise<string> {
   const supabase =
     getSupabaseBrowserClient();
 
@@ -79,35 +80,33 @@ async function requireSecureSession(): Promise<string> {
     );
   }
 
-  const {
-    data: assurance,
-    error: assuranceError,
-  } =
-    await supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel();
+  return user.id;
+}
 
-  if (assuranceError) {
-    throw new Error(
-      assuranceError.message,
-    );
-  }
+async function confirmSensitiveAction(): Promise<string> {
+  const signedInUserId =
+    await requireSignedInSession();
+
+  const confirmation =
+    await confirmIdentityWithPasskey();
 
   if (
-    assurance.currentLevel !== "aal2"
+    confirmation.userId !==
+    signedInUserId
   ) {
     throw new Error(
-      "Two-step security is required.",
+      "Identity confirmation did not match the signed-in account.",
     );
   }
 
-  return user.id;
+  return signedInUserId;
 }
 
 export async function readParticipantConsentGateStatus(
   participantId: string,
   circleId: string,
 ): Promise<ParticipantConsentGateStatus | null> {
-  await requireSecureSession();
+  await requireSignedInSession();
 
   const supabase =
     getSupabaseBrowserClient();
@@ -142,7 +141,7 @@ export async function createParticipantPrivacyConsent(
   input: ParticipantConsentInput,
 ): Promise<string> {
   const recordedBy =
-    await requireSecureSession();
+    await confirmSensitiveAction();
 
   const supabase =
     getSupabaseBrowserClient();
@@ -204,7 +203,7 @@ export async function withdrawParticipantPrivacyConsent(
   consentId: string,
   reason: string,
 ): Promise<void> {
-  await requireSecureSession();
+  await confirmSensitiveAction();
 
   const cleanReason =
     reason.trim();
