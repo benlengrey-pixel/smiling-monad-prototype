@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  type ReactNode,
   useEffect,
   useState,
 } from "react";
@@ -20,7 +21,7 @@ type ParticipantPrivacyGateProps = {
   participantId: string;
   circleId: string;
   participantName: string;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 const informationOptions: Array<{
@@ -381,8 +382,8 @@ export default function ParticipantPrivacyGate({
 
           <p className="mt-2 text-sm leading-6 text-[#53634a]">
             The profile may be opened because active
-            consent, Circle membership and MFA have
-            all been confirmed.
+            consent and Circle membership have been
+            confirmed.
           </p>
 
           {status.restrictions ? (
@@ -398,6 +399,11 @@ export default function ParticipantPrivacyGate({
         <section className="mt-6 rounded-[22px] border border-[#dfc9c2] bg-[#f4e3df] p-5">
           <p className="font-semibold text-[#733f35]">
             Withdraw consent
+          </p>
+
+          <p className="mt-2 text-sm leading-6 text-[#754f47]">
+            Withdrawing consent requires confirmation
+            using your fingerprint, face or device PIN.
           </p>
 
           <textarea
@@ -422,7 +428,9 @@ export default function ParticipantPrivacyGate({
             }
             className="mt-3 rounded-full bg-[#733f35] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
-            Withdraw and lock profile
+            {working
+              ? "Confirming your identity…"
+              : "Confirm and withdraw consent"}
           </button>
         </section>
 
@@ -681,8 +689,9 @@ export default function ParticipantPrivacyGate({
       </label>
 
       <div className="rounded-2xl border border-[#bfd0b5] bg-[#e8f0e3] px-4 py-3 text-sm leading-6 text-[#405237]">
-        MFA confirmation is checked automatically
-        before consent can be saved.
+        When you record consent, your device will ask
+        you to confirm it&apos;s you using your
+        fingerprint, face or device PIN.
       </div>
 
       <button
@@ -691,8 +700,8 @@ export default function ParticipantPrivacyGate({
         className="w-full rounded-full bg-[#60432f] px-6 py-3 font-semibold text-white disabled:opacity-50"
       >
         {working
-          ? "Recording consent securely…"
-          : "Record privacy consent"}
+          ? "Confirming your identity…"
+          : "Confirm and record consent"}
       </button>
 
       {message ? (
