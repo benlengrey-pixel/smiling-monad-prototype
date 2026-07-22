@@ -59,6 +59,11 @@ import {
   type SecureMemberRole,
 } from "@/lib/circle/secure-circle-operations-client";
 
+import {
+  readSecureCircleAuditHistory,
+  type SecureAuditEvent,
+} from "@/lib/circle/secure-audit-client";
+
 import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -89,7 +94,8 @@ type ActivePanel =
   | "meetings"
   | "responsibilities"
   | "budget"
-  | "training";
+  | "training"
+  | "audit";
 
 const ACTIVE_CIRCLE_PANEL_KEY =
   "smiling-monad-active-circle-panel";
@@ -303,6 +309,15 @@ export default function CirclePage() {
   const [circleMessageNotice, setCircleMessageNotice] =
     useState("");
 
+  const [auditEvents, setAuditEvents] =
+    useState<SecureAuditEvent[]>([]);
+
+  const [auditLoading, setAuditLoading] =
+    useState(false);
+
+  const [auditMessage, setAuditMessage] =
+    useState("");
+
   function commitCircle(
     updater: (
       current: CircleState,
@@ -437,6 +452,7 @@ export default function CirclePage() {
       "responsibilities",
       "budget",
       "training",
+      "audit",
     ];
 
     const panelFromUrl =
@@ -845,6 +861,55 @@ export default function CirclePage() {
         });
       },
     );
+  }, [activePanel, workspace]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAuditHistory() {
+      if (
+        activePanel !== "audit" ||
+        !workspace
+      ) {
+        return;
+      }
+
+      setAuditLoading(true);
+      setAuditMessage("");
+
+      try {
+        const events =
+          await readSecureCircleAuditHistory(
+            workspace.circle.id,
+          );
+
+        if (!active) {
+          return;
+        }
+
+        setAuditEvents(events);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setAuditMessage(
+          error instanceof Error
+            ? error.message
+            : "The secure audit history could not be loaded.",
+        );
+      } finally {
+        if (active) {
+          setAuditLoading(false);
+        }
+      }
+    }
+
+    void loadAuditHistory();
+
+    return () => {
+      active = false;
+    };
   }, [activePanel, workspace]);
 
   useEffect(() => {
@@ -1730,6 +1795,7 @@ export default function CirclePage() {
           ],
           ["budget", "Budget"],
           ["training", "Training"],
+          ["audit", "Audit"],
         ].map(([panel, label]) => (
           <button
             key={panel}
@@ -1857,6 +1923,12 @@ export default function CirclePage() {
                         pendingTrainingRequirements,
                       panel:
                         "training" as ActivePanel,
+                    },
+                    {
+                      label: "Audit events",
+                      value: auditEvents.length,
+                      panel:
+                        "audit" as ActivePanel,
                     },
                   ].map((item) => (
                     <button
@@ -3351,6 +3423,84 @@ export default function CirclePage() {
                 </div>
               </>
             )}
+            {activePanel === "audit" && (
+              <>
+                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
+                  Security and accountability
+                </p>
+
+                <h1 className="mt-3 font-serif text-3xl">
+                  Audit history
+                </h1>
+
+                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
+                  A secure, append-only record of changes to this Circle, including consent, membership, permissions and participant information.
+                </p>
+
+                {auditLoading ? (
+                  <div className="mt-6 rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                    Loading secure audit history…
+                  </div>
+                ) : auditMessage ? (
+                  <p className="mt-6 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
+                    {auditMessage}
+                  </p>
+                ) : auditEvents.length === 0 ? (
+                  <div className="mt-6 rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
+                    No audit events are available for this Circle yet.
+                  </div>
+                ) : (
+                  <div className="mt-6 space-y-3">
+                    {auditEvents.map((event) => (
+                      <article
+                        key={event.id}
+                        className="rounded-[18px] border border-[#decfba] bg-[#f7efe4] p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-[#4c3728]">
+                              {event.event_summary ||
+                                event.entity_type}
+                            </p>
+
+                            <p className="mt-1 text-sm text-[#756151]">
+                              {event.action
+                                .split("_")
+                                .map(
+                                  (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                                )
+                                .join(" ")}
+                              {" · "}
+                              {event.entity_type}
+                            </p>
+                          </div>
+
+                          <time className="text-xs text-[#8b745d]">
+                            {new Date(
+                              event.created_at,
+                            ).toLocaleString()}
+                          </time>
+                        </div>
+
+                        {event.changed_fields.length > 0 ? (
+                          <p className="mt-3 text-sm leading-6 text-[#6d5e50]">
+                            Changed:{" "}
+                            {event.changed_fields
+                              .map((field) =>
+                                field.replaceAll("_", " "),
+                              )
+                              .join(", ")}
+                          </p>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
           </section>
         </div>
       )}
