@@ -154,7 +154,12 @@ export default function ParticipantPrivacyGate({
     useState("");
 
   const [givenByName, setGivenByName] =
-    useState("");
+    useState(
+      participantName &&
+        participantName !== "this person"
+        ? participantName
+        : "",
+    );
 
   const [authorityBasis, setAuthorityBasis] =
     useState<ConsentAuthorityBasis>(
@@ -239,6 +244,16 @@ export default function ParticipantPrivacyGate({
       setChecking(false);
     }
   }
+
+  useEffect(() => {
+    if (
+      !givenByName.trim() &&
+      participantName &&
+      participantName !== "this person"
+    ) {
+      setGivenByName(participantName);
+    }
+  }, [participantName, givenByName]);
 
   useEffect(() => {
     if (
