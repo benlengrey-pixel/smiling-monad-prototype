@@ -69,6 +69,8 @@ import {
 } from "@/lib/circle/secure-audit-actors";
 
 import AuditPanel from "@/components/circle/panels/AuditPanel";
+import DocumentsPanel from "@/components/circle/panels/DocumentsPanel";
+import GoalsPanel from "@/components/circle/panels/GoalsPanel";
 
 import {
   readSecureConsentSummary,
@@ -2539,267 +2541,44 @@ export default function CirclePage() {
             )}
 
             {activePanel === "goals" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  What the circle is working
-                  toward
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Goals and projects
-                </h1>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_0.7fr]">
-                  <input
-                    value={goalTitle}
-                    onChange={(event) =>
-                      setGoalTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Goal or project"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    value={goalOwner}
-                    onChange={(event) =>
-                      setGoalOwner(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter"
-                      ) {
-                        void addGoal();
-                      }
-                    }}
-                    placeholder="Lead person"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addGoal();
-                  }}
-                  disabled={
-                    goalWorkingId === "new" ||
-                    !goalTitle.trim()
-                  }
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {goalWorkingId === "new"
-                    ? "Saving goal…"
-                    : "Add goal"}
-                </button>
-
-                {goalMessage && (
-                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                    {goalMessage}
-                  </p>
-                )}
-
-                <div className="mt-6 space-y-3">
-                  {goalsLoading ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      Loading secure goals…
-                    </div>
-                  ) : goals.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No goals have been added
-                      yet.
-                    </div>
-                  ) : (
-                    goals.map((goal) => (
-                      <article
-                        key={goal.id}
-                        className="flex flex-col gap-4 rounded-[20px] border border-[#dfd2c1] bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <p className="font-serif text-xl">
-                            {goal.title}
-                          </p>
-
-                          <p className="mt-1 text-sm text-[#756151]">
-                            Lead: {goal.owner_name || "Whole circle"}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void advanceGoal(
-                                goal,
-                              )
-                            }
-                            disabled={
-                              goalWorkingId === goal.id
-                            }
-                            className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
-                          >
-                            {goalWorkingId === goal.id
-                              ? "Saving…"
-                              : goal.goal_status === "planning"
-                                ? "Planning"
-                                : goal.goal_status === "active"
-                                  ? "Active"
-                                  : goal.goal_status === "achieved"
-                                    ? "Achieved"
-                                    : goal.goal_status}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void removeGoal(
-                                goal.id,
-                              )
-                            }
-                            disabled={
-                              goalWorkingId === goal.id
-                            }
-                            className="px-2 py-2 text-sm text-[#98765e] disabled:cursor-not-allowed disabled:opacity-55"
-                          >
-                            Archive
-                          </button>
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </>
+              <GoalsPanel
+                goals={goals}
+                loading={goalsLoading}
+                workingId={goalWorkingId}
+                message={goalMessage}
+                title={goalTitle}
+                owner={goalOwner}
+                onTitleChange={setGoalTitle}
+                onOwnerChange={setGoalOwner}
+                onAddGoal={() => {
+                  void addGoal();
+                }}
+                onAdvanceGoal={(goal) => {
+                  void advanceGoal(goal);
+                }}
+                onArchiveGoal={(goalId) => {
+                  void removeGoal(goalId);
+                }}
+              />
             )}
 
             {activePanel ===
               "documents" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Shared information
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Documents and records
-                </h1>
-
-                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
-                  Documents are stored in the private
-                  Circle file area. Two-step security is
-                  required before documents can be
-                  uploaded, opened or archived.
-                </p>
-
-                <Link
-                  href="/secure-document-upload"
-                  className="mt-6 flex w-full items-center justify-center rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-                >
-                  Upload a secure document
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void refreshDocuments();
-                  }}
-                  disabled={documentsLoading}
-                  className="mt-3 w-full rounded-full border border-[#bfa98d] bg-[#efe3d2] px-6 py-3 font-medium text-[#533d2d] transition hover:bg-[#e6d6c0] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {documentsLoading
-                    ? "Refreshing documents…"
-                    : "Refresh documents"}
-                </button>
-
-                {documentMessage && (
-                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                    {documentMessage}
-                  </p>
-                )}
-
-                <div className="mt-6 space-y-3">
-                  {documentsLoading ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      Loading secure documents…
-                    </div>
-                  ) : documents.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No secure documents are currently
-                      available.
-                    </div>
-                  ) : (
-                    documents.map(
-                      (secureDocument) => (
-                        <article
-                          key={secureDocument.id}
-                          className="flex flex-col gap-4 rounded-[20px] border border-[#dfd2c1] bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div>
-                            <p className="font-serif text-xl">
-                              {secureDocument.title}
-                            </p>
-
-                            <p className="mt-1 text-sm text-[#756151]">
-                              {secureDocument.category} ·{" "}
-                              {
-                                secureDocument.document_status
-                              }{" "}
-                              ·{" "}
-                              {
-                                secureDocument.sensitivity
-                              }
-                            </p>
-
-                            <p className="mt-2 text-sm text-[#8a786a]">
-                              {
-                                secureDocument.original_filename
-                              }
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void openDocument(
-                                  secureDocument,
-                                );
-                              }}
-                              disabled={
-                                documentWorkingId ===
-                                secureDocument.id
-                              }
-                              className="rounded-full bg-[#60432f] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55"
-                            >
-                              Open
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void removeDocument(
-                                  secureDocument.id,
-                                );
-                              }}
-                              disabled={
-                                documentWorkingId ===
-                                secureDocument.id
-                              }
-                              className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d] disabled:cursor-not-allowed disabled:opacity-55"
-                            >
-                              {documentWorkingId ===
-                              secureDocument.id
-                                ? "Working…"
-                                : "Archive"}
-                            </button>
-                          </div>
-                        </article>
-                      ),
-                    )
-                  )}
-                </div>
-              </>
+              <DocumentsPanel
+                documents={documents}
+                loading={documentsLoading}
+                workingId={documentWorkingId}
+                message={documentMessage}
+                onRefresh={() => {
+                  void refreshDocuments();
+                }}
+                onOpenDocument={(document) => {
+                  void openDocument(document);
+                }}
+                onArchiveDocument={(documentId) => {
+                  void removeDocument(documentId);
+                }}
+              />
             )}
 
             {activePanel ===
