@@ -156,22 +156,13 @@ export async function confirmIdentityWithPasskey(): Promise<IdentityConfirmation
     getSupabaseBrowserClient();
 
   try {
-    const {
-      data: passkeys,
-      error: listError,
-    } =
-      await supabase.auth.passkey.list();
-
-    if (listError) {
-      throw listError;
-    }
-
-    if (!passkeys?.length) {
-      throw new Error(
-        "Fingerprint, face or device PIN has not been set up for this account yet.",
-      );
-    }
-
+    /*
+     * Do not block this ceremony by checking passkey.list().
+     * The registered credential may be supplied by the current
+     * device, a synced password manager, a nearby device, or a
+     * security key. The browser must be allowed to present the
+     * available WebAuthn options directly.
+     */
     const {
       data,
       error: authenticationError,
