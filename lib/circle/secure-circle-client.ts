@@ -186,17 +186,27 @@ async function hasPrivateAccess(
   supabase: SupabaseClient,
 ): Promise<boolean> {
   const {
-    data,
+    data: { user },
     error,
-  } =
-    await supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel();
+  } = await supabase.auth.getUser();
 
-  if (error) {
+  if (error || !user) {
     return false;
   }
 
-  return data.currentLevel === "aal2";
+  /*
+   * Row Level Security remains responsible for deciding
+   * which Circle and participant records this signed-in
+   * user may access.
+   *
+   * Passkey confirmation is required separately for
+   * sensitive actions such as recording or withdrawing
+   * privacy consent. Passkey sessions are not represented
+   * by Supabase as AAL2, so an AAL2-only read gate would
+   * incorrectly hide valid Circle records after successful
+   * fingerprint, face or device-PIN confirmation.
+   */
+  return true;
 }
 
 function createPrivateParticipantPlaceholder(
