@@ -8,6 +8,14 @@ import {
   requireAuthenticatedApiUser,
 } from "@/lib/security/api-user-auth";
 
+const AUTHENTICATED_USER_HEADER =
+  "x-smiling-monad-auth-user";
+
+type ProtectedApiAuthentication = {
+  response: NextResponse | null;
+  userId: string | null;
+};
+
 function cleanOrigin(
   value: string | undefined,
 ): string | null {
@@ -199,43 +207,56 @@ function isCompanionGatewayRequest(
 
 async function authenticateProtectedApi(
   request: NextRequest,
-): Promise<NextResponse | null> {
+): Promise<ProtectedApiAuthentication> {
   if (
     !isCompanionGatewayRequest(
       request,
     )
   ) {
-    return null;
+    return {
+      response: null,
+      userId: null,
+    };
   }
 
   try {
-    await requireAuthenticatedApiUser(
-      request,
-    );
+    const authenticated =
+      await requireAuthenticatedApiUser(
+        request,
+      );
 
-    return null;
+    return {
+      response: null,
+      userId:
+        authenticated.user.id,
+    };
   } catch (error) {
     if (
       isApiAuthenticationError(
         error,
       )
     ) {
-      return applySecurityHeaders(
-        NextResponse.json(
-          {
-            error:
-              error.message,
+      return {
+        response:
+          applySecurityHeaders(
+            NextResponse.json(
+              {
+                error:
+                  error.message,
 
-            code:
-              error.code,
-          },
-          {
-            status:
-              error.status,
-          },
-        ),
-        request,
-      );
+                code:
+                  error.code,
+              },
+              {
+                status:
+                  error.status,
+              },
+            ),
+            request,
+          ),
+
+        userId: null,
+      };
     }
 
     console.error(
@@ -243,35 +264,73 @@ async function authenticateProtectedApi(
       error,
     );
 
-    return applySecurityHeaders(
-      NextResponse.json(
-        {
-          error:
-            "Application authentication is temporarily unavailable.",
-        },
-        {
-          status: 503,
-        },
-      ),
-      request,
-    );
+    return {
+      response:
+        applySecurityHeaders(
+          NextResponse.json(
+            {
+              error:
+                "Application authentication is temporarily unavailable.",
+            },
+            {
+              status: 503,
+            },
+          ),
+          request,
+        ),
+
+      userId: null,
+    };
   }
 }
 
 export async function proxy(
   request: NextRequest,
 ) {
-  const authenticationResponse =
+  const forwardedHeaders =
+    new Headers(
+      request.headers,
+    );
+
+  /*
+   * Never trust a value supplied by
+   * the browser for this internal
+   * identity header.
+   */
+  forwardedHeaders.delete(
+    AUTHENTICATED_USER_HEADER,
+  );
+
+  const authentication =
     await authenticateProtectedApi(
       request,
     );
 
-  if (authenticationResponse) {
-    return authenticationResponse;
+  if (
+    authentication.response
+  ) {
+    return authentication.response;
   }
 
+  if (
+    authentication.userId
+  ) {
+    forwardedHeaders.set(
+      AUTHENTICATED_USER_HEADER,
+      authentication.userId,
+    );
+  }
+
+  const response =
+    NextResponse.next({
+      request: {
+        headers:
+          forwardedHeaders,
+      },
+    });
+
   return applySecurityHeaders(
-    NextResponse.next(),
+    response,
     request,
   );
 }
