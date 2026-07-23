@@ -20,6 +20,10 @@ import {
 } from "./api-user-auth";
 
 import {
+  recordCompanionGatewayAuditEventSafely,
+} from "./companion-gateway-audit";
+
+import {
   enforcePersistentCompanionRateLimit,
   isPersistentRateLimitError,
 } from "./persistent-companion-rate-limit";
@@ -47,6 +51,19 @@ type SecureJsonOptions = {
   maximumBytes?: number;
   requireSameOrigin?: boolean;
 };
+
+function readCompanionModelName():
+  string {
+  return (
+    process.env.OPENAI_MODEL
+      ?.trim()
+      .slice(
+        0,
+        120,
+      ) ||
+    "gpt-4.1-mini"
+  );
+}
 
 export function apiSecurityErrorResponse(
   error: unknown,
@@ -178,8 +195,54 @@ export async function readSecureJsonBody<
     throw new VerifiedApiUserError();
   }
 
-  await enforcePersistentCompanionRateLimit(
+  try {
+    await enforcePersistentCompanionRateLimit(
+      authenticated.accessToken,
+    );
+  } catch (error) {
+    if (
+      isPersistentRateLimitError(
+        error,
+      ) &&
+      error.code ===
+        "PERSISTENT_RATE_LIMIT_EXCEEDED"
+    ) {
+      await recordCompanionGatewayAuditEventSafely(
+        authenticated.accessToken,
+        {
+          eventType:
+            "rate_limited",
+
+          outcome:
+            "blocked",
+
+          statusCode:
+            429,
+
+          modelName:
+            readCompanionModelName(),
+        },
+      );
+    }
+
+    throw error;
+  }
+
+  await recordCompanionGatewayAuditEventSafely(
     authenticated.accessToken,
+    {
+      eventType:
+        "request_started",
+
+      outcome:
+        "allowed",
+
+      statusCode:
+        null,
+
+      modelName:
+        readCompanionModelName(),
+    },
   );
 
   return readBaseSecureJsonBody<Value>(
