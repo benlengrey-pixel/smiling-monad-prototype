@@ -2,11 +2,8 @@ import OpenAI from "openai";
 
 import {
   buildFastConversationInput,
-  buildFastConversationInstructions,
   chooseCompanionInteractionMode,
   createFastConversationDecision,
-  fastConversationResponseSchema,
-  isFastConversationResponse,
   type FastConversationMessage,
   type FastInteractionState,
 } from "@/lib/companion/fast-interaction";
@@ -26,32 +23,26 @@ import {
 type FastConversationRequest = {
   request: string;
   memory?: string;
-  conversation?:
-    FastConversationMessage[];
+  conversation?: FastConversationMessage[];
   state?: FastInteractionState;
 };
 
-export const runtime =
-  "nodejs";
+export const runtime = "nodejs";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
-export const maxDuration =
-  30;
+export const maxDuration = 30;
 
-let cachedOpenAIClient:
-  OpenAI | null = null;
+let cachedOpenAIClient: OpenAI | null =
+  null;
 
-function getOpenAIClient():
-  OpenAI {
+function getOpenAIClient(): OpenAI {
   if (cachedOpenAIClient) {
     return cachedOpenAIClient;
   }
 
   const apiKey =
-    process.env.OPENAI_API_KEY
-      ?.trim();
+    process.env.OPENAI_API_KEY?.trim();
 
   if (!apiKey) {
     throw new Error(
@@ -67,15 +58,53 @@ function getOpenAIClient():
   return cachedOpenAIClient;
 }
 
-function readFastModelName():
-  string {
+function readFastModelName(): string {
   return (
-    process.env.OPENAI_FAST_MODEL
-      ?.trim() ||
-    process.env.OPENAI_MODEL
-      ?.trim() ||
+    process.env.OPENAI_FAST_MODEL?.trim() ||
+    process.env.OPENAI_MODEL?.trim() ||
     "gpt-4.1-mini"
   );
+}
+
+function buildNaturalConversationInstructions():
+  string {
+  return `
+You are Kimi, the intelligent Companion inside the Smiling Monad Space.
+
+Respond directly to the user.
+
+Be natural, warm, calm and intelligent.
+
+Do not sound like an application, workflow, form, support bot or technical
+assistant.
+
+Do not mention tools, routing, schemas, internal state or application logic.
+
+Do not turn ordinary conversation into a task.
+
+Listen to what the user is actually saying and respond to that meaning.
+
+Use relevant memory and recent conversation only when it helps.
+
+Do not repeat information the user already knows.
+
+Do not begin with generic phrases such as:
+- "I understand";
+- "Thank you for sharing";
+- "It sounds like";
+- "How can I assist you?"
+
+Answer immediately.
+
+Keep the response brief when a brief response is enough.
+
+Use more detail only when the user asks for it or the subject genuinely needs
+it.
+
+Never claim that an application action, document change, message, booking,
+navigation or external action has happened. Requests needing those actions are
+handled by the full Companion gateway instead.
+`.trim();
 }
 
 export async function POST(
@@ -152,9 +181,7 @@ export async function POST(
           body.conversation,
       });
 
-    if (
-      !fastInput.request
-    ) {
+    if (!fastInput.request) {
       return privateApiJson(
         {
           error:
@@ -176,7 +203,7 @@ export async function POST(
           false,
 
         instructions:
-          buildFastConversationInstructions(),
+          buildNaturalConversationInstructions(),
 
         input:
           JSON.stringify(
@@ -184,78 +211,26 @@ export async function POST(
           ),
 
         max_output_tokens:
-          700,
-
-        text: {
-          format: {
-            type:
-              "json_schema",
-
-            name:
-              "smiling_monad_fast_conversation",
-
-            description:
-              "A concise natural Kimi response that identifies whether application tools are required.",
-
-            strict:
-              true,
-
-            schema:
-              fastConversationResponseSchema,
-          },
-        },
+          450,
       });
 
-    const rawOutput =
-      response.output_text
-        ?.trim();
+    const message =
+      response.output_text?.trim() ??
+      "";
 
-    if (!rawOutput) {
+    if (!message) {
       throw new Error(
         "Kimi returned an empty response.",
       );
     }
 
-    let parsedResponse:
-      unknown;
-
-    try {
-      parsedResponse =
-        JSON.parse(
-          rawOutput,
-        );
-    } catch {
-      throw new Error(
-        "Kimi returned invalid conversation data.",
-      );
-    }
-
-    if (
-      !isFastConversationResponse(
-        parsedResponse,
-      )
-    ) {
-      throw new Error(
-        "Kimi returned an invalid conversation response.",
-      );
-    }
-
-    if (
-      parsedResponse.requiresAction
-    ) {
-      return privateApiJson({
-        requiresAction:
-          true,
-
-        decision:
-          null,
-      });
-    }
-
     const decision =
-      createFastConversationDecision(
-        parsedResponse,
-      );
+      createFastConversationDecision({
+        message,
+
+        requiresAction:
+          false,
+      });
 
     return privateApiJson({
       requiresAction:
