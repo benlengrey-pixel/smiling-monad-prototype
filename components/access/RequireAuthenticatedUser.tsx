@@ -11,6 +11,10 @@ import {
 } from "next/navigation";
 
 import {
+  startSessionSecurityMonitor,
+  type SessionExpiryReason,
+} from "@/lib/auth/session-security-client";
+import {
   getSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 
@@ -27,55 +31,169 @@ type AuthenticationStatus =
 export default function RequireAuthenticatedUser({
   children,
 }: RequireAuthenticatedUserProps) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const router =
+    useRouter();
+
+  const pathname =
+    usePathname();
 
   const [
     authenticationStatus,
     setAuthenticationStatus,
-  ] = useState<AuthenticationStatus>(
-    "checking",
-  );
+  ] =
+    useState<AuthenticationStatus>(
+      "checking",
+    );
 
   useEffect(() => {
-    let active = true;
+    let active =
+      true;
+
+    let stopSessionMonitor:
+      | (() => void)
+      | null = null;
+
+    let authenticationCheckRunning =
+      false;
+
+    let authenticationCheckPending =
+      false;
 
     const supabase =
       getSupabaseBrowserClient();
 
-    function openSignIn() {
+    function stopCurrentMonitor():
+      void {
+      stopSessionMonitor?.();
+
+      stopSessionMonitor =
+        null;
+    }
+
+    function openSignIn(
+      expiryReason?:
+        SessionExpiryReason,
+    ): void {
       const returnTo =
         encodeURIComponent(
-          pathname || "/office",
+          pathname ||
+            "/office",
         );
 
+      const reasonParameter =
+        expiryReason
+          ? `&sessionExpired=${encodeURIComponent(
+              expiryReason,
+            )}`
+          : "";
+
       router.replace(
-        `/sign-in?returnTo=${returnTo}`,
+        `/sign-in?returnTo=${returnTo}${reasonParameter}`,
       );
     }
 
-    async function checkAuthentication() {
+    function handleSessionExpired(
+      reason: SessionExpiryReason,
+    ): void {
+      if (!active) {
+        return;
+      }
+
+      stopCurrentMonitor();
+
       setAuthenticationStatus(
-        "checking",
+        "signed-out",
       );
+
+      openSignIn(
+        reason,
+      );
+    }
+
+    async function performAuthenticationCheck(
+      showCheckingState: boolean,
+    ): Promise<void> {
+      if (
+        authenticationCheckRunning
+      ) {
+        authenticationCheckPending =
+          true;
+
+        return;
+      }
+
+      authenticationCheckRunning =
+        true;
+
+      if (
+        showCheckingState &&
+        active
+      ) {
+        setAuthenticationStatus(
+          "checking",
+        );
+      }
 
       try {
         const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+          data: {
+            session,
+          },
+          error:
+            sessionError,
+        } =
+          await supabase.auth
+            .getSession();
+
+        const {
+          data: {
+            user,
+          },
+          error:
+            userError,
+        } =
+          await supabase.auth
+            .getUser();
 
         if (!active) {
           return;
         }
 
-        if (error || !user) {
+        if (
+          sessionError ||
+          userError ||
+          !session ||
+          !user ||
+          session.user.id !==
+            user.id
+        ) {
+          stopCurrentMonitor();
+
           setAuthenticationStatus(
             "signed-out",
           );
+
           openSignIn();
+
           return;
         }
+
+        stopCurrentMonitor();
+
+        stopSessionMonitor =
+          startSessionSecurityMonitor({
+            supabase,
+
+            userId:
+              user.id,
+
+            signedInAt:
+              user.last_sign_in_at ??
+              null,
+
+            onExpired:
+              handleSessionExpired,
+          });
 
         setAuthenticationStatus(
           "authenticated",
@@ -85,6 +203,8 @@ export default function RequireAuthenticatedUser({
           return;
         }
 
+        stopCurrentMonitor();
+
         console.error(
           "Authentication check failed:",
           error,
@@ -93,28 +213,71 @@ export default function RequireAuthenticatedUser({
         setAuthenticationStatus(
           "error",
         );
+      } finally {
+        authenticationCheckRunning =
+          false;
+
+        if (
+          active &&
+          authenticationCheckPending
+        ) {
+          authenticationCheckPending =
+            false;
+
+          void performAuthenticationCheck(
+            false,
+          );
+        }
       }
     }
 
-    void checkAuthentication();
-
-    const {
-      data: subscription,
-    } = supabase.auth.onAuthStateChange(
-      () => {
-        if (!active) {
-          return;
-        }
-
-        void checkAuthentication();
-      },
+    void performAuthenticationCheck(
+      true,
     );
 
+    const {
+      data: {
+        subscription,
+      },
+    } =
+      supabase.auth
+        .onAuthStateChange(
+          () => {
+            if (!active) {
+              return;
+            }
+
+            /*
+             * Run outside the Supabase
+             * authentication callback to
+             * avoid blocking token refresh
+             * or sign-out processing.
+             */
+            window.setTimeout(
+              () => {
+                if (active) {
+                  void performAuthenticationCheck(
+                    false,
+                  );
+                }
+              },
+              0,
+            );
+          },
+        );
+
     return () => {
-      active = false;
-      subscription.subscription.unsubscribe();
+      active =
+        false;
+
+      stopCurrentMonitor();
+
+      subscription.unsubscribe();
     };
-  }, [pathname, router]);
+  }, [
+    pathname,
+    router,
+  ]);
 
   if (
     authenticationStatus !==
