@@ -1,0 +1,316 @@
+begin;
+
+create or replace function
+  private.sm_validate_document_upload_metadata()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_extension text;
+begin
+  new.title :=
+    btrim(
+      coalesce(
+        new.title,
+        ''
+      )
+    );
+
+  new.description :=
+    btrim(
+      coalesce(
+        new.description,
+        ''
+      )
+    );
+
+  if
+    char_length(new.title) < 1
+    or char_length(new.title) > 300
+  then
+    raise exception
+      'Document title must contain between 1 and 300 characters.'
+      using errcode = '22023';
+  end if;
+
+  if
+    char_length(new.description) > 4000
+  then
+    raise exception
+      'Document description must not exceed 4000 characters.'
+      using errcode = '22023';
+  end if;
+
+  /*
+   * File identity is immutable after
+   * creation, so existing records can
+   * still receive ordinary metadata
+   * updates without being reprocessed.
+   */
+  if tg_op = 'UPDATE' then
+    return new;
+  end if;
+
+  new.original_filename :=
+    btrim(
+      coalesce(
+        new.original_filename,
+        ''
+      )
+    );
+
+  new.mime_type :=
+    lower(
+      btrim(
+        coalesce(
+          new.mime_type,
+          ''
+        )
+      )
+    );
+
+  if
+    char_length(
+      new.original_filename
+    ) < 1
+    or char_length(
+      new.original_filename
+    ) > 255
+  then
+    raise exception
+      'Document filename must contain between 1 and 255 characters.'
+      using errcode = '22023';
+  end if;
+
+  if
+    new.original_filename
+      ~ '[[:cntrl:]]'
+    or position(
+      '/' in
+      new.original_filename
+    ) > 0
+    or position(
+      chr(92) in
+      new.original_filename
+    ) > 0
+  then
+    raise exception
+      'Document filename contains unsafe characters.'
+      using errcode = '22023';
+  end if;
+
+  if
+    new.size_bytes < 1
+    or new.size_bytes >
+      15728640
+  then
+    raise exception
+      'Document size must be between 1 byte and 15 MB.'
+      using errcode = '22023';
+  end if;
+
+  if
+    new.mime_type not in (
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'text/csv',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    )
+  then
+    raise exception
+      'Document MIME type is not allowed.'
+      using errcode = '22023';
+  end if;
+
+  if
+    char_length(
+      new.storage_path
+    ) < 1
+    or char_length(
+      new.storage_path
+    ) > 1024
+    or new.storage_path
+      ~ '[[:cntrl:]]'
+  then
+    raise exception
+      'Document Storage path is invalid.'
+      using errcode = '22023';
+  end if;
+
+  v_extension :=
+    lower(
+      coalesce(
+        substring(
+          new.original_filename
+          from '\.([^.]+)$'
+        ),
+        ''
+      )
+    );
+
+  if not (
+    (
+      v_extension = 'pdf'
+      and new.mime_type =
+        'application/pdf'
+    )
+    or (
+      v_extension = 'doc'
+      and new.mime_type =
+        'application/msword'
+    )
+    or (
+      v_extension = 'docx'
+      and new.mime_type =
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    or (
+      v_extension = 'xls'
+      and new.mime_type =
+        'application/vnd.ms-excel'
+    )
+    or (
+      v_extension = 'xlsx'
+      and new.mime_type =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    or (
+      v_extension = 'txt'
+      and new.mime_type =
+        'text/plain'
+    )
+    or (
+      v_extension = 'csv'
+      and new.mime_type =
+        'text/csv'
+    )
+    or (
+      v_extension in (
+        'jpg',
+        'jpeg'
+      )
+      and new.mime_type =
+        'image/jpeg'
+    )
+    or (
+      v_extension = 'png'
+      and new.mime_type =
+        'image/png'
+    )
+    or (
+      v_extension = 'webp'
+      and new.mime_type =
+        'image/webp'
+    )
+  )
+  then
+    raise exception
+      'Document filename extension does not match its MIME type.'
+      using errcode = '22023';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all
+on function
+  private.sm_validate_document_upload_metadata()
+from public;
+
+revoke all
+on function
+  private.sm_validate_document_upload_metadata()
+from anon;
+
+revoke all
+on function
+  private.sm_validate_document_upload_metadata()
+from authenticated;
+
+drop trigger if exists
+  documents_validate_upload_metadata
+on public.documents;
+
+create trigger
+  documents_validate_upload_metadata
+before insert or update
+on public.documents
+for each row
+execute function
+  private.sm_validate_document_upload_metadata();
+
+create or replace function
+  private.sm_protect_document_file_metadata()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if
+    new.original_filename
+      is distinct from
+      old.original_filename
+    or new.mime_type
+      is distinct from
+      old.mime_type
+    or new.size_bytes
+      is distinct from
+      old.size_bytes
+  then
+    raise exception
+      'Uploaded document file metadata cannot be changed.'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all
+on function
+  private.sm_protect_document_file_metadata()
+from public;
+
+revoke all
+on function
+  private.sm_protect_document_file_metadata()
+from anon;
+
+revoke all
+on function
+  private.sm_protect_document_file_metadata()
+from authenticated;
+
+drop trigger if exists
+  documents_protect_file_metadata
+on public.documents;
+
+create trigger
+  documents_protect_file_metadata
+before update
+on public.documents
+for each row
+execute function
+  private.sm_protect_document_file_metadata();
+
+comment on function
+  private.sm_validate_document_upload_metadata()
+is
+  'Validates document size, filename, extension and declared MIME type before document metadata is stored.';
+
+comment on function
+  private.sm_protect_document_file_metadata()
+is
+  'Prevents the filename, MIME type and recorded size of an uploaded Circle document from being rewritten later.';
+
+commit;
