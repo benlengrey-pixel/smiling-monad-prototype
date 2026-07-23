@@ -3,6 +3,11 @@ import {
   NextResponse,
 } from "next/server";
 
+import {
+  isApiAuthenticationError,
+  requireAuthenticatedApiUser,
+} from "@/lib/security/api-user-auth";
+
 function cleanOrigin(
   value: string | undefined,
 ): string | null {
@@ -63,17 +68,21 @@ function buildContentSecurityPolicy():
 
   const directives = [
     "default-src 'self'",
+
     `script-src 'self' 'unsafe-inline'${
       isDevelopment
         ? " 'unsafe-eval'"
         : ""
     }`,
+
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
+
     `connect-src ${connectSources.join(
       " ",
     )}`,
+
     "media-src 'self' blob:",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
@@ -82,6 +91,7 @@ function buildContentSecurityPolicy():
     "form-action 'self'",
     "frame-ancestors 'none'",
     "frame-src 'self'",
+
     isDevelopment
       ? null
       : "upgrade-insecure-requests",
@@ -90,12 +100,10 @@ function buildContentSecurityPolicy():
   return directives.join("; ");
 }
 
-export function proxy(
+function applySecurityHeaders(
+  response: NextResponse,
   request: NextRequest,
-) {
-  const response =
-    NextResponse.next();
-
+): NextResponse {
   response.headers.set(
     "Content-Security-Policy",
     buildContentSecurityPolicy(),
@@ -174,15 +182,111 @@ export function proxy(
   return response;
 }
 
+function isCompanionGatewayRequest(
+  request: NextRequest,
+): boolean {
+  const pathname =
+    request.nextUrl.pathname;
+
+  return (
+    request.method !== "OPTIONS" &&
+    (
+      pathname === "/api/gateway" ||
+      pathname === "/api/gateway/"
+    )
+  );
+}
+
+async function authenticateProtectedApi(
+  request: NextRequest,
+): Promise<NextResponse | null> {
+  if (
+    !isCompanionGatewayRequest(
+      request,
+    )
+  ) {
+    return null;
+  }
+
+  try {
+    await requireAuthenticatedApiUser(
+      request,
+    );
+
+    return null;
+  } catch (error) {
+    if (
+      isApiAuthenticationError(
+        error,
+      )
+    ) {
+      return applySecurityHeaders(
+        NextResponse.json(
+          {
+            error:
+              error.message,
+
+            code:
+              error.code,
+          },
+          {
+            status:
+              error.status,
+          },
+        ),
+        request,
+      );
+    }
+
+    console.error(
+      "Protected API authentication error:",
+      error,
+    );
+
+    return applySecurityHeaders(
+      NextResponse.json(
+        {
+          error:
+            "Application authentication is temporarily unavailable.",
+        },
+        {
+          status: 503,
+        },
+      ),
+      request,
+    );
+  }
+}
+
+export async function proxy(
+  request: NextRequest,
+) {
+  const authenticationResponse =
+    await authenticateProtectedApi(
+      request,
+    );
+
+  if (authenticationResponse) {
+    return authenticationResponse;
+  }
+
+  return applySecurityHeaders(
+    NextResponse.next(),
+    request,
+  );
+}
+
 export const config = {
   matcher: [
     {
       source:
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+
       missing: [
         {
           type: "header",
-          key: "next-router-prefetch",
+          key:
+            "next-router-prefetch",
         },
         {
           type: "header",
