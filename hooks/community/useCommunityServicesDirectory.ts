@@ -8,24 +8,34 @@ import {
 } from "react";
 
 import {
+  createCommunityServiceEnquiry,
   createCommunityServiceListing,
   isCommunityServiceModerator,
   readApprovedCommunityServiceListings,
   readCommunityServiceModerationQueue,
+  readMyCommunityServiceEnquiries,
   readMyCommunityServiceListings,
+  readReceivedCommunityServiceEnquiries,
   readSavedCommunityServiceListingIds,
+  removeCommunityServiceFromCircle,
+  respondToCommunityServiceEnquiry,
   reviewCommunityServiceListing,
   saveCommunityServiceListing,
+  saveCommunityServiceToCircle,
   submitCommunityServiceListing,
   unsaveCommunityServiceListing,
   updateCommunityServiceListing,
+  withdrawCommunityServiceEnquiry,
   type CommunityServiceAgeGroup,
   type CommunityServiceCategory,
+  type CommunityServiceCircleSave,
   type CommunityServiceDeliveryMethod,
   type CommunityServiceDirectoryFilters,
+  type CommunityServiceEnquiry,
   type CommunityServiceListing,
   type CommunityServiceListingInput,
   type CommunityServiceNdisRegistrationStatus,
+  type CommunityServicePreferredContactMethod,
   type CommunityServiceProviderType,
   type CommunityServiceReviewDecision,
   type CommunityServiceVerificationStatus,
@@ -73,6 +83,33 @@ export type CommunityServiceModerationForm = {
   verificationStatus:
     CommunityServiceVerificationStatus | "";
   reviewDueAt: string;
+};
+
+export type CommunityServiceEnquiryForm = {
+  listingId: string;
+  serviceName: string;
+  subject: string;
+  message: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  preferredContactMethod:
+    CommunityServicePreferredContactMethod;
+  consentToShareContact: boolean;
+};
+
+export type CommunityServiceResponseForm = {
+  enquiryId: string;
+  response: string;
+  closeAfterResponse: boolean;
+};
+
+export type CommunityServiceCircleSaveForm = {
+  listingId: string;
+  serviceName: string;
+  circleId: string;
+  participantId: string;
+  note: string;
 };
 
 type UseCommunityServicesDirectoryOptions = {
@@ -139,6 +176,44 @@ function createEmptyModerationForm():
     reason: "",
     verificationStatus: "",
     reviewDueAt: "",
+  };
+}
+
+function createEmptyEnquiryForm():
+  CommunityServiceEnquiryForm {
+  return {
+    listingId: "",
+    serviceName: "",
+    subject: "",
+    message: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    preferredContactMethod:
+      "platform",
+    consentToShareContact:
+      false,
+  };
+}
+
+function createEmptyResponseForm():
+  CommunityServiceResponseForm {
+  return {
+    enquiryId: "",
+    response: "",
+    closeAfterResponse:
+      false,
+  };
+}
+
+function createEmptyCircleSaveForm():
+  CommunityServiceCircleSaveForm {
+  return {
+    listingId: "",
+    serviceName: "",
+    circleId: "",
+    participantId: "",
+    note: "",
   };
 }
 
@@ -328,6 +403,59 @@ export default function useCommunityServicesDirectory({
     createEmptyModerationForm(),
   );
 
+  const [
+    myEnquiries,
+    setMyEnquiries,
+  ] = useState<
+    CommunityServiceEnquiry[]
+  >([]);
+
+  const [
+    receivedEnquiries,
+    setReceivedEnquiries,
+  ] = useState<
+    CommunityServiceEnquiry[]
+  >([]);
+
+  const [
+    selectedEnquiryId,
+    setSelectedEnquiryId,
+  ] = useState("");
+
+  const [
+    enquiryForm,
+    setEnquiryForm,
+  ] = useState<
+    CommunityServiceEnquiryForm
+  >(() =>
+    createEmptyEnquiryForm(),
+  );
+
+  const [
+    responseForm,
+    setResponseForm,
+  ] = useState<
+    CommunityServiceResponseForm
+  >(() =>
+    createEmptyResponseForm(),
+  );
+
+  const [
+    circleSaveForm,
+    setCircleSaveForm,
+  ] = useState<
+    CommunityServiceCircleSaveForm
+  >(() =>
+    createEmptyCircleSaveForm(),
+  );
+
+  const [
+    lastCircleSave,
+    setLastCircleSave,
+  ] = useState<
+    CommunityServiceCircleSave | null
+  >(null);
+
   const loadApprovedListings =
     useCallback(async () => {
       if (!enabled) {
@@ -369,6 +497,8 @@ export default function useCommunityServicesDirectory({
         setSavedListingIds([]);
         setMyListings([]);
         setModerationQueue([]);
+        setMyEnquiries([]);
+        setReceivedEnquiries([]);
         setIsModerator(false);
         setPrivateLoading(false);
         return;
@@ -381,10 +511,14 @@ export default function useCommunityServicesDirectory({
           savedIds,
           ownedListings,
           moderator,
+          sentEnquiries,
+          incomingEnquiries,
         ] = await Promise.all([
           readSavedCommunityServiceListingIds(),
           readMyCommunityServiceListings(),
           isCommunityServiceModerator(),
+          readMyCommunityServiceEnquiries(),
+          readReceivedCommunityServiceEnquiries(),
         ]);
 
         setSavedListingIds(
@@ -393,6 +527,14 @@ export default function useCommunityServicesDirectory({
 
         setMyListings(
           ownedListings,
+        );
+
+        setMyEnquiries(
+          sentEnquiries,
+        );
+
+        setReceivedEnquiries(
+          incomingEnquiries,
         );
 
         setIsModerator(
@@ -972,6 +1114,466 @@ export default function useCommunityServicesDirectory({
       workingId,
     ]);
 
+  const selectedEnquiry =
+    useMemo(() => {
+      const allEnquiries = [
+        ...myEnquiries,
+        ...receivedEnquiries,
+      ];
+
+      return (
+        allEnquiries.find(
+          (enquiry) =>
+            enquiry.id ===
+            selectedEnquiryId,
+        ) ?? null
+      );
+    }, [
+      myEnquiries,
+      receivedEnquiries,
+      selectedEnquiryId,
+    ]);
+
+  const startServiceEnquiry =
+    useCallback(
+      (
+        listing:
+          CommunityServiceListing,
+      ) => {
+        setSelectedListingId(
+          listing.id,
+        );
+
+        setEnquiryForm({
+          ...createEmptyEnquiryForm(),
+          listingId:
+            listing.id,
+          serviceName:
+            listing.service_name,
+          subject:
+            `Enquiry about ${listing.service_name}`,
+        });
+
+        setMessage("");
+      },
+      [],
+    );
+
+  const setEnquiryFormField =
+    useCallback(
+      <
+        Key extends
+          keyof CommunityServiceEnquiryForm,
+      >(
+        key: Key,
+        value:
+          CommunityServiceEnquiryForm[Key],
+      ) => {
+        setEnquiryForm(
+          (current) => ({
+            ...current,
+            [key]: value,
+          }),
+        );
+      },
+      [],
+    );
+
+  const sendServiceEnquiry =
+    useCallback(async () => {
+      if (
+        !signedIn ||
+        !enquiryForm.listingId ||
+        workingId
+      ) {
+        return;
+      }
+
+      setWorkingId(
+        `enquiry-${enquiryForm.listingId}`,
+      );
+      setMessage("");
+
+      try {
+        const enquiry =
+          await createCommunityServiceEnquiry(
+            {
+              listingId:
+                enquiryForm.listingId,
+              subject:
+                enquiryForm.subject,
+              message:
+                enquiryForm.message,
+              contactName:
+                enquiryForm.contactName,
+              contactEmail:
+                enquiryForm.contactEmail,
+              contactPhone:
+                enquiryForm.contactPhone,
+              preferredContactMethod:
+                enquiryForm.preferredContactMethod,
+              consentToShareContact:
+                enquiryForm.consentToShareContact,
+            },
+          );
+
+        setMyEnquiries(
+          (current) => [
+            enquiry,
+            ...current,
+          ],
+        );
+
+        setSelectedEnquiryId(
+          enquiry.id,
+        );
+
+        setEnquiryForm(
+          createEmptyEnquiryForm(),
+        );
+
+        setMessage(
+          "Your private enquiry was sent to the service.",
+        );
+      } catch (error) {
+        setMessage(
+          describeError(
+            error,
+            "The service enquiry could not be sent.",
+          ),
+        );
+      } finally {
+        setWorkingId("");
+      }
+    }, [
+      enquiryForm,
+      signedIn,
+      workingId,
+    ]);
+
+  const selectEnquiry =
+    useCallback(
+      (
+        enquiry:
+          CommunityServiceEnquiry,
+      ) => {
+        setSelectedEnquiryId(
+          enquiry.id,
+        );
+        setMessage("");
+      },
+      [],
+    );
+
+  const withdrawEnquiry =
+    useCallback(
+      async (enquiryId: string) => {
+        if (
+          !enquiryId ||
+          workingId
+        ) {
+          return;
+        }
+
+        setWorkingId(
+          `withdraw-${enquiryId}`,
+        );
+        setMessage("");
+
+        try {
+          const withdrawn =
+            await withdrawCommunityServiceEnquiry(
+              enquiryId,
+            );
+
+          setMyEnquiries(
+            (current) =>
+              current.map(
+                (enquiry) =>
+                  enquiry.id ===
+                  withdrawn.id
+                    ? withdrawn
+                    : enquiry,
+              ),
+          );
+
+          setMessage(
+            "The service enquiry was withdrawn.",
+          );
+        } catch (error) {
+          setMessage(
+            describeError(
+              error,
+              "The service enquiry could not be withdrawn.",
+            ),
+          );
+        } finally {
+          setWorkingId("");
+        }
+      },
+      [workingId],
+    );
+
+  const startProviderResponse =
+    useCallback(
+      (
+        enquiry:
+          CommunityServiceEnquiry,
+      ) => {
+        setSelectedEnquiryId(
+          enquiry.id,
+        );
+
+        setResponseForm({
+          enquiryId:
+            enquiry.id,
+          response:
+            enquiry.provider_response,
+          closeAfterResponse:
+            enquiry.enquiry_status ===
+            "closed",
+        });
+
+        setMessage("");
+      },
+      [],
+    );
+
+  const setResponseFormField =
+    useCallback(
+      <
+        Key extends
+          keyof CommunityServiceResponseForm,
+      >(
+        key: Key,
+        value:
+          CommunityServiceResponseForm[Key],
+      ) => {
+        setResponseForm(
+          (current) => ({
+            ...current,
+            [key]: value,
+          }),
+        );
+      },
+      [],
+    );
+
+  const sendProviderResponse =
+    useCallback(async () => {
+      if (
+        !responseForm.enquiryId ||
+        workingId
+      ) {
+        return;
+      }
+
+      setWorkingId(
+        `response-${responseForm.enquiryId}`,
+      );
+      setMessage("");
+
+      try {
+        const responded =
+          await respondToCommunityServiceEnquiry(
+            {
+              enquiryId:
+                responseForm.enquiryId,
+              response:
+                responseForm.response,
+              close:
+                responseForm.closeAfterResponse,
+            },
+          );
+
+        setReceivedEnquiries(
+          (current) =>
+            current.map(
+              (enquiry) =>
+                enquiry.id ===
+                responded.id
+                  ? responded
+                  : enquiry,
+            ),
+        );
+
+        setSelectedEnquiryId(
+          responded.id,
+        );
+
+        setResponseForm(
+          createEmptyResponseForm(),
+        );
+
+        setMessage(
+          responseForm.closeAfterResponse
+            ? "The provider response was sent and the enquiry was closed."
+            : "The provider response was sent.",
+        );
+      } catch (error) {
+        setMessage(
+          describeError(
+            error,
+            "The provider response could not be sent.",
+          ),
+        );
+      } finally {
+        setWorkingId("");
+      }
+    }, [
+      responseForm,
+      workingId,
+    ]);
+
+  const startCircleSave =
+    useCallback(
+      (
+        listing:
+          CommunityServiceListing,
+      ) => {
+        setSelectedListingId(
+          listing.id,
+        );
+
+        setCircleSaveForm({
+          ...createEmptyCircleSaveForm(),
+          listingId:
+            listing.id,
+          serviceName:
+            listing.service_name,
+        });
+
+        setLastCircleSave(null);
+        setMessage("");
+      },
+      [],
+    );
+
+  const setCircleSaveFormField =
+    useCallback(
+      <
+        Key extends
+          keyof CommunityServiceCircleSaveForm,
+      >(
+        key: Key,
+        value:
+          CommunityServiceCircleSaveForm[Key],
+      ) => {
+        setCircleSaveForm(
+          (current) => ({
+            ...current,
+            [key]: value,
+          }),
+        );
+      },
+      [],
+    );
+
+  const saveServiceToCircle =
+    useCallback(async () => {
+      if (
+        !signedIn ||
+        !circleSaveForm.listingId ||
+        !circleSaveForm.circleId ||
+        !circleSaveForm.participantId ||
+        workingId
+      ) {
+        return;
+      }
+
+      setWorkingId(
+        `circle-${circleSaveForm.listingId}`,
+      );
+      setMessage("");
+
+      try {
+        const save =
+          await saveCommunityServiceToCircle(
+            {
+              listingId:
+                circleSaveForm.listingId,
+              circleId:
+                circleSaveForm.circleId,
+              participantId:
+                circleSaveForm.participantId,
+              note:
+                circleSaveForm.note,
+            },
+          );
+
+        setLastCircleSave(
+          save,
+        );
+
+        setMessage(
+          "The service was saved privately to the selected Circle.",
+        );
+      } catch (error) {
+        setMessage(
+          describeError(
+            error,
+            "The service could not be saved to the Circle.",
+          ),
+        );
+      } finally {
+        setWorkingId("");
+      }
+    }, [
+      circleSaveForm,
+      signedIn,
+      workingId,
+    ]);
+
+  const removeServiceFromCircle =
+    useCallback(
+      async (saveId: string) => {
+        if (
+          !saveId ||
+          workingId
+        ) {
+          return;
+        }
+
+        setWorkingId(
+          `remove-circle-${saveId}`,
+        );
+        setMessage("");
+
+        try {
+          const removed =
+            await removeCommunityServiceFromCircle(
+              saveId,
+            );
+
+          if (
+            lastCircleSave?.id ===
+            removed.id
+          ) {
+            setLastCircleSave(
+              removed,
+            );
+          }
+
+          setMessage(
+            "The service was removed from the Circle.",
+          );
+        } catch (error) {
+          setMessage(
+            describeError(
+              error,
+              "The service could not be removed from the Circle.",
+            ),
+          );
+        } finally {
+          setWorkingId("");
+        }
+      },
+      [
+        lastCircleSave,
+        workingId,
+      ],
+    );
+
   return {
     mode,
     setMode,
@@ -1013,6 +1615,30 @@ export default function useCommunityServicesDirectory({
     startModerationReview,
     saveModerationReview,
 
+    myEnquiries,
+    receivedEnquiries,
+    selectedEnquiry,
+    selectedEnquiryId,
+    selectEnquiry,
+
+    enquiryForm,
+    setEnquiryFormField,
+    startServiceEnquiry,
+    sendServiceEnquiry,
+    withdrawEnquiry,
+
+    responseForm,
+    setResponseFormField,
+    startProviderResponse,
+    sendProviderResponse,
+
+    circleSaveForm,
+    setCircleSaveFormField,
+    startCircleSave,
+    saveServiceToCircle,
+    removeServiceFromCircle,
+    lastCircleSave,
+
     counts: {
       public:
         approvedListings.length,
@@ -1026,6 +1652,20 @@ export default function useCommunityServicesDirectory({
         approvedCount,
       moderation:
         moderationQueue.length,
+      sentEnquiries:
+        myEnquiries.length,
+      receivedEnquiries:
+        receivedEnquiries.length,
+      openReceivedEnquiries:
+        receivedEnquiries.filter(
+          (enquiry) =>
+            ![
+              "closed",
+              "withdrawn",
+            ].includes(
+              enquiry.enquiry_status,
+            ),
+        ).length,
     },
 
     refresh: async () => {
