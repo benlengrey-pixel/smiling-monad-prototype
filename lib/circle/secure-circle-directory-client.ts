@@ -42,9 +42,60 @@ export type SecureCircleDirectoryEntry = {
 export type SecureCircleOpenResult =
   SecureCircleWorkspace & {
     created: boolean;
+    setupDeclarationId?: string | null;
   };
 
-type UnknownRecord = Record<string, unknown>;
+export type ParticipantCircleCreatorRole =
+  Exclude<
+    SecureCircleMember["role"],
+    "participant"
+  >;
+
+export type ParticipantCircleAuthorityType =
+  | "participant_request"
+  | "nominee_authority"
+  | "family_agreement"
+  | "support_setup_request"
+  | "other";
+
+export type CreateParticipantSecureCircleInput = {
+  fullName: string;
+  preferredName?: string;
+  circleName?: string;
+  creatorRole: ParticipantCircleCreatorRole;
+  relationship: string;
+  authorityType: ParticipantCircleAuthorityType;
+  authorityBasis: string;
+  authorityConfirmed: boolean;
+};
+
+type UnknownRecord = Record<
+  string,
+  unknown
+>;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const CREATOR_ROLES =
+  new Set<ParticipantCircleCreatorRole>([
+    "nominee",
+    "family",
+    "support_worker",
+    "support_coordinator",
+    "professional",
+    "circle_manager",
+    "circle_member",
+  ]);
+
+const AUTHORITY_TYPES =
+  new Set<ParticipantCircleAuthorityType>([
+    "participant_request",
+    "nominee_authority",
+    "family_agreement",
+    "support_setup_request",
+    "other",
+  ]);
 
 function getClient(): SupabaseClient {
   return getSupabaseBrowserClient();
@@ -73,6 +124,57 @@ function requireRecord(
   return value;
 }
 
+function requiredText(
+  value: string,
+  label: string,
+  minimum: number,
+  maximum: number,
+): string {
+  const clean = value.trim();
+
+  if (
+    clean.length < minimum ||
+    clean.length > maximum
+  ) {
+    throw new Error(
+      `${label} must contain between ${minimum} and ${maximum} characters.`,
+    );
+  }
+
+  return clean;
+}
+
+function optionalText(
+  value: string | undefined,
+  label: string,
+  maximum: number,
+): string {
+  const clean = value?.trim() ?? "";
+
+  if (clean.length > maximum) {
+    throw new Error(
+      `${label} must contain ${maximum} characters or fewer.`,
+    );
+  }
+
+  return clean;
+}
+
+function requiredUuid(
+  value: string,
+  label: string,
+): string {
+  const clean = value.trim();
+
+  if (!UUID_PATTERN.test(clean)) {
+    throw new Error(
+      `${label} is not valid.`,
+    );
+  }
+
+  return clean;
+}
+
 function describeDatabaseError(
   error: unknown,
   fallback: string,
@@ -88,12 +190,68 @@ function describeDatabaseError(
       code?: unknown;
     };
 
+    const message =
+      typeof candidate.message ===
+      "string"
+        ? candidate.message
+        : "";
+
+    const details =
+      typeof candidate.details ===
+      "string"
+        ? candidate.details
+        : "";
+
+    const hint =
+      typeof candidate.hint ===
+      "string"
+        ? candidate.hint
+        : "";
+
+    const combined = [
+      message,
+      details,
+      hint,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      combined.includes(
+        "row-level security",
+      ) ||
+      combined.includes(
+        "permission denied",
+      ) ||
+      candidate.code === "42501"
+    ) {
+      return new Error(
+        "You do not have permission to access this Circle.",
+      );
+    }
+
+    if (
+      combined.includes(
+        "already exists",
+      ) ||
+      combined.includes(
+        "duplicate key",
+      ) ||
+      candidate.code === "23505"
+    ) {
+      return new Error(
+        "A Circle with this name already exists. Open it from My Circles instead.",
+      );
+    }
+
     const parts = [
-      candidate.message,
-      candidate.details,
-      candidate.hint,
+      message,
+      details,
+      hint,
       candidate.code
-        ? `Code: ${String(candidate.code)}`
+        ? `Code: ${String(
+            candidate.code,
+          )}`
         : null,
     ].filter(
       (value): value is string =>
@@ -102,7 +260,9 @@ function describeDatabaseError(
     );
 
     if (parts.length > 0) {
-      return new Error(parts.join(" "));
+      return new Error(
+        parts.join(" "),
+      );
     }
   }
 
@@ -191,7 +351,9 @@ function readDirectoryResponse(
     );
   }
 
-  return circles.map(readDirectoryEntry);
+  return circles.map(
+    readDirectoryEntry,
+  );
 }
 
 function readWorkspaceResponse(
@@ -218,6 +380,12 @@ function readWorkspaceResponse(
     "Membership",
   );
 
+  const setupDeclarationId =
+    typeof response.setup_declaration_id ===
+    "string"
+      ? response.setup_declaration_id
+      : null;
+
   return {
     user,
 
@@ -232,7 +400,10 @@ function readWorkspaceResponse(
 
     privateAccess: true,
 
-    created: response.created === true,
+    created:
+      response.created === true,
+
+    setupDeclarationId,
   };
 }
 
@@ -284,17 +455,114 @@ export async function createMySecureCircle(): Promise<
   );
 }
 
+export async function createParticipantSecureCircle(
+  input: CreateParticipantSecureCircleInput,
+): Promise<SecureCircleOpenResult> {
+  const supabase = getClient();
+  const user = await requireUser(
+    supabase,
+  );
+
+  if (
+    !CREATOR_ROLES.has(
+      input.creatorRole,
+    )
+  ) {
+    throw new Error(
+      "Choose your correct role in this Circle.",
+    );
+  }
+
+  if (
+    !AUTHORITY_TYPES.has(
+      input.authorityType,
+    )
+  ) {
+    throw new Error(
+      "Choose how this Circle was requested or authorised.",
+    );
+  }
+
+  if (!input.authorityConfirmed) {
+    throw new Error(
+      "Confirm the participant request, consent or authority basis before creating this Circle.",
+    );
+  }
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_create_participant_circle",
+      {
+        p_full_name:
+          requiredText(
+            input.fullName,
+            "Participant name",
+            2,
+            160,
+          ),
+
+        p_preferred_name:
+          optionalText(
+            input.preferredName,
+            "Preferred name",
+            120,
+          ),
+
+        p_circle_name:
+          optionalText(
+            input.circleName,
+            "Circle name",
+            180,
+          ),
+
+        p_creator_role:
+          input.creatorRole,
+
+        p_relationship:
+          requiredText(
+            input.relationship,
+            "Relationship",
+            2,
+            160,
+          ),
+
+        p_authority_type:
+          input.authorityType,
+
+        p_authority_basis:
+          requiredText(
+            input.authorityBasis,
+            "Authority or consent basis",
+            10,
+            1000,
+          ),
+
+        p_authority_confirmed:
+          true,
+      },
+    );
+
+  if (error) {
+    throw describeDatabaseError(
+      error,
+      "The participant Circle could not be created.",
+    );
+  }
+
+  return readWorkspaceResponse(
+    data,
+    user,
+  );
+}
+
 export async function openSelectedSecureCircle(
   circleId: string,
 ): Promise<SecureCircleOpenResult> {
   const cleanCircleId =
-    circleId.trim();
-
-  if (!cleanCircleId) {
-    throw new Error(
-      "Choose a Circle to continue.",
+    requiredUuid(
+      circleId,
+      "Circle",
     );
-  }
 
   const supabase = getClient();
   const user = await requireUser(
