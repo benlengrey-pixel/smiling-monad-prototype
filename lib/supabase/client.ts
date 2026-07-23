@@ -3,12 +3,6 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 
-const FALLBACK_SUPABASE_URL =
-  "https://kosfujyebwsmdvbolhur.supabase.co";
-
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
-  "sb_publishable_-c6GF8W9T-GzvTPgpxwytw_U6LLw1iK";
-
 let browserClient:
   | SupabaseClient
   | undefined;
@@ -16,80 +10,110 @@ let browserClient:
 function cleanEnvironmentValue(
   value: string | undefined,
 ): string {
-  if (!value) {
-    return "";
-  }
-
-  return value
-    .trim()
-    .replace(/^["']|["']$/g, "")
-    .trim();
+  return (
+    value
+      ?.trim()
+      .replace(
+        /^["']|["']$/g,
+        "",
+      )
+      .trim() ?? ""
+  );
 }
 
-function getValidSupabaseUrl(
-  value: string | undefined,
-): string {
-  const cleanedValue =
-    cleanEnvironmentValue(value);
-
-  try {
-    const parsedUrl = new URL(cleanedValue);
-
-    if (
-      parsedUrl.protocol === "https:" ||
-      parsedUrl.protocol === "http:"
-    ) {
-      return cleanedValue;
-    }
-  } catch {
-    // Use the known project URL.
-  }
-
-  return FALLBACK_SUPABASE_URL;
-}
-
-function getValidPublishableKey(
-  value: string | undefined,
-): string {
-  const cleanedValue =
-    cleanEnvironmentValue(value);
-
-  if (
-    cleanedValue.startsWith(
-      "sb_publishable_",
-    )
-  ) {
-    return cleanedValue;
-  }
-
-  return FALLBACK_SUPABASE_PUBLISHABLE_KEY;
-}
-
-export function getSupabaseBrowserClient(): SupabaseClient {
-  const supabaseUrl =
-    getValidSupabaseUrl(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
+function readSupabaseUrl(): string {
+  const value =
+    cleanEnvironmentValue(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL,
     );
 
-  const supabasePublishableKey =
-    getValidPublishableKey(
+  try {
+    const parsed =
+      new URL(value);
+
+    const localDevelopmentUrl =
+      process.env.NODE_ENV ===
+        "development" &&
+      (
+        parsed.hostname ===
+          "localhost" ||
+        parsed.hostname ===
+          "127.0.0.1"
+      ) &&
+      parsed.protocol ===
+        "http:";
+
+    const secureUrl =
+      parsed.protocol ===
+      "https:";
+
+    if (
+      (
+        secureUrl ||
+        localDevelopmentUrl
+      ) &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.search &&
+      !parsed.hash
+    ) {
+      return parsed.origin;
+    }
+  } catch {
+    // Configuration error handled below.
+  }
+
+  throw new Error(
+    "Supabase is not configured correctly. Check NEXT_PUBLIC_SUPABASE_URL.",
+  );
+}
+
+function readSupabasePublishableKey():
+  string {
+  const value =
+    cleanEnvironmentValue(
       process.env
         .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
 
-  if (!browserClient) {
-    browserClient = createClient(
-      supabaseUrl,
-      supabasePublishableKey,
+  if (
+    value.startsWith(
+      "sb_publishable_",
+    ) &&
+    value.length >= 30 &&
+    value.length <= 512
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    "Supabase is not configured correctly. Check NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+  );
+}
+
+export function getSupabaseBrowserClient():
+  SupabaseClient {
+  if (browserClient) {
+    return browserClient;
+  }
+
+  browserClient =
+    createClient(
+      readSupabaseUrl(),
+      readSupabasePublishableKey(),
       {
         auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+
           experimental: {
             passkey: true,
           },
         },
       },
     );
-  }
 
   return browserClient;
 }
