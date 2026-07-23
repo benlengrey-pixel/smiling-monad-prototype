@@ -6,6 +6,9 @@ import {
   type CompanionState,
   type ToolExecutionResult,
 } from "@/lib/companion/tool-executor";
+import {
+  getSupabaseBrowserClient,
+} from "@/lib/supabase/client";
 
 export type CompanionConversationMessage = {
   role: "user" | "assistant";
@@ -50,7 +53,8 @@ const isRecord = (
 const isStringOrNull = (
   value: unknown,
 ): value is string | null =>
-  typeof value === "string" || value === null;
+  typeof value === "string" ||
+  value === null;
 
 const isCompanionDecision = (
   value: unknown,
@@ -61,29 +65,46 @@ const isCompanionDecision = (
 
   if (
     typeof value.message !== "string" ||
-    typeof value.reasoningSummary !== "string" ||
-    typeof value.needsClarification !== "boolean" ||
-    !isStringOrNull(value.clarificationQuestion) ||
-    typeof value.requiresConfirmation !== "boolean" ||
+    typeof value.reasoningSummary !==
+      "string" ||
+    typeof value.needsClarification !==
+      "boolean" ||
+    !isStringOrNull(
+      value.clarificationQuestion,
+    ) ||
+    typeof value.requiresConfirmation !==
+      "boolean" ||
     !Array.isArray(value.actions)
   ) {
     return false;
   }
 
-  return value.actions.every((action) => {
-    if (!isRecord(action)) {
-      return false;
-    }
+  return value.actions.every(
+    (action) => {
+      if (!isRecord(action)) {
+        return false;
+      }
 
-    return (
-      typeof action.tool === "string" &&
-      isStringOrNull(action.targetId) &&
-      isStringOrNull(action.title) &&
-      isStringOrNull(action.kind) &&
-      isStringOrNull(action.content) &&
-      typeof action.reason === "string"
-    );
-  });
+      return (
+        typeof action.tool ===
+          "string" &&
+        isStringOrNull(
+          action.targetId,
+        ) &&
+        isStringOrNull(
+          action.title,
+        ) &&
+        isStringOrNull(
+          action.kind,
+        ) &&
+        isStringOrNull(
+          action.content,
+        ) &&
+        typeof action.reason ===
+          "string"
+      );
+    },
+  );
 };
 
 const readErrorMessage = async (
@@ -91,10 +112,12 @@ const readErrorMessage = async (
 ): Promise<string> => {
   try {
     const body =
-      (await response.json()) as CompanionGatewayErrorResponse;
+      (await response.json()) as
+        CompanionGatewayErrorResponse;
 
     if (
-      typeof body.error === "string" &&
+      typeof body.error ===
+        "string" &&
       body.error.trim()
     ) {
       return body.error;
@@ -106,103 +129,189 @@ const readErrorMessage = async (
   return `The Companion gateway returned ${response.status}.`;
 };
 
-export const requestCompanionDecision = async (
-  input: CompanionGatewayRequest,
-  signal?: AbortSignal,
-): Promise<CompanionDecision> => {
-  const requestText = input.request.trim();
+const readCompanionAccessToken =
+  async (): Promise<string> => {
+    const supabase =
+      getSupabaseBrowserClient();
 
-  if (!requestText) {
-    throw new Error(
-      "A message is required before Kimi can make a decision.",
+    const {
+      data: {
+        session,
+      },
+      error,
+    } =
+      await supabase.auth.getSession();
+
+    if (error) {
+      throw new Error(
+        "Your sign-in session could not be checked.",
+      );
+    }
+
+    const accessToken =
+      session?.access_token?.trim() ??
+      "";
+
+    if (!accessToken) {
+      throw new Error(
+        "Please sign in before using Kimi.",
+      );
+    }
+
+    return accessToken;
+  };
+
+export const requestCompanionDecision =
+  async (
+    input: CompanionGatewayRequest,
+    signal?: AbortSignal,
+  ): Promise<CompanionDecision> => {
+    const requestText =
+      input.request.trim();
+
+    if (!requestText) {
+      throw new Error(
+        "A message is required before Kimi can make a decision.",
+      );
+    }
+
+    const accessToken =
+      await readCompanionAccessToken();
+
+    const response = await fetch(
+      "/api/gateway",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          Authorization:
+            `Bearer ${accessToken}`,
+        },
+
+        body: JSON.stringify({
+          request: requestText,
+
+          memory:
+            input.memory?.trim() ||
+            "",
+
+          conversation:
+            input.conversation ?? [],
+
+          state:
+            input.state,
+        }),
+
+        signal,
+      },
     );
-  }
 
-  const response = await fetch("/api/gateway", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      request: requestText,
-      memory: input.memory?.trim() || "",
-      conversation: input.conversation ?? [],
-      state: input.state,
-    }),
-    signal,
-  });
+    if (!response.ok) {
+      throw new Error(
+        await readErrorMessage(
+          response,
+        ),
+      );
+    }
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
+    const body =
+      (await response.json()) as
+        unknown;
 
-  const body = (await response.json()) as unknown;
+    if (!isRecord(body)) {
+      throw new Error(
+        "The Companion gateway returned an invalid response.",
+      );
+    }
 
-  if (!isRecord(body)) {
-    throw new Error(
-      "The Companion gateway returned an invalid response.",
-    );
-  }
+    const decision =
+      body.decision;
 
-  const decision = body.decision;
+    if (
+      !isCompanionDecision(
+        decision,
+      )
+    ) {
+      throw new Error(
+        "The Companion gateway returned an invalid decision.",
+      );
+    }
 
-  if (!isCompanionDecision(decision)) {
-    throw new Error(
-      "The Companion gateway returned an invalid decision.",
-    );
-  }
+    return decision;
+  };
 
-  return decision;
-};
+export const runCompanionTurn =
+  async (
+    input: CompanionGatewayRequest,
+    signal?: AbortSignal,
+  ): Promise<CompanionGatewayResult> => {
+    const decision =
+      await requestCompanionDecision(
+        input,
+        signal,
+      );
 
-export const runCompanionTurn = async (
-  input: CompanionGatewayRequest,
-  signal?: AbortSignal,
-): Promise<CompanionGatewayResult> => {
-  const decision = await requestCompanionDecision(
-    input,
-    signal,
-  );
+    if (
+      decision.needsClarification
+    ) {
+      return {
+        decision,
 
-  if (decision.needsClarification) {
+        execution: {
+          state: input.state,
+          completedActions: [],
+          pendingConfirmationActions:
+            [],
+          failedActions: [],
+          navigation: null,
+        },
+      };
+    }
+
+    const executionContext:
+      CompanionExecutionContext = {
+        permissions:
+          OFFICE_COMPANION_PERMISSIONS,
+
+        confirmedActionKeys:
+          input.confirmedActionKeys ??
+          [],
+
+        /*
+         * Navigation is returned as
+         * execution metadata.
+         *
+         * The Office performs the
+         * visual route change with
+         * Next.js.
+         */
+        navigate: () =>
+          undefined,
+      };
+
+    const execution =
+      executeCompanionActions(
+        input.state,
+        decision.actions,
+        executionContext,
+      );
+
     return {
       decision,
-      execution: {
-        state: input.state,
-        completedActions: [],
-        pendingConfirmationActions: [],
-        failedActions: [],
-        navigation: null,
-      },
+      execution,
     };
-  }
-
-  const executionContext: CompanionExecutionContext = {
-    permissions: OFFICE_COMPANION_PERMISSIONS,
-    confirmedActionKeys:
-      input.confirmedActionKeys ?? [],
-
-    // Navigation is returned as execution metadata.
-    // The Office performs the visual route change with Next.js.
-    navigate: () => undefined,
   };
-
-  const execution = executeCompanionActions(
-    input.state,
-    decision.actions,
-    executionContext,
-  );
-
-  return {
-    decision,
-    execution,
-  };
-};
 
 export const getCompanionReply = (
   result: CompanionGatewayResult,
 ): string => {
-  const { decision, execution } = result;
+  const {
+    decision,
+    execution,
+  } = result;
 
   if (
     decision.needsClarification &&
@@ -212,22 +321,33 @@ export const getCompanionReply = (
   }
 
   const pendingConfirmationCount =
-    execution.pendingConfirmationActions?.length ??
-    0;
+    execution
+      .pendingConfirmationActions
+      ?.length ?? 0;
 
-  if (pendingConfirmationCount > 0) {
+  if (
+    pendingConfirmationCount >
+    0
+  ) {
     return decision.message;
   }
 
-  if (execution.failedActions.length === 0) {
+  if (
+    execution.failedActions
+      .length === 0
+  ) {
     return decision.message;
   }
 
   const firstFailure =
-    execution.failedActions[0]?.error ||
+    execution.failedActions[0]
+      ?.error ||
     "The action could not be completed.";
 
-  if (execution.completedActions.length === 0) {
+  if (
+    execution.completedActions
+      .length === 0
+  ) {
     return [
       "I understood what you wanted, but I couldn’t complete it.",
       firstFailure,
