@@ -20,6 +20,11 @@ import {
 } from "./api-user-auth";
 
 import {
+  enforcePersistentCompanionRateLimit,
+  isPersistentRateLimitError,
+} from "./persistent-companion-rate-limit";
+
+import {
   isVerifiedApiUserError,
   requireVerifiedApiUserId,
   VerifiedApiUserError,
@@ -89,6 +94,37 @@ export function apiSecurityErrorResponse(
     );
   }
 
+  if (
+    isPersistentRateLimitError(
+      error,
+    )
+  ) {
+    const response =
+      privateApiJson(
+        {
+          error:
+            error.message,
+
+          code:
+            error.code,
+        },
+        error.status,
+      );
+
+    if (
+      error.retryAfterSeconds
+    ) {
+      response.headers.set(
+        "Retry-After",
+        String(
+          error.retryAfterSeconds,
+        ),
+      );
+    }
+
+    return response;
+  }
+
   return null;
 }
 
@@ -141,6 +177,10 @@ export async function readSecureJsonBody<
   ) {
     throw new VerifiedApiUserError();
   }
+
+  await enforcePersistentCompanionRateLimit(
+    authenticated.accessToken,
+  );
 
   return readBaseSecureJsonBody<Value>(
     request,
