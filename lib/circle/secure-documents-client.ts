@@ -68,6 +68,26 @@ type UploadSecureCircleDocumentInput = {
   file: File;
 };
 
+const DOCUMENT_BUCKET =
+  "sm-circle-files" as const;
+
+const MAX_FILE_SIZE_BYTES =
+  15 * 1024 * 1024;
+
+const ALLOWED_MIME_TYPES =
+  new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+    "text/csv",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ]);
+
 function getClient(): SupabaseClient {
   return getSupabaseBrowserClient();
 }
@@ -75,26 +95,14 @@ function getClient(): SupabaseClient {
 function openSignIn(
   returnTo: string,
 ): void {
-  if (typeof window === "undefined") {
+  if (
+    typeof window === "undefined"
+  ) {
     return;
   }
 
   window.location.assign(
     `/sign-in?returnTo=${encodeURIComponent(
-      returnTo,
-    )}`,
-  );
-}
-
-function openMfa(
-  returnTo: string,
-): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.location.assign(
-    `/security/mfa?returnTo=${encodeURIComponent(
       returnTo,
     )}`,
   );
@@ -108,7 +116,8 @@ async function requireUser(
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } =
+    await supabase.auth.getUser();
 
   if (error || !user) {
     if (redirectToSignIn) {
@@ -123,87 +132,98 @@ async function requireUser(
   return user;
 }
 
-async function requireAal2(
-  supabase: SupabaseClient,
-  returnTo: string,
-  redirectToAuthentication: boolean,
-): Promise<User> {
-  const user = await requireUser(
-    supabase,
-    returnTo,
-    redirectToAuthentication,
-  );
-
-  const {
-    data: assurance,
-    error,
-  } =
-    await supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel();
+function friendlyDocumentError(
+  error: unknown,
+  fallback: string,
+): Error {
+  if (error instanceof Error) {
+    return error;
+  }
 
   if (
-    error ||
-    assurance.currentLevel !== "aal2"
+    typeof error === "object" &&
+    error !== null
   ) {
-    if (redirectToAuthentication) {
-      openMfa(returnTo);
+    const candidate =
+      error as {
+        message?: unknown;
+        details?: unknown;
+        hint?: unknown;
+        code?: unknown;
+      };
+
+    const message =
+      typeof candidate.message ===
+      "string"
+        ? candidate.message
+        : "";
+
+    const details =
+      typeof candidate.details ===
+      "string"
+        ? candidate.details
+        : "";
+
+    const hint =
+      typeof candidate.hint ===
+      "string"
+        ? candidate.hint
+        : "";
+
+    const combined = [
+      message,
+      details,
+      hint,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      combined.includes(
+        "row-level security",
+      ) ||
+      combined.includes(
+        "permission denied",
+      ) ||
+      candidate.code === "42501"
+    ) {
+      return new Error(
+        "You do not have permission to access this document.",
+      );
     }
 
-    throw new Error(
-      "Two-step security is required.",
-    );
+    if (
+      combined.includes(
+        "maximum allowed size",
+      ) ||
+      combined.includes(
+        "payload too large",
+      )
+    ) {
+      return new Error(
+        "This file is too large to upload.",
+      );
+    }
+
+    const parts = [
+      message,
+      details,
+      hint,
+      candidate.code
+        ? `Code: ${String(
+            candidate.code,
+          )}`
+        : "",
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
+      return new Error(
+        parts.join(" "),
+      );
+    }
   }
 
-  return user;
-}
-
-function friendlyDocumentError(
-  message: string,
-): Error {
-  const lowerMessage =
-    message.toLowerCase();
-
-  if (
-    lowerMessage.includes(
-      "sm_require_aal2",
-    ) ||
-    lowerMessage.includes("aal2") ||
-    lowerMessage.includes(
-      "two-step security",
-    )
-  ) {
-    return new Error(
-      "Two-step security is required.",
-    );
-  }
-
-  if (
-    lowerMessage.includes(
-      "row-level security",
-    ) ||
-    lowerMessage.includes(
-      "permission denied",
-    )
-  ) {
-    return new Error(
-      "You do not have permission to access this document.",
-    );
-  }
-
-  if (
-    lowerMessage.includes(
-      "maximum allowed size",
-    ) ||
-    lowerMessage.includes(
-      "payload too large",
-    )
-  ) {
-    return new Error(
-      "This file is too large to upload.",
-    );
-  }
-
-  return new Error(message);
+  return new Error(fallback);
 }
 
 function requiredText(
@@ -221,10 +241,30 @@ function requiredText(
   return clean;
 }
 
+function requiredId(
+  value: string,
+  label: string,
+): string {
+  const clean =
+    requiredText(value, label);
+
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      clean,
+    )
+  ) {
+    throw new Error(
+      `${label} is not valid.`,
+    );
+  }
+
+  return clean;
+}
+
 function safeFilename(
   filename: string,
 ): string {
-  const cleaned = filename
+  const clean = filename
     .trim()
     .replace(
       /[^a-zA-Z0-9._-]+/g,
@@ -233,7 +273,43 @@ function safeFilename(
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-  return cleaned || "document";
+  return clean || "document";
+}
+
+function validateFile(
+  file: File,
+): void {
+  if (
+    !file ||
+    file.size <= 0
+  ) {
+    throw new Error(
+      "Choose a document to upload.",
+    );
+  }
+
+  if (
+    file.size >
+    MAX_FILE_SIZE_BYTES
+  ) {
+    throw new Error(
+      "Documents must be 15 MB or smaller.",
+    );
+  }
+
+  const mimeType =
+    file.type.trim().toLowerCase();
+
+  if (
+    !mimeType ||
+    !ALLOWED_MIME_TYPES.has(
+      mimeType,
+    )
+  ) {
+    throw new Error(
+      "This file type is not allowed. Use PDF, Word, Excel, text, CSV, JPEG, PNG or WebP.",
+    );
+  }
 }
 
 export async function readSecureCircleDocuments(
@@ -241,36 +317,41 @@ export async function readSecureCircleDocuments(
 ): Promise<SecureCircleDocument[]> {
   const supabase = getClient();
 
-  await requireAal2(
+  await requireUser(
     supabase,
     "/circle?panel=documents",
     true,
   );
 
-  const {
-    data,
-    error,
-  } = await supabase
-    .from("documents")
-    .select("*")
-    .eq("circle_id", circleId)
-    .neq(
-      "document_status",
-      "archived",
-    )
-    .order("updated_at", {
-      ascending: false,
-    });
+  const cleanCircleId =
+    requiredId(circleId, "Circle");
+
+  const { data, error } =
+    await supabase
+      .from("documents")
+      .select("*")
+      .eq(
+        "circle_id",
+        cleanCircleId,
+      )
+      .neq(
+        "document_status",
+        "archived",
+      )
+      .order("updated_at", {
+        ascending: false,
+      });
 
   if (error) {
     throw friendlyDocumentError(
-      error.message,
+      error,
+      "The Circle documents could not be loaded.",
     );
   }
 
   return (
-    data as SecureCircleDocument[] | null
-  ) ?? [];
+    data ?? []
+  ) as unknown as SecureCircleDocument[];
 }
 
 export async function uploadSecureCircleDocument({
@@ -284,56 +365,66 @@ export async function uploadSecureCircleDocument({
 }: UploadSecureCircleDocumentInput): Promise<SecureCircleDocument> {
   const supabase = getClient();
 
-  const user = await requireAal2(
+  const user = await requireUser(
     supabase,
     "/circle?panel=documents",
     false,
   );
 
-  const cleanTitle = requiredText(
-    title,
-    "Document title",
-  );
+  const cleanCircleId =
+    requiredId(circleId, "Circle");
 
-  if (!file || file.size <= 0) {
-    throw new Error(
-      "Choose a document to upload.",
+  const cleanParticipantId =
+    requiredId(
+      participantId,
+      "Participant",
     );
-  }
+
+  const cleanTitle =
+    requiredText(
+      title,
+      "Document title",
+    );
+
+  validateFile(file);
 
   const documentId =
     globalThis.crypto.randomUUID();
 
-  const filename = safeFilename(
-    file.name,
-  );
+  const filename =
+    safeFilename(file.name);
 
   const storagePath = [
-    circleId,
-    participantId,
+    cleanCircleId,
+    cleanParticipantId,
     documentId,
     filename,
   ].join("/");
 
+  const mimeType =
+    file.type
+      .trim()
+      .toLowerCase();
+
   const {
     error: uploadError,
-  } = await supabase.storage
-    .from("sm-circle-files")
-    .upload(
-      storagePath,
-      file,
-      {
-        cacheControl: "3600",
-        upsert: false,
-        contentType:
-          file.type ||
-          "application/octet-stream",
-      },
-    );
+  } =
+    await supabase.storage
+      .from(DOCUMENT_BUCKET)
+      .upload(
+        storagePath,
+        file,
+        {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: mimeType,
+        },
+      );
 
   if (uploadError) {
     throw friendlyDocumentError(
-      uploadError.message,
+      uploadError,
+      "The document could not be uploaded.",
     );
   }
 
@@ -345,48 +436,55 @@ export async function uploadSecureCircleDocument({
   const {
     data,
     error: metadataError,
-  } = await supabase
-    .from("documents")
-    .insert({
-      id: documentId,
-      circle_id: circleId,
-      participant_id:
-        participantId,
-      title: cleanTitle,
-      description:
-        description.trim(),
-      category,
-      sensitivity,
-      document_status: "draft",
-      storage_bucket:
-        "sm-circle-files",
-      storage_path: storagePath,
-      original_filename:
-        file.name,
-      mime_type:
-        file.type ||
-        "application/octet-stream",
-      size_bytes: file.size,
-      consent_required:
-        consentRequired,
-      consent_id: null,
-      created_by: user.id,
-      updated_by: user.id,
-    })
-    .select("*")
-    .single();
+  } =
+    await supabase
+      .from("documents")
+      .insert({
+        id: documentId,
+        circle_id:
+          cleanCircleId,
+        participant_id:
+          cleanParticipantId,
+        title: cleanTitle,
+        description:
+          description.trim(),
+        category,
+        sensitivity,
+        document_status:
+          "draft",
+        storage_bucket:
+          DOCUMENT_BUCKET,
+        storage_path:
+          storagePath,
+        original_filename:
+          file.name,
+        mime_type:
+          mimeType,
+        size_bytes:
+          file.size,
+        consent_required:
+          consentRequired,
+        consent_id: null,
+        created_by:
+          user.id,
+        updated_by:
+          user.id,
+      })
+      .select("*")
+      .single();
 
   if (metadataError) {
     await supabase.storage
-      .from("sm-circle-files")
+      .from(DOCUMENT_BUCKET)
       .remove([storagePath]);
 
     throw friendlyDocumentError(
-      metadataError.message,
+      metadataError,
+      "The document record could not be created.",
     );
   }
 
-  return data as SecureCircleDocument;
+  return data as unknown as SecureCircleDocument;
 }
 
 export async function createSecureDocumentDownloadUrl(
@@ -394,28 +492,59 @@ export async function createSecureDocumentDownloadUrl(
 ): Promise<string> {
   const supabase = getClient();
 
-  await requireAal2(
+  await requireUser(
     supabase,
     "/circle?panel=documents",
     false,
   );
 
-  const {
-    data,
-    error,
-  } = await supabase.storage
-    .from(
-      document.storage_bucket,
-    )
-    .createSignedUrl(
-      document.storage_path,
-      60,
-    );
+  requiredId(
+    document.circle_id,
+    "Circle",
+  );
 
-  if (error || !data?.signedUrl) {
+  requiredId(
+    document.participant_id,
+    "Participant",
+  );
+
+  if (
+    document.storage_bucket !==
+    DOCUMENT_BUCKET
+  ) {
+    throw new Error(
+      "The document storage location is not valid.",
+    );
+  }
+
+  const expectedPrefix =
+    `${document.circle_id}/${document.participant_id}/`;
+
+  if (
+    !document.storage_path.startsWith(
+      expectedPrefix,
+    )
+  ) {
+    throw new Error(
+      "The document storage path is not valid.",
+    );
+  }
+
+  const { data, error } =
+    await supabase.storage
+      .from(DOCUMENT_BUCKET)
+      .createSignedUrl(
+        document.storage_path,
+        60,
+      );
+
+  if (
+    error ||
+    !data?.signedUrl
+  ) {
     throw friendlyDocumentError(
-      error?.message ||
-        "The document could not be opened.",
+      error,
+      "The document could not be opened.",
     );
   }
 
@@ -427,26 +556,38 @@ export async function archiveSecureCircleDocument(
 ): Promise<void> {
   const supabase = getClient();
 
-  const user = await requireAal2(
+  const user = await requireUser(
     supabase,
     "/circle?panel=documents",
     false,
   );
 
-  const {
-    error,
-  } = await supabase
-    .from("documents")
-    .update({
-      document_status:
-        "archived",
-      updated_by: user.id,
-    })
-    .eq("id", documentId);
+  const cleanDocumentId =
+    requiredId(
+      documentId,
+      "Document",
+    );
+
+  const { error } =
+    await supabase
+      .from("documents")
+      .update({
+        document_status:
+          "archived",
+        archived_at:
+          new Date().toISOString(),
+        updated_by:
+          user.id,
+      })
+      .eq(
+        "id",
+        cleanDocumentId,
+      );
 
   if (error) {
     throw friendlyDocumentError(
-      error.message,
+      error,
+      "The document could not be archived.",
     );
   }
 }
