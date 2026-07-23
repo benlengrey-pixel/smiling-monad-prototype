@@ -49,23 +49,6 @@ import {
 } from "@/lib/circle/secure-circle-messages-client";
 
 import {
-  createSecureBudgetItem,
-  createSecureMeeting,
-  createSecureResponsibility,
-  inviteSecureCircleMember,
-  readSecureCircleOperations,
-  updateSecureBudgetItem,
-  updateSecureCircleMember,
-  updateSecureMeeting,
-  updateSecureResponsibility,
-  type SecureCircleBudgetItem,
-  type SecureCircleMeeting,
-  type SecureCircleMemberRecord,
-  type SecureCircleResponsibility,
-  type SecureMemberRole,
-} from "@/lib/circle/secure-circle-operations-client";
-
-import {
   readSecureCircleAuditHistory,
   type SecureAuditEvent,
 } from "@/lib/circle/secure-audit-client";
@@ -93,6 +76,7 @@ import {
 } from "@/lib/circle/secure-consent-status-client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import useCircleOperations from "@/hooks/circle/useCircleOperations";
 
 import {
   assignMandatoryCircleTraining,
@@ -285,6 +269,92 @@ export default function CirclePage() {
       null,
     );
 
+  const {
+    loading: operationsLoading,
+
+    members: {
+      records: members,
+      workingId: operationWorkingId,
+      message: operationMessage,
+      form: {
+        name: memberName,
+        email: memberEmail,
+        role: memberRole,
+        relationship: memberRelationship,
+      },
+      setName: setMemberName,
+      setEmail: setMemberEmail,
+      setRole: setMemberRole,
+      setRelationship:
+        setMemberRelationship,
+      add: addMember,
+      remove: removeMember,
+    },
+
+    meetings: {
+      records: meetings,
+      form: {
+        title: meetingTitle,
+        date: meetingDate,
+        purpose: meetingPurpose,
+      },
+      setTitle: setMeetingTitle,
+      setDate: setMeetingDate,
+      setPurpose: setMeetingPurpose,
+      add: addMeeting,
+      remove: removeMeeting,
+    },
+
+    responsibilities: {
+      records: responsibilities,
+      openCount: openResponsibilities,
+      form: {
+        title: responsibilityTitle,
+        owner: responsibilityOwner,
+      },
+      setTitle:
+        setResponsibilityTitle,
+      setOwner:
+        setResponsibilityOwner,
+      add: addResponsibility,
+      advance:
+        advanceResponsibility,
+      remove:
+        removeResponsibility,
+    },
+
+    budgets: {
+      records: budgets,
+      totalAllocated:
+        totalBudgetAllocated,
+      totalSpent: totalBudgetSpent,
+      form: {
+        title: budgetTitle,
+        category: budgetCategory,
+        allocated: budgetAllocated,
+        spent: budgetSpent,
+        owner: budgetOwner,
+      },
+      setTitle: setBudgetTitle,
+      setCategory:
+        setBudgetCategory,
+      setAllocated:
+        setBudgetAllocated,
+      setSpent: setBudgetSpent,
+      setOwner: setBudgetOwner,
+      add: addBudgetItem,
+      advanceStatus:
+        advanceBudgetStatus,
+      remove: removeBudgetItem,
+    },
+  } = useCircleOperations({
+    circleId:
+      workspace?.circle.id ?? "",
+    participantId:
+      workspace?.participant.id ?? "",
+    enabled: Boolean(workspace),
+  });
+
   const [currentUserId, setCurrentUserId] =
     useState("");
 
@@ -307,29 +377,8 @@ export default function CirclePage() {
       emptyCircle,
     );
 
-  const [members, setMembers] =
-    useState<SecureCircleMemberRecord[]>([]);
-
   const [goals, setGoals] =
     useState<SecureCircleGoal[]>([]);
-
-  const [meetings, setMeetings] =
-    useState<SecureCircleMeeting[]>([]);
-
-  const [responsibilities, setResponsibilities] =
-    useState<SecureCircleResponsibility[]>([]);
-
-  const [budgets, setBudgets] =
-    useState<SecureCircleBudgetItem[]>([]);
-
-  const [operationsLoading, setOperationsLoading] =
-    useState(true);
-
-  const [operationWorkingId, setOperationWorkingId] =
-    useState("");
-
-  const [operationMessage, setOperationMessage] =
-    useState("");
 
   const [goalsLoading, setGoalsLoading] =
     useState(true);
@@ -623,66 +672,10 @@ export default function CirclePage() {
     setTrainingMessage,
   ] = useState("");
 
-  const [memberName, setMemberName] =
-    useState("");
-
-  const [memberRole, setMemberRole] =
-    useState<SecureMemberRole>("circle_member");
-
-  const [memberEmail, setMemberEmail] =
-    useState("");
-
-  const [
-    memberRelationship,
-    setMemberRelationship,
-  ] = useState("");
-
   const [goalTitle, setGoalTitle] =
     useState("");
 
   const [goalOwner, setGoalOwner] =
-    useState("");
-
-  const [meetingTitle, setMeetingTitle] =
-    useState("");
-
-  const [meetingDate, setMeetingDate] =
-    useState("");
-
-  const [
-    meetingPurpose,
-    setMeetingPurpose,
-  ] = useState("");
-
-  const [
-    responsibilityTitle,
-    setResponsibilityTitle,
-  ] = useState("");
-
-  const [
-    responsibilityOwner,
-    setResponsibilityOwner,
-  ] = useState("");
-
-  const [budgetTitle, setBudgetTitle] =
-    useState("");
-
-  const [
-    budgetCategory,
-    setBudgetCategory,
-  ] = useState<
-    SecureCircleBudgetItem["category"]
-  >("core");
-
-  const [
-    budgetAllocated,
-    setBudgetAllocated,
-  ] = useState("");
-
-  const [budgetSpent, setBudgetSpent] =
-    useState("");
-
-  const [budgetOwner, setBudgetOwner] =
     useState("");
 
   useEffect(() => {
@@ -759,15 +752,10 @@ export default function CirclePage() {
           return;
         }
 
-        const [secureGoals, secureOperations] =
-          await Promise.all([
-            readSecureCircleGoals(
-              secureWorkspace.circle.id,
-            ),
-            readSecureCircleOperations(
-              secureWorkspace.circle.id,
-            ),
-          ]);
+        const secureGoals =
+          await readSecureCircleGoals(
+            secureWorkspace.circle.id,
+          );
 
         if (!active) {
           return;
@@ -788,14 +776,7 @@ export default function CirclePage() {
           secureConsentSummary,
         );
         setGoals(secureGoals);
-        setMembers(secureOperations.members);
-        setMeetings(secureOperations.meetings);
-        setResponsibilities(
-          secureOperations.responsibilities,
-        );
-        setBudgets(secureOperations.budgets);
         setGoalsLoading(false);
-        setOperationsLoading(false);
         setProfileState({
           personName:
             secureWorkspace.participant
@@ -832,7 +813,6 @@ export default function CirclePage() {
         }
 
         setGoalsLoading(false);
-        setOperationsLoading(false);
       } finally {
         if (active) {
           setDirectoryLoading(false);
@@ -1101,17 +1081,6 @@ export default function CirclePage() {
     [goals],
   );
 
-  const openResponsibilities =
-    useMemo(
-      () =>
-        responsibilities.filter(
-          (responsibility) =>
-            responsibility.responsibility_status !==
-            "complete",
-        ).length,
-      [responsibilities],
-    );
-
   const documentsNeedingReview =
     useMemo(
       () =>
@@ -1122,26 +1091,6 @@ export default function CirclePage() {
         ).length,
       [documents],
     );
-
-  const totalBudgetAllocated = useMemo(
-    () =>
-      budgets.reduce(
-        (total, item) =>
-          total + item.allocated,
-        0,
-      ),
-    [budgets],
-  );
-
-  const totalBudgetSpent = useMemo(
-    () =>
-      budgets.reduce(
-        (total, item) =>
-          total + item.spent,
-        0,
-      ),
-    [budgets],
-  );
 
   const displayAuditEvents = useMemo(
     () =>
@@ -1156,47 +1105,6 @@ export default function CirclePage() {
       currentUserId,
     ],
   );
-
-  async function addMember() {
-    if (!workspace || operationWorkingId) {
-      return;
-    }
-
-    setOperationWorkingId("member-new");
-    setOperationMessage("");
-
-    try {
-      const createdMember =
-        await inviteSecureCircleMember({
-          circleId: workspace.circle.id,
-          email: memberEmail,
-          displayName: memberName,
-          role: memberRole,
-          relationship: memberRelationship,
-        });
-
-      setMembers((current) => [
-        ...current,
-        createdMember,
-      ]);
-
-      setMemberName("");
-      setMemberEmail("");
-      setMemberRole("circle_member");
-      setMemberRelationship("");
-      setOperationMessage(
-        "Circle invitation saved securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The Circle invitation could not be saved.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
 
   async function addGoal() {
     const title = goalTitle.trim();
@@ -1347,187 +1255,6 @@ export default function CirclePage() {
     }
   }
 
-  async function addMeeting() {
-    if (!workspace || operationWorkingId) {
-      return;
-    }
-
-    setOperationWorkingId("meeting-new");
-    setOperationMessage("");
-
-    try {
-      const createdMeeting =
-        await createSecureMeeting({
-          circleId: workspace.circle.id,
-          participantId: workspace.participant.id,
-          title: meetingTitle,
-          meetingDate,
-          purpose:
-            meetingPurpose.trim() ||
-            "Circle coordination",
-        });
-
-      setMeetings((current) => [
-        ...current,
-        createdMeeting,
-      ]);
-
-      setMeetingTitle("");
-      setMeetingDate("");
-      setMeetingPurpose("");
-      setOperationMessage(
-        "Meeting saved securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The meeting could not be saved.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function addResponsibility() {
-    if (!workspace || operationWorkingId) {
-      return;
-    }
-
-    setOperationWorkingId("responsibility-new");
-    setOperationMessage("");
-
-    try {
-      const createdResponsibility =
-        await createSecureResponsibility({
-          circleId: workspace.circle.id,
-          participantId: workspace.participant.id,
-          title: responsibilityTitle,
-          ownerName:
-            responsibilityOwner.trim() ||
-            "Whole circle",
-        });
-
-      setResponsibilities((current) => [
-        ...current,
-        createdResponsibility,
-      ]);
-
-      setResponsibilityTitle("");
-      setResponsibilityOwner("");
-      setOperationMessage(
-        "Responsibility saved securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The responsibility could not be saved.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function addBudgetItem() {
-    if (!workspace || operationWorkingId) {
-      return;
-    }
-
-    const allocated =
-      Number.parseFloat(budgetAllocated);
-    const spent =
-      Number.parseFloat(budgetSpent);
-
-    if (
-      !budgetTitle.trim() ||
-      !Number.isFinite(allocated) ||
-      allocated < 0
-    ) {
-      setOperationMessage(
-        "Enter a budget title and a valid allocated amount.",
-      );
-      return;
-    }
-
-    setOperationWorkingId("budget-new");
-    setOperationMessage("");
-
-    try {
-      const createdBudget =
-        await createSecureBudgetItem({
-          circleId: workspace.circle.id,
-          participantId: workspace.participant.id,
-          title: budgetTitle,
-          category: budgetCategory,
-          allocated,
-          spent:
-            Number.isFinite(spent) && spent >= 0
-              ? spent
-              : 0,
-          ownerName:
-            budgetOwner.trim() ||
-            "Whole circle",
-        });
-
-      setBudgets((current) => [
-        ...current,
-        createdBudget,
-      ]);
-
-      setBudgetTitle("");
-      setBudgetCategory("core");
-      setBudgetAllocated("");
-      setBudgetSpent("");
-      setBudgetOwner("");
-      setOperationMessage(
-        "Budget item saved securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The budget item could not be saved.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function removeMember(
-    memberId: string,
-  ) {
-    setOperationWorkingId(memberId);
-    setOperationMessage("");
-
-    try {
-      await updateSecureCircleMember(
-        memberId,
-        {
-          membership_status: "removed",
-        },
-      );
-
-      setMembers((current) =>
-        current.filter(
-          (member) => member.id !== memberId,
-        ),
-      );
-
-      setOperationMessage(
-        "Circle access removed securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "Circle access could not be removed.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
   async function removeGoal(
     goalId: string,
   ) {
@@ -1595,96 +1322,6 @@ export default function CirclePage() {
     }
   }
 
-  async function removeMeeting(
-    meetingId: string,
-  ) {
-    setOperationWorkingId(meetingId);
-    setOperationMessage("");
-
-    try {
-      await updateSecureMeeting(
-        meetingId,
-        { meeting_status: "archived" },
-      );
-      setMeetings((current) =>
-        current.filter(
-          (meeting) => meeting.id !== meetingId,
-        ),
-      );
-      setOperationMessage(
-        "Meeting archived securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The meeting could not be archived.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function removeResponsibility(
-    responsibilityId: string,
-  ) {
-    setOperationWorkingId(responsibilityId);
-    setOperationMessage("");
-
-    try {
-      await updateSecureResponsibility(
-        responsibilityId,
-        { responsibility_status: "archived" },
-      );
-      setResponsibilities((current) =>
-        current.filter(
-          (item) => item.id !== responsibilityId,
-        ),
-      );
-      setOperationMessage(
-        "Responsibility archived securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The responsibility could not be archived.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function removeBudgetItem(
-    budgetId: string,
-  ) {
-    setOperationWorkingId(budgetId);
-    setOperationMessage("");
-
-    try {
-      await updateSecureBudgetItem(
-        budgetId,
-        { budget_status: "archived" },
-      );
-      setBudgets((current) =>
-        current.filter(
-          (item) => item.id !== budgetId,
-        ),
-      );
-      setOperationMessage(
-        "Budget item archived securely.",
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The budget item could not be archived.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
   async function advanceGoal(
     goal: SecureCircleGoal,
   ) {
@@ -1716,88 +1353,6 @@ export default function CirclePage() {
       );
     } finally {
       setGoalWorkingId("");
-    }
-  }
-
-  async function advanceResponsibility(
-    responsibility: SecureCircleResponsibility,
-  ) {
-    const statuses =
-      ["open", "in_progress", "complete"] as const;
-    const currentIndex =
-      statuses.indexOf(
-        responsibility.responsibility_status as
-          (typeof statuses)[number],
-      );
-    const nextStatus =
-      currentIndex < 0 ||
-      currentIndex === statuses.length - 1
-        ? "open"
-        : statuses[currentIndex + 1];
-
-    setOperationWorkingId(responsibility.id);
-
-    try {
-      const updated =
-        await updateSecureResponsibility(
-          responsibility.id,
-          { responsibility_status: nextStatus },
-        );
-      setResponsibilities((current) =>
-        current.map((item) =>
-          item.id === updated.id ? updated : item,
-        ),
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The responsibility could not be updated.",
-      );
-    } finally {
-      setOperationWorkingId("");
-    }
-  }
-
-  async function advanceBudgetStatus(
-    item: SecureCircleBudgetItem,
-  ) {
-    const statuses =
-      ["active", "review_needed", "closed"] as const;
-    const currentIndex =
-      statuses.indexOf(
-        item.budget_status as
-          (typeof statuses)[number],
-      );
-    const nextStatus =
-      currentIndex < 0 ||
-      currentIndex === statuses.length - 1
-        ? "active"
-        : statuses[currentIndex + 1];
-
-    setOperationWorkingId(item.id);
-
-    try {
-      const updated =
-        await updateSecureBudgetItem(
-          item.id,
-          { budget_status: nextStatus },
-        );
-      setBudgets((current) =>
-        current.map((currentItem) =>
-          currentItem.id === updated.id
-            ? updated
-            : currentItem,
-        ),
-      );
-    } catch (error) {
-      setOperationMessage(
-        error instanceof Error
-          ? error.message
-          : "The budget item could not be updated.",
-      );
-    } finally {
-      setOperationWorkingId("");
     }
   }
 
