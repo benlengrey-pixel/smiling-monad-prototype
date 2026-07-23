@@ -1,4 +1,8 @@
 import {
+  chooseCompanionInteractionMode,
+} from "@/lib/companion/fast-interaction";
+
+import {
   executeCompanionActions,
   type CompanionDecision,
   type CompanionExecutionContext,
@@ -6,6 +10,7 @@ import {
   type CompanionState,
   type ToolExecutionResult,
 } from "@/lib/companion/tool-executor";
+
 import {
   getSupabaseBrowserClient,
 } from "@/lib/supabase/client";
@@ -18,7 +23,8 @@ export type CompanionConversationMessage = {
 export type CompanionGatewayRequest = {
   request: string;
   memory?: string;
-  conversation?: CompanionConversationMessage[];
+  conversation?:
+    CompanionConversationMessage[];
   state: CompanionState;
   confirmedActionKeys?: string[];
 };
@@ -27,33 +33,46 @@ type CompanionGatewayErrorResponse = {
   error?: string;
 };
 
+type FastGatewayResponse = {
+  requiresAction?: boolean;
+  decision?: unknown;
+};
+
 export type CompanionGatewayResult = {
   decision: CompanionDecision;
   execution: ToolExecutionResult;
 };
 
-const OFFICE_COMPANION_PERMISSIONS: CompanionPermission[] = [
-  "navigate",
-  "read",
-  "create",
-  "update",
-  "publish",
-  "delete",
-  "manage-access",
-  "financial",
-];
+const OFFICE_COMPANION_PERMISSIONS:
+  CompanionPermission[] = [
+    "navigate",
+    "read",
+    "create",
+    "update",
+    "publish",
+    "delete",
+    "manage-access",
+    "financial",
+  ];
 
 const isRecord = (
   value: unknown,
-): value is Record<string, unknown> =>
-  typeof value === "object" &&
+): value is Record<
+  string,
+  unknown
+> =>
+  typeof value ===
+    "object" &&
   value !== null &&
-  !Array.isArray(value);
+  !Array.isArray(
+    value,
+  );
 
 const isStringOrNull = (
   value: unknown,
 ): value is string | null =>
-  typeof value === "string" ||
+  typeof value ===
+    "string" ||
   value === null;
 
 const isCompanionDecision = (
@@ -64,7 +83,8 @@ const isCompanionDecision = (
   }
 
   if (
-    typeof value.message !== "string" ||
+    typeof value.message !==
+      "string" ||
     typeof value.reasoningSummary !==
       "string" ||
     typeof value.needsClarification !==
@@ -74,7 +94,9 @@ const isCompanionDecision = (
     ) ||
     typeof value.requiresConfirmation !==
       "boolean" ||
-    !Array.isArray(value.actions)
+    !Array.isArray(
+      value.actions,
+    )
   ) {
     return false;
   }
@@ -149,8 +171,8 @@ const readCompanionAccessToken =
     }
 
     const accessToken =
-      session?.access_token?.trim() ??
-      "";
+      session?.access_token
+        ?.trim() ?? "";
 
     if (!accessToken) {
       throw new Error(
@@ -161,53 +183,175 @@ const readCompanionAccessToken =
     return accessToken;
   };
 
-export const requestCompanionDecision =
-  async (
-    input: CompanionGatewayRequest,
-    signal?: AbortSignal,
-  ): Promise<CompanionDecision> => {
-    const requestText =
-      input.request.trim();
+const createGatewayHeaders = (
+  accessToken: string,
+): HeadersInit => ({
+  "Content-Type":
+    "application/json",
 
-    if (!requestText) {
-      throw new Error(
-        "A message is required before Kimi can make a decision.",
+  Authorization:
+    `Bearer ${accessToken}`,
+});
+
+const hasActiveCompanionWork = (
+  state: CompanionState,
+): boolean =>
+  Boolean(
+    state.activeDeskObjectId ||
+    state.activeDocumentId ||
+    state.workspaceOpen ||
+    state.temporaryTasks.some(
+      (task) =>
+        task.status ===
+        "active",
+    ),
+  );
+
+const requestFastConversationDecision =
+  async ({
+    input,
+    accessToken,
+    signal,
+  }: {
+    input:
+      CompanionGatewayRequest;
+    accessToken: string;
+    signal?: AbortSignal;
+  }): Promise<
+    CompanionDecision | null
+  > => {
+    const response =
+      await fetch(
+        "/api/gateway/conversation",
+        {
+          method:
+            "POST",
+
+          headers:
+            createGatewayHeaders(
+              accessToken,
+            ),
+
+          body:
+            JSON.stringify({
+              request:
+                input.request.trim(),
+
+              memory:
+                input.memory?.trim() ||
+                "",
+
+              conversation:
+                input.conversation ??
+                [],
+
+              state: {
+                hasActiveWork:
+                  hasActiveCompanionWork(
+                    input.state,
+                  ),
+
+                workspaceOpen:
+                  input.state
+                    .workspaceOpen,
+              },
+            }),
+
+          signal,
+        },
       );
+
+    if (!response.ok) {
+      if (
+        response.status ===
+          401 ||
+        response.status ===
+          403
+      ) {
+        throw new Error(
+          await readErrorMessage(
+            response,
+          ),
+        );
+      }
+
+      return null;
     }
 
-    const accessToken =
-      await readCompanionAccessToken();
+    const body =
+      (await response.json()) as
+        unknown;
 
-    const response = await fetch(
-      "/api/gateway",
-      {
-        method: "POST",
+    if (!isRecord(body)) {
+      return null;
+    }
 
-        headers: {
-          "Content-Type":
-            "application/json",
+    const fastBody =
+      body as FastGatewayResponse;
 
-          Authorization:
-            `Bearer ${accessToken}`,
+    if (
+      fastBody.requiresAction ===
+      true
+    ) {
+      return null;
+    }
+
+    if (
+      !isCompanionDecision(
+        fastBody.decision,
+      )
+    ) {
+      return null;
+    }
+
+    return fastBody.decision;
+  };
+
+const requestFullCompanionDecision =
+  async ({
+    input,
+    accessToken,
+    signal,
+  }: {
+    input:
+      CompanionGatewayRequest;
+    accessToken: string;
+    signal?: AbortSignal;
+  }): Promise<
+    CompanionDecision
+  > => {
+    const response =
+      await fetch(
+        "/api/gateway",
+        {
+          method:
+            "POST",
+
+          headers:
+            createGatewayHeaders(
+              accessToken,
+            ),
+
+          body:
+            JSON.stringify({
+              request:
+                input.request.trim(),
+
+              memory:
+                input.memory?.trim() ||
+                "",
+
+              conversation:
+                input.conversation ??
+                [],
+
+              state:
+                input.state,
+            }),
+
+          signal,
         },
-
-        body: JSON.stringify({
-          request: requestText,
-
-          memory:
-            input.memory?.trim() ||
-            "",
-
-          conversation:
-            input.conversation ?? [],
-
-          state:
-            input.state,
-        }),
-
-        signal,
-      },
-    );
+      );
 
     if (!response.ok) {
       throw new Error(
@@ -243,11 +387,74 @@ export const requestCompanionDecision =
     return decision;
   };
 
+export const requestCompanionDecision =
+  async (
+    input:
+      CompanionGatewayRequest,
+    signal?: AbortSignal,
+  ): Promise<
+    CompanionDecision
+  > => {
+    const requestText =
+      input.request.trim();
+
+    if (!requestText) {
+      throw new Error(
+        "A message is required before Kimi can make a decision.",
+      );
+    }
+
+    const accessToken =
+      await readCompanionAccessToken();
+
+    const interactionMode =
+      chooseCompanionInteractionMode({
+        request:
+          requestText,
+
+        state: {
+          hasActiveWork:
+            hasActiveCompanionWork(
+              input.state,
+            ),
+
+          workspaceOpen:
+            input.state
+              .workspaceOpen,
+        },
+      });
+
+    if (
+      interactionMode ===
+      "conversation"
+    ) {
+      const fastDecision =
+        await requestFastConversationDecision({
+          input,
+          accessToken,
+          signal,
+        });
+
+      if (fastDecision) {
+        return fastDecision;
+      }
+    }
+
+    return requestFullCompanionDecision({
+      input,
+      accessToken,
+      signal,
+    });
+  };
+
 export const runCompanionTurn =
   async (
-    input: CompanionGatewayRequest,
+    input:
+      CompanionGatewayRequest,
     signal?: AbortSignal,
-  ): Promise<CompanionGatewayResult> => {
+  ): Promise<
+    CompanionGatewayResult
+  > => {
     const decision =
       await requestCompanionDecision(
         input,
@@ -261,12 +468,20 @@ export const runCompanionTurn =
         decision,
 
         execution: {
-          state: input.state,
-          completedActions: [],
+          state:
+            input.state,
+
+          completedActions:
+            [],
+
           pendingConfirmationActions:
             [],
-          failedActions: [],
-          navigation: null,
+
+          failedActions:
+            [],
+
+          navigation:
+            null,
         },
       };
     }
@@ -288,8 +503,8 @@ export const runCompanionTurn =
          * visual route change with
          * Next.js.
          */
-        navigate: () =>
-          undefined,
+        navigate:
+          () => undefined,
       };
 
     const execution =
@@ -306,7 +521,8 @@ export const runCompanionTurn =
   };
 
 export const getCompanionReply = (
-  result: CompanionGatewayResult,
+  result:
+    CompanionGatewayResult,
 ): string => {
   const {
     decision,
@@ -317,7 +533,10 @@ export const getCompanionReply = (
     decision.needsClarification &&
     decision.clarificationQuestion
   ) {
-    return decision.clarificationQuestion;
+    return (
+      decision
+        .clarificationQuestion
+    );
   }
 
   const pendingConfirmationCount =
