@@ -15,10 +15,16 @@ import {
 } from "@/lib/platform/smiling-monad-state";
 
 import {
-  openSecureCircleWorkspace,
   updateSecureParticipantProfile,
   type SecureCircleWorkspace,
 } from "@/lib/circle/secure-circle-client";
+
+import {
+  createMySecureCircle,
+  listMySecureCircles,
+  openSelectedSecureCircle,
+  type SecureCircleDirectoryEntry,
+} from "@/lib/circle/secure-circle-directory-client";
 
 import {
   advanceSecureCircleGoal,
@@ -68,6 +74,7 @@ import {
   addAuditActorNames,
 } from "@/lib/circle/secure-audit-actors";
 
+import CircleDirectory from "@/components/circle/CircleDirectory";
 import AuditPanel from "@/components/circle/panels/AuditPanel";
 import BudgetPanel from "@/components/circle/panels/BudgetPanel";
 import ConversationPanel from "@/components/circle/panels/ConversationPanel";
@@ -240,6 +247,38 @@ function describeUnknownError(
 export default function CirclePage() {
   const [loaded, setLoaded] =
     useState(false);
+
+  const [
+    selectedCircleId,
+    setSelectedCircleId,
+  ] = useState("");
+
+  const [
+    directoryEntries,
+    setDirectoryEntries,
+  ] = useState<
+    SecureCircleDirectoryEntry[]
+  >([]);
+
+  const [
+    directoryLoading,
+    setDirectoryLoading,
+  ] = useState(true);
+
+  const [
+    directoryCreating,
+    setDirectoryCreating,
+  ] = useState(false);
+
+  const [
+    openingCircleId,
+    setOpeningCircleId,
+  ] = useState("");
+
+  const [
+    directoryMessage,
+    setDirectoryMessage,
+  ] = useState("");
 
   const [workspace, setWorkspace] =
     useState<SecureCircleWorkspace | null>(
@@ -668,7 +707,22 @@ export default function CirclePage() {
   useEffect(() => {
     let active = true;
 
-    async function openWorkspace() {
+    async function openCircleCentre() {
+      const requestedCircleId =
+        typeof window === "undefined"
+          ? ""
+          : new URLSearchParams(
+              window.location.search,
+            )
+              .get("circleId")
+              ?.trim() ?? "";
+
+      if (active) {
+        setSelectedCircleId(
+          requestedCircleId,
+        );
+      }
+
       try {
         const supabase =
           getSupabaseBrowserClient();
@@ -683,8 +737,23 @@ export default function CirclePage() {
           );
         }
 
+        if (!requestedCircleId) {
+          const entries =
+            await listMySecureCircles();
+
+          if (!active) {
+            return;
+          }
+
+          setDirectoryEntries(entries);
+          setDirectoryMessage("");
+          return;
+        }
+
         const secureWorkspace =
-          await openSecureCircleWorkspace();
+          await openSelectedSecureCircle(
+            requestedCircleId,
+          );
 
         if (!active) {
           return;
@@ -753,24 +822,73 @@ export default function CirclePage() {
           return;
         }
 
+        const message =
+          describeUnknownError(error);
+
+        if (requestedCircleId) {
+          setAccessError(message);
+        } else {
+          setDirectoryMessage(message);
+        }
+
         setGoalsLoading(false);
         setOperationsLoading(false);
-        setAccessError(
-          describeUnknownError(error),
-        );
       } finally {
         if (active) {
+          setDirectoryLoading(false);
           setLoaded(true);
         }
       }
     }
 
-    void openWorkspace();
+    void openCircleCentre();
 
     return () => {
       active = false;
     };
   }, []);
+
+  async function createOwnCircle() {
+    if (directoryCreating) {
+      return;
+    }
+
+    setDirectoryCreating(true);
+    setDirectoryMessage("");
+
+    try {
+      const result =
+        await createMySecureCircle();
+
+      window.location.assign(
+        `/circle?circleId=${encodeURIComponent(
+          result.circle.id,
+        )}`,
+      );
+    } catch (error) {
+      setDirectoryMessage(
+        describeUnknownError(error),
+      );
+      setDirectoryCreating(false);
+    }
+  }
+
+  function openCircle(circleId: string) {
+    const cleanCircleId =
+      circleId.trim();
+
+    if (!cleanCircleId) {
+      return;
+    }
+
+    setOpeningCircleId(cleanCircleId);
+
+    window.location.assign(
+      `/circle?circleId=${encodeURIComponent(
+        cleanCircleId,
+      )}`,
+    );
+  }
 
   useEffect(() => {
     let active = true;
@@ -1765,7 +1883,45 @@ export default function CirclePage() {
     return (
       <main className="flex h-[100svh] w-full items-center justify-center bg-[#5b4936] px-6 text-[#fff8ed]">
         <div className="rounded-full border border-white/35 bg-black/30 px-6 py-3 font-serif text-lg shadow-lg backdrop-blur-md">
-          Opening your secure Circle of Support…
+          Opening your Circle of Support Centre…
+        </div>
+      </main>
+    );
+  }
+
+  if (!selectedCircleId) {
+    return (
+      <main className="relative min-h-[100svh] w-full overflow-y-auto bg-[#5b4936] px-3 py-20 text-[#3f3127] sm:px-6 sm:py-24">
+        <img
+          src="/circles-of-support-centre.png"
+          alt=""
+          className="fixed inset-0 h-full w-full object-cover object-center"
+        />
+
+        <div className="fixed inset-0 bg-black/35 backdrop-blur-[2px]" />
+
+        <Link
+          href="/office"
+          aria-label="Return to the Smiling Monad Space"
+          className="fixed left-3 top-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/35 text-xl text-white shadow-lg backdrop-blur-md transition hover:bg-black/50 focus:outline-none focus:ring-4 focus:ring-white/70 sm:left-5 sm:top-5"
+        >
+          ←
+        </Link>
+
+        <div className="relative z-10">
+          <CircleDirectory
+            entries={directoryEntries}
+            loading={directoryLoading}
+            creating={directoryCreating}
+            openingCircleId={
+              openingCircleId
+            }
+            message={directoryMessage}
+            onCreateOwnCircle={() => {
+              void createOwnCircle();
+            }}
+            onOpenCircle={openCircle}
+          />
         </div>
       </main>
     );
@@ -1788,12 +1944,21 @@ export default function CirclePage() {
               "No authorised Circle workspace was found for this account."}
           </p>
 
-          <Link
-            href="/office"
-            className="mt-6 inline-flex rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-          >
-            Return to the Smiling Monad Space
-          </Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/circle"
+              className="inline-flex rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
+            >
+              Return to My Circles
+            </Link>
+
+            <Link
+              href="/office"
+              className="inline-flex rounded-full border border-[#bfa98d] bg-[#efe3d2] px-6 py-3 font-medium text-[#533d2d] transition hover:bg-[#e6d6c0]"
+            >
+              Return to the Smiling Monad Space
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -1820,6 +1985,13 @@ export default function CirclePage() {
         className="absolute left-3 top-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/35 text-xl text-white shadow-lg backdrop-blur-md transition hover:bg-black/50 focus:outline-none focus:ring-4 focus:ring-white/70 sm:left-5 sm:top-5"
       >
         ←
+      </Link>
+
+      <Link
+        href="/circle"
+        className="absolute right-3 top-3 z-30 rounded-full border border-white/40 bg-black/35 px-5 py-3 text-sm font-medium text-white shadow-lg backdrop-blur-md transition hover:bg-black/50 focus:outline-none focus:ring-4 focus:ring-white/70 sm:right-5 sm:top-5"
+      >
+        Switch Circle
       </Link>
 
       <button
