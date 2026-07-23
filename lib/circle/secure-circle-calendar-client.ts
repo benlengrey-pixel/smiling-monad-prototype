@@ -388,8 +388,11 @@ export async function readSecureCircleCalendar(
 
   await requireUser(supabase);
 
-  const eventsResult =
-    await supabase
+  const [
+    directEventsResult,
+    recurringEventsResult,
+  ] = await Promise.all([
+    supabase
       .from(
         "circle_schedule_events",
       )
@@ -412,18 +415,88 @@ export async function readSecureCircleCalendar(
       )
       .order("start_at", {
         ascending: true,
-      });
+      }),
 
-  if (eventsResult.error) {
+    supabase
+      .from(
+        "circle_schedule_events",
+      )
+      .select("*")
+      .eq(
+        "circle_id",
+        cleanCircleId,
+      )
+      .neq(
+        "event_status",
+        "archived",
+      )
+      .neq(
+        "recurrence_rule",
+        "",
+      )
+      .lt(
+        "start_at",
+        cleanRangeEnd,
+      )
+      .order("start_at", {
+        ascending: true,
+      }),
+  ]);
+
+  if (directEventsResult.error) {
     throw friendlyCalendarError(
-      eventsResult.error,
+      directEventsResult.error,
       "The Circle calendar could not be loaded.",
     );
   }
 
-  const events =
-    (eventsResult.data ??
+  if (recurringEventsResult.error) {
+    throw friendlyCalendarError(
+      recurringEventsResult.error,
+      "The recurring Circle schedule could not be loaded.",
+    );
+  }
+
+  const directEvents =
+    (directEventsResult.data ??
       []) as unknown as SecureCircleScheduleEvent[];
+
+  const recurringEvents =
+    (recurringEventsResult.data ??
+      []) as unknown as SecureCircleScheduleEvent[];
+
+  const rangeStartTime =
+    new Date(
+      cleanRangeStart,
+    ).getTime();
+
+  const events = Array.from(
+    new Map(
+      [
+        ...directEvents,
+
+        ...recurringEvents.filter(
+          (event) =>
+            !event.recurrence_end_at ||
+            new Date(
+              event.recurrence_end_at,
+            ).getTime() >=
+              rangeStartTime,
+        ),
+      ].map((event) => [
+        event.id,
+        event,
+      ]),
+    ).values(),
+  ).sort(
+    (left, right) =>
+      new Date(
+        left.start_at,
+      ).getTime() -
+      new Date(
+        right.start_at,
+      ).getTime(),
+  );
 
   if (events.length === 0) {
     return {
