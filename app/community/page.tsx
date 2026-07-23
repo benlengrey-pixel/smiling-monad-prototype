@@ -201,60 +201,82 @@ export default function CommunityPage() {
         </Link>
       </header>
 
-
-        <section
-          ref={connectionsSectionRef}
-          className="mx-auto mt-6 grid w-full max-w-6xl scroll-mt-6 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      <section
+        ref={connectionsSectionRef}
+        className="mx-auto mt-6 grid w-full max-w-6xl scroll-mt-6 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <Link
+          href="/connections"
+          className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
         >
-          <Link
-            href="/connections"
-            className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
-          >
-            <p className="font-serif text-2xl">
-              People & Circles
-            </p>
+          <p className="font-serif text-2xl">
+            People & Circles
+          </p>
 
-            <p className="mt-3 leading-7 text-[#6c5f52]">
-              Find workers, providers and community members, and build trusted circles of support.
-            </p>
+          <p className="mt-3 leading-7 text-[#6c5f52]">
+            Find workers, providers and community
+            members, and build trusted circles of
+            support.
+          </p>
 
-            <p className="mt-4 text-sm font-semibold text-[#765943]">
-              Open connections →
-            </p>
-          </Link>
+          <p className="mt-4 text-sm font-semibold text-[#765943]">
+            Open connections →
+          </p>
+        </Link>
 
-          <Link
-            href="/school"
-            className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
-          >
-            <p className="font-serif text-2xl">
-              Worker Training
-            </p>
+        <Link
+          href="/community/services"
+          className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
+        >
+          <p className="font-serif text-2xl">
+            Services Directory
+          </p>
 
-            <p className="mt-3 leading-7 text-[#6c5f52]">
-              Complete required training or open the full Smiling Monad Training Centre.
-            </p>
+          <p className="mt-3 leading-7 text-[#6c5f52]">
+            Search moderated support, professional
+            and community services by location,
+            accessibility and service type.
+          </p>
 
-            <p className="mt-4 text-sm font-semibold text-[#765943]">
-              Open training →
-            </p>
-          </Link>
+          <p className="mt-4 text-sm font-semibold text-[#765943]">
+            Find services →
+          </p>
+        </Link>
 
-          <section className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl">
-            <p className="font-serif text-2xl">
-              Community Trading
-            </p>
+        <Link
+          href="/school"
+          className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white"
+        >
+          <p className="font-serif text-2xl">
+            Worker Training
+          </p>
 
-            <p className="mt-3 leading-7 text-[#6c5f52]">
-              A separate space for community offers, exchanges and local opportunities.
-            </p>
+          <p className="mt-3 leading-7 text-[#6c5f52]">
+            Complete required training or open the
+            full Smiling Monad Training Centre.
+          </p>
 
-            <p className="mt-4 text-sm text-[#806b55]">
-              Trading tools will remain moderated and community-focused.
-            </p>
-          </section>
+          <p className="mt-4 text-sm font-semibold text-[#765943]">
+            Open training →
+          </p>
+        </Link>
+
+        <section className="rounded-[24px] border border-white/70 bg-white/65 p-6 shadow-sm backdrop-blur-xl">
+          <p className="font-serif text-2xl">
+            Community Trading
+          </p>
+
+          <p className="mt-3 leading-7 text-[#6c5f52]">
+            A separate space for community offers,
+            exchanges and local opportunities.
+          </p>
+
+          <p className="mt-4 text-sm text-[#806b55]">
+            Trading tools will remain moderated and
+            community-focused.
+          </p>
         </section>
-
+      </section>
 
       <section
         ref={noticeboardSectionRef}
@@ -268,7 +290,9 @@ export default function CommunityPage() {
               </p>
 
               <p className="mt-3 max-w-2xl leading-7 text-[#6c5f52]">
-                Approved events, announcements, opportunities and requests from the Smiling Monad community appear here.
+                Approved events, announcements,
+                opportunities and requests from the
+                Smiling Monad community appear here.
               </p>
             </div>
 
@@ -361,6 +385,24 @@ export default function CommunityPage() {
             </p>
           </section>
 
+          <Link
+            href="/community/services"
+            className="block rounded-[26px] border border-[#d6c5af] bg-[#efe3d2] p-5 transition hover:bg-[#e8d9c5]"
+          >
+            <p className="font-serif text-xl">
+              Find a service
+            </p>
+
+            <p className="mt-3 leading-7 text-[#6a5b4e]">
+              Browse approved listings or create a
+              service profile for moderation.
+            </p>
+
+            <p className="mt-4 text-sm font-semibold text-[#765943]">
+              Open Services Directory →
+            </p>
+          </Link>
+
           {submittedPosts.length > 0 && (
             <section className="rounded-[26px] border border-[#d5c4ad] bg-white/65 p-5">
               <p className="font-serif text-xl">
@@ -397,7 +439,6 @@ export default function CommunityPage() {
         </aside>
       </section>
 
-
       <section className="mx-auto mt-6 w-full max-w-6xl rounded-[28px] border border-[#d6c6b2] bg-[#f4eadc]/80 p-6 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -410,7 +451,8 @@ export default function CommunityPage() {
             </h2>
 
             <p className="mt-3 max-w-2xl leading-7 text-[#68594d]">
-              Simple merchandise and direct access to training packs.
+              Simple merchandise and direct access
+              to training packs.
             </p>
           </div>
 
@@ -460,7 +502,6 @@ export default function CommunityPage() {
           ))}
         </div>
       </section>
-
 
       {composerOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
