@@ -8,6 +8,11 @@ import {
 } from "react";
 
 import {
+  listMySecureCircles,
+  type SecureCircleDirectoryEntry,
+} from "@/lib/circle/secure-circle-directory-client";
+
+import {
   createCommunityServiceEnquiry,
   createCommunityServiceListing,
   isCommunityServiceModerator,
@@ -456,6 +461,13 @@ export default function useCommunityServicesDirectory({
     CommunityServiceCircleSave | null
   >(null);
 
+  const [
+    circleDirectory,
+    setCircleDirectory,
+  ] = useState<
+    SecureCircleDirectoryEntry[]
+  >([]);
+
   const loadApprovedListings =
     useCallback(async () => {
       if (!enabled) {
@@ -499,6 +511,7 @@ export default function useCommunityServicesDirectory({
         setModerationQueue([]);
         setMyEnquiries([]);
         setReceivedEnquiries([]);
+        setCircleDirectory([]);
         setIsModerator(false);
         setPrivateLoading(false);
         return;
@@ -513,12 +526,14 @@ export default function useCommunityServicesDirectory({
           moderator,
           sentEnquiries,
           incomingEnquiries,
+          circles,
         ] = await Promise.all([
           readSavedCommunityServiceListingIds(),
           readMyCommunityServiceListings(),
           isCommunityServiceModerator(),
           readMyCommunityServiceEnquiries(),
           readReceivedCommunityServiceEnquiries(),
+          listMySecureCircles(),
         ]);
 
         setSavedListingIds(
@@ -535,6 +550,10 @@ export default function useCommunityServicesDirectory({
 
         setReceivedEnquiries(
           incomingEnquiries,
+        );
+
+        setCircleDirectory(
+          circles,
         );
 
         setIsModerator(
@@ -1638,6 +1657,7 @@ export default function useCommunityServicesDirectory({
     saveServiceToCircle,
     removeServiceFromCircle,
     lastCircleSave,
+    circleDirectory,
 
     counts: {
       public:
