@@ -75,6 +75,8 @@ import DocumentsPanel from "@/components/circle/panels/DocumentsPanel";
 import GoalsPanel from "@/components/circle/panels/GoalsPanel";
 import MeetingsPanel from "@/components/circle/panels/MeetingsPanel";
 import MembersPanel from "@/components/circle/panels/MembersPanel";
+import OverviewPanel from "@/components/circle/panels/OverviewPanel";
+import PersonProfilePanel from "@/components/circle/panels/PersonProfilePanel";
 import ResponsibilitiesPanel from "@/components/circle/panels/ResponsibilitiesPanel";
 import TrainingPanel from "@/components/circle/panels/TrainingPanel";
 
@@ -83,7 +85,6 @@ import {
   type SecureConsentSummary,
 } from "@/lib/circle/secure-consent-status-client";
 
-import ParticipantPrivacyGate from "@/components/circle/ParticipantPrivacyGate";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 import {
@@ -1882,410 +1883,72 @@ export default function CirclePage() {
 
             {activePanel ===
               "overview" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Circle of Support Centre
-                </p>
-
-                <h1 className="mt-3 pr-12 font-serif text-3xl leading-tight sm:text-4xl">
-                  {personDisplayName}{" "}
-                  remains at the centre
-                </h1>
-
-                <p className="mt-4 max-w-3xl leading-7 text-[#68584a]">
-                  The Circle Centre helps
-                  people coordinate goals,
-                  relationships, meetings,
-                  documents, budgets and
-                  responsibilities around the
-                  life of the person. Kimi can
-                  help the circle understand,
-                  organise and prepare—but the
-                  person remains in control.
-                </p>
-
-                <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    {
-                      label: "Circle members",
-                      value: members.length,
-                      panel:
-                        "members" as ActivePanel,
-                    },
-                    {
-                      label: "Active goals",
-                      value: activeGoals,
-                      panel:
-                        "goals" as ActivePanel,
-                    },
-                    {
-                      label:
-                        "Documents for review",
-                      value:
-                        documentsNeedingReview,
-                      panel:
-                        "documents" as ActivePanel,
-                    },
-                    {
-                      label: "Circle messages",
-                      value: circleMessages.length,
-                      panel:
-                        "conversation" as ActivePanel,
-                    },
-                    {
-                      label:
-                        "Upcoming meetings",
-                      value: meetings.length,
-                      panel:
-                        "meetings" as ActivePanel,
-                    },
-                    {
-                      label:
-                        "Open responsibilities",
-                      value:
-                        openResponsibilities,
-                      panel:
-                        "responsibilities" as ActivePanel,
-                    },
-                    {
-                      label: "Budget remaining",
-                      value: `$${Math.max(
-                        0,
-                        totalBudgetAllocated -
-                          totalBudgetSpent,
-                      ).toLocaleString()}`,
-                      panel:
-                        "budget" as ActivePanel,
-                    },
-                    {
-                      label: "Person profile",
-                      value:
-                        profile.personName
-                          ? "Ready"
-                          : "Start",
-                      panel:
-                        "person" as ActivePanel,
-                    },
-                    {
-                      label:
-                        "Mandatory training pending",
-                      value:
-                        pendingTrainingRequirements,
-                      panel:
-                        "training" as ActivePanel,
-                    },
-                    {
-                      label: "Privacy consent",
-                      value:
-                        consentSummary?.health ===
-                        "current"
-                          ? "Current"
-                          : consentSummary?.health ===
-                              "review_due"
-                            ? "Review"
-                            : consentSummary?.health ===
-                                "expired"
-                              ? "Expired"
-                              : consentSummary?.health ===
-                                  "withdrawn"
-                                ? "Withdrawn"
-                                : "Missing",
-                      panel:
-                        "person" as ActivePanel,
-                    },
-                    {
-                      label: "Audit events",
-                      value: displayAuditEvents.length,
-                      panel:
-                        "audit" as ActivePanel,
-                    },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() =>
-                        setActivePanel(
-                          item.panel,
-                        )
-                      }
-                      className="rounded-[20px] border border-[#decfba] bg-[#f4eadc] p-5 text-left transition hover:bg-[#ede0cd]"
-                    >
-                      <p className="text-3xl font-semibold">
-                        {item.value}
-                      </p>
-
-                      <p className="mt-2 text-sm text-[#6c594a]">
-                        {item.label}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-[#f7efe4] p-5 sm:p-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
-                    Privacy consent
-                  </p>
-
-                  <p className="mt-2 font-serif text-2xl">
-                    {consentSummary?.message ??
-                      "Checking privacy consent…"}
-                  </p>
-
-                  {consentSummary?.consent ? (
-                    <div className="mt-4 grid gap-2 text-sm leading-6 text-[#6a5b4e] sm:grid-cols-2">
-                      <p>
-                        Given by:{" "}
-                        <span className="font-semibold">
-                          {consentSummary.consent
-                            .given_by_name ||
-                            "Not recorded"}
-                        </span>
-                      </p>
-
-                      <p>
-                        Authority:{" "}
-                        <span className="font-semibold">
-                          {consentSummary.consent
-                            .authority_basis.replaceAll(
-                              "_",
-                              " ",
-                            )}
-                        </span>
-                      </p>
-
-                      <p>
-                        Review due:{" "}
-                        <span className="font-semibold">
-                          {consentSummary.consent
-                            .review_due_at
-                            ? new Date(
-                                consentSummary.consent
-                                  .review_due_at,
-                              ).toLocaleDateString()
-                            : "No date set"}
-                        </span>
-                      </p>
-
-                      <p>
-                        Valid until:{" "}
-                        <span className="font-semibold">
-                          {consentSummary.consent
-                            .valid_until
-                            ? new Date(
-                                consentSummary.consent
-                                  .valid_until,
-                              ).toLocaleDateString()
-                            : "No expiry set"}
-                        </span>
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-[#efe3d3] p-5 sm:p-6">
-                  <p className="font-serif text-2xl">
-                    Kimi’s role
-                  </p>
-
-                  <p className="mt-3 leading-7 text-[#6a5b4e]">
-                    Kimi can prepare meeting
-                    agendas, identify missing
-                    information, summarise updates,
-                    draft plans and agreements,
-                    track responsibilities and help
-                    everyone communicate clearly.
-                    Kimi does not replace the
-                    person, family, workers or
-                    professionals.
-                  </p>
-                </div>
-              </>
+              <OverviewPanel
+                personDisplayName={
+                  personDisplayName
+                }
+                memberCount={members.length}
+                activeGoals={activeGoals}
+                documentsNeedingReview={
+                  documentsNeedingReview
+                }
+                messageCount={
+                  circleMessages.length
+                }
+                meetingCount={meetings.length}
+                openResponsibilities={
+                  openResponsibilities
+                }
+                totalBudgetAllocated={
+                  totalBudgetAllocated
+                }
+                totalBudgetSpent={
+                  totalBudgetSpent
+                }
+                profileReady={
+                  Boolean(profile.personName)
+                }
+                pendingTrainingRequirements={
+                  pendingTrainingRequirements
+                }
+                consentSummary={
+                  consentSummary
+                }
+                auditEventCount={
+                  displayAuditEvents.length
+                }
+                onOpenPanel={(panel) => {
+                  setActivePanel(panel);
+                }}
+              />
             )}
 
             {activePanel === "person" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  The person at the centre
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Person profile
-                </h1>
-
-                <p className="mt-3 max-w-2xl leading-7 text-[#6b5d50]">
-                  Begin with who the person is,
-                  what matters to them and how they
-                  communicate—not with services or
-                  paperwork.
-                </p>
-
-                <div className="mt-6 rounded-[18px] border border-[#d8c7b1] bg-[#f7efe4] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
-                        Privacy consent
-                      </p>
-
-                      <p className="mt-2 font-semibold text-[#4c3728]">
-                        {consentSummary?.message ??
-                          "Checking privacy consent…"}
-                      </p>
-                    </div>
-
-                    <span className="rounded-full border border-[#d0bea7] bg-white px-3 py-1 text-xs font-semibold text-[#6d5e50]">
-                      {consentSummary?.health ===
-                      "current"
-                        ? "Current"
-                        : consentSummary?.health ===
-                            "review_due"
-                          ? "Review due"
-                          : consentSummary?.health ===
-                              "expired"
-                            ? "Expired"
-                            : consentSummary?.health ===
-                                "withdrawn"
-                              ? "Withdrawn"
-                              : "Not recorded"}
-                    </span>
-                  </div>
-
-                  {consentSummary?.health &&
-                  consentSummary.health !==
-                    "current" ? (
-                    <p className="mt-3 text-sm leading-6 text-[#6d5e50]">
-                      Personal information should not be relied on until consent is current. Use the consent controls below to review or record consent.
-                    </p>
-                  ) : null}
-                </div>
-
-                <ParticipantPrivacyGate
-                  participantId={
-                    workspace.participant.id
-                  }
-                  circleId={workspace.circle.id}
-                  participantName={
-                    profile.preferredName ||
-                    profile.personName ||
-                    "this person"
-                  }
-                >
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="text-sm font-medium">
-                        Full name
-                      </span>
-
-                      <input
-                        value={
-                          profile.personName
-                        }
-                        onChange={(event) =>
-                          setProfile(
-                            (current) => ({
-                              ...current,
-                              personName:
-                                event.target
-                                  .value,
-                            }),
-                          )
-                        }
-                        onBlur={() => {
-                          void saveProfile();
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium">
-                        Preferred name
-                      </span>
-
-                      <input
-                        value={
-                          profile.preferredName
-                        }
-                        onChange={(event) =>
-                          setProfile(
-                            (current) => ({
-                              ...current,
-                              preferredName:
-                                event.target
-                                  .value,
-                            }),
-                          )
-                        }
-                        onBlur={() => {
-                          void saveProfile();
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="mt-4 block">
-                    <span className="text-sm font-medium">
-                      What matters to this person?
-                    </span>
-
-                    <textarea
-                      value={
-                        profile.whatMatters
-                      }
-                      onChange={(event) =>
-                        setProfile(
-                          (current) => ({
-                            ...current,
-                            whatMatters:
-                              event.target.value,
-                          }),
-                        )
-                      }
-                      onBlur={() => {
-                        void saveProfile();
-                      }}
-                      placeholder="Important relationships, routines, interests, hopes, preferences and things that help life feel right."
-                      className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                    />
-                  </label>
-
-                  <label className="mt-4 block">
-                    <span className="text-sm font-medium">
-                      Communication and decision
-                      support
-                    </span>
-
-                    <textarea
-                      value={
-                        profile.communication
-                      }
-                      onChange={(event) =>
-                        setProfile(
-                          (current) => ({
-                            ...current,
-                            communication:
-                              event.target.value,
-                          }),
-                        )
-                      }
-                      onBlur={() => {
-                        void saveProfile();
-                      }}
-                      placeholder="How the person communicates, understands information, expresses consent, makes choices and shows when something is wrong."
-                      className="mt-2 min-h-36 w-full resize-none rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 leading-7 outline-none focus:border-[#71523b]"
-                    />
-                  </label>
-
-                  <p className="mt-5 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                    {!loaded
-                      ? "Opening your secure Circle profile…"
-                      : profileSaving
-                        ? "Saving securely…"
-                        : profileMessage ||
-                          "Changes save securely when you leave a field."}
-                  </p>
-                </ParticipantPrivacyGate>
-              </>
+              <PersonProfilePanel
+                participantId={
+                  workspace.participant.id
+                }
+                circleId={workspace.circle.id}
+                profile={profile}
+                consentSummary={
+                  consentSummary
+                }
+                loaded={loaded}
+                saving={profileSaving}
+                message={profileMessage}
+                onProfileChange={(
+                  field,
+                  value,
+                ) => {
+                  setProfile((current) => ({
+                    ...current,
+                    [field]: value,
+                  }));
+                }}
+                onSaveProfile={() => {
+                  void saveProfile();
+                }}
+              />
             )}
 
             {activePanel === "members" && (
