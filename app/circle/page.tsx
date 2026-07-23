@@ -40,6 +40,7 @@ import {
 import CircleDirectory from "@/components/circle/CircleDirectory";
 import AuditPanel from "@/components/circle/panels/AuditPanel";
 import BudgetPanel from "@/components/circle/panels/BudgetPanel";
+import CalendarPanel from "@/components/circle/panels/CalendarPanel";
 import ConversationPanel from "@/components/circle/panels/ConversationPanel";
 import DocumentsPanel from "@/components/circle/panels/DocumentsPanel";
 import GoalsPanel from "@/components/circle/panels/GoalsPanel";
@@ -56,6 +57,7 @@ import {
 } from "@/lib/circle/secure-consent-status-client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import useCircleCalendar from "@/hooks/circle/useCircleCalendar";
 import useCircleOperations from "@/hooks/circle/useCircleOperations";
 import useCircleRecords from "@/hooks/circle/useCircleRecords";
 
@@ -82,6 +84,7 @@ type ActivePanel =
   | "goals"
   | "documents"
   | "conversation"
+  | "calendar"
   | "meetings"
   | "responsibilities"
   | "budget"
@@ -539,6 +542,18 @@ export default function CirclePage() {
     enabled: Boolean(workspace),
   });
 
+  const calendar =
+    useCircleCalendar({
+      circleId:
+        workspace?.circle.id ?? "",
+      participantId:
+        workspace?.participant.id ??
+        "",
+      enabled: Boolean(workspace),
+      defaultTimezone:
+        "Australia/Sydney",
+    });
+
   const [
     panelNavigationReady,
     setPanelNavigationReady,
@@ -556,6 +571,7 @@ export default function CirclePage() {
       "goals",
       "documents",
       "conversation",
+      "calendar",
       "meetings",
       "responsibilities",
       "budget",
@@ -1221,6 +1237,7 @@ export default function CirclePage() {
           ["goals", "Goals"],
           ["documents", "Documents"],
           ["conversation", "Conversation"],
+          ["calendar", "Calendar"],
           ["meetings", "Meetings"],
           [
             "responsibilities",
@@ -1251,7 +1268,13 @@ export default function CirclePage() {
 
       {activePanel && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6">
-          <section className="relative max-h-[90svh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[#d9c7ad] bg-[rgba(255,250,241,0.98)] p-5 shadow-[0_30px_70px_rgba(25,18,12,0.48)] sm:p-8">
+          <section
+            className={`relative max-h-[90svh] w-full overflow-y-auto rounded-[28px] border border-[#d9c7ad] bg-[rgba(255,250,241,0.98)] p-5 shadow-[0_30px_70px_rgba(25,18,12,0.48)] sm:p-8 ${
+              activePanel === "calendar"
+                ? "max-w-7xl"
+                : "max-w-4xl"
+            }`}
+          >
             <button
               type="button"
               onClick={() =>
@@ -1414,6 +1437,97 @@ export default function CirclePage() {
                 }}
                 onArchiveDocument={(documentId) => {
                   void removeDocument(documentId);
+                }}
+              />
+            )}
+
+            {activePanel ===
+              "calendar" && (
+              <CalendarPanel
+                view={calendar.view}
+                cursor={calendar.cursor}
+                selectedDate={
+                  calendar.selectedDate
+                }
+                events={calendar.events}
+                eventsByDate={
+                  calendar.eventsByDate
+                }
+                selectedDateEvents={
+                  calendar.selectedDateEvents
+                }
+                upcomingEvents={
+                  calendar.upcomingEvents
+                }
+                assignmentsByEvent={
+                  calendar.assignmentsByEvent
+                }
+                members={members}
+                loading={calendar.loading}
+                workingId={
+                  calendar.workingId
+                }
+                message={calendar.message}
+                selectedEventId={
+                  calendar.selectedEventId
+                }
+                form={calendar.form}
+                onViewChange={
+                  calendar.setView
+                }
+                onPrevious={
+                  calendar.movePrevious
+                }
+                onNext={
+                  calendar.moveNext
+                }
+                onToday={
+                  calendar.moveToday
+                }
+                onSelectDate={
+                  calendar.selectDate
+                }
+                onStartNewEvent={
+                  calendar.startNewEvent
+                }
+                onSelectEvent={
+                  calendar.selectEvent
+                }
+                onFormFieldChange={
+                  calendar.setFormField
+                }
+                onSaveEvent={() => {
+                  void calendar.saveEvent();
+                }}
+                onSetEventStatus={(
+                  eventId,
+                  status,
+                ) => {
+                  void calendar.setEventStatus(
+                    eventId,
+                    status,
+                  );
+                }}
+                onArchiveEvent={(
+                  eventId,
+                ) => {
+                  void calendar.archiveEvent(
+                    eventId,
+                  );
+                }}
+                onAssignMember={(input) => {
+                  void calendar.assignMember(
+                    input,
+                  );
+                }}
+                onRespondToAssignment={(
+                  assignmentId,
+                  responseStatus,
+                ) => {
+                  void calendar.respondToAssignment(
+                    assignmentId,
+                    responseStatus,
+                  );
                 }}
               />
             )}
