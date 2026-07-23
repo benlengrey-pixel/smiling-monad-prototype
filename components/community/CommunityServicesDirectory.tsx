@@ -2,10 +2,14 @@
 
 import {
   useMemo,
+  useState,
 } from "react";
 
 import useCommunityServicesDirectory, {
+  type CommunityServiceCircleSaveForm,
+  type CommunityServiceEnquiryForm,
   type CommunityServiceListingForm,
+  type CommunityServiceResponseForm,
   type CommunityServicesDirectoryMode,
 } from "@/hooks/community/useCommunityServicesDirectory";
 
@@ -13,8 +17,10 @@ import type {
   CommunityServiceAgeGroup,
   CommunityServiceCategory,
   CommunityServiceDeliveryMethod,
+  CommunityServiceEnquiry,
   CommunityServiceListing,
   CommunityServiceNdisRegistrationStatus,
+  CommunityServicePreferredContactMethod,
   CommunityServiceProviderType,
   CommunityServiceReviewDecision,
   CommunityServiceVerificationStatus,
@@ -299,8 +305,14 @@ function ListingCard({
 
 function ListingDetails({
   listing,
+  signedIn,
+  onEnquire,
+  onSaveToCircle,
 }: {
   listing: CommunityServiceListing;
+  signedIn: boolean;
+  onEnquire: () => void;
+  onSaveToCircle: () => void;
 }) {
   return (
     <section className="rounded-[28px] border border-[#dfd2c1] bg-white p-6 shadow-sm">
@@ -463,6 +475,26 @@ function ListingDetails({
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">
+        {signedIn ? (
+          <>
+            <button
+              type="button"
+              onClick={onEnquire}
+              className="rounded-full bg-[#60432f] px-5 py-3 font-medium text-white"
+            >
+              Send private enquiry
+            </button>
+
+            <button
+              type="button"
+              onClick={onSaveToCircle}
+              className="rounded-full border border-[#d6c6b1] px-5 py-3 font-medium text-[#60432f]"
+            >
+              Save to a Circle
+            </button>
+          </>
+        ) : null}
+
         {listing.website_url ? (
           <a
             href={listing.website_url}
@@ -501,6 +533,608 @@ function ListingDetails({
         your own checks.
       </p>
     </section>
+  );
+}
+
+
+function EnquiryComposer({
+  form,
+  working,
+  onFieldChange,
+  onSend,
+  onCancel,
+}: {
+  form: CommunityServiceEnquiryForm;
+  working: boolean;
+  onFieldChange: <
+    Key extends
+      keyof CommunityServiceEnquiryForm,
+  >(
+    key: Key,
+    value:
+      CommunityServiceEnquiryForm[Key],
+  ) => void;
+  onSend: () => void;
+  onCancel: () => void;
+}) {
+  const sharesContact =
+    form.preferredContactMethod !==
+    "platform";
+
+  return (
+    <section className="rounded-[28px] border border-[#dfd2c1] bg-white p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+        Private service enquiry
+      </p>
+
+      <h2 className="mt-3 font-serif text-3xl text-[#4f3728]">
+        {form.serviceName}
+      </h2>
+
+      <p className="mt-2 leading-7 text-[#756151]">
+        This enquiry is visible only to
+        you and the owner of this service
+        listing.
+      </p>
+
+      <div className="mt-6 space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+            Subject
+          </span>
+
+          <input
+            value={form.subject}
+            onChange={(event) =>
+              onFieldChange(
+                "subject",
+                event.target.value,
+              )
+            }
+            className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+            Message
+          </span>
+
+          <textarea
+            value={form.message}
+            onChange={(event) =>
+              onFieldChange(
+                "message",
+                event.target.value,
+              )
+            }
+            rows={6}
+            placeholder="Describe what you would like to know. Do not include private participant records."
+            className="w-full resize-y rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+            Preferred contact method
+          </span>
+
+          <select
+            value={
+              form.preferredContactMethod
+            }
+            onChange={(event) =>
+              onFieldChange(
+                "preferredContactMethod",
+                event.target
+                  .value as CommunityServicePreferredContactMethod,
+              )
+            }
+            className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+          >
+            <option value="platform">
+              Reply inside the platform
+            </option>
+
+            <option value="email">
+              Email
+            </option>
+
+            <option value="phone">
+              Phone
+            </option>
+          </select>
+        </label>
+
+        {sharesContact ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+                Contact name
+              </span>
+
+              <input
+                value={form.contactName}
+                onChange={(event) =>
+                  onFieldChange(
+                    "contactName",
+                    event.target.value,
+                  )
+                }
+                className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+              />
+            </label>
+
+            {form.preferredContactMethod ===
+            "email" ? (
+              <label>
+                <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+                  Contact email
+                </span>
+
+                <input
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={(event) =>
+                    onFieldChange(
+                      "contactEmail",
+                      event.target.value,
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                />
+              </label>
+            ) : (
+              <label>
+                <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+                  Contact phone
+                </span>
+
+                <input
+                  value={form.contactPhone}
+                  onChange={(event) =>
+                    onFieldChange(
+                      "contactPhone",
+                      event.target.value,
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+                />
+              </label>
+            )}
+
+            <label className="sm:col-span-2 flex items-start gap-3 rounded-2xl border border-[#d6c6b1] bg-[#fffaf1] p-4">
+              <input
+                type="checkbox"
+                checked={
+                  form.consentToShareContact
+                }
+                onChange={(event) =>
+                  onFieldChange(
+                    "consentToShareContact",
+                    event.target.checked,
+                  )
+                }
+                className="mt-1"
+              />
+
+              <span className="text-sm leading-6 text-[#60432f]">
+                I consent to this contact
+                information being shared
+                with the service listing
+                owner for this enquiry.
+              </span>
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={working}
+          className="rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-60"
+        >
+          Send private enquiry
+        </button>
+
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={working}
+          className="rounded-full border border-[#d6c6b1] px-5 py-3 font-medium text-[#60432f]"
+        >
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CircleSaveComposer({
+  form,
+  circles,
+  working,
+  saved,
+  onFieldChange,
+  onSave,
+  onRemove,
+  onCancel,
+}: {
+  form: CommunityServiceCircleSaveForm;
+  circles: Array<{
+    circle: {
+      id: string;
+      participant_id: string;
+      name: string;
+    };
+    participant: {
+      preferred_name: string;
+      full_name: string;
+    };
+  }>;
+  working: boolean;
+  saved: {
+    id: string;
+    archived_at: string | null;
+  } | null;
+  onFieldChange: <
+    Key extends
+      keyof CommunityServiceCircleSaveForm,
+  >(
+    key: Key,
+    value:
+      CommunityServiceCircleSaveForm[Key],
+  ) => void;
+  onSave: () => void;
+  onRemove: (saveId: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <section className="rounded-[28px] border border-[#dfd2c1] bg-white p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+        Private Circle resource
+      </p>
+
+      <h2 className="mt-3 font-serif text-3xl text-[#4f3728]">
+        Save {form.serviceName}
+      </h2>
+
+      <p className="mt-2 leading-7 text-[#756151]">
+        The service and your note will be
+        visible only to active members of
+        the selected Circle.
+      </p>
+
+      <div className="mt-6 space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+            Circle
+          </span>
+
+          <select
+            value={form.circleId}
+            onChange={(event) => {
+              const entry =
+                circles.find(
+                  (circle) =>
+                    circle.circle.id ===
+                    event.target.value,
+                );
+
+              onFieldChange(
+                "circleId",
+                event.target.value,
+              );
+
+              onFieldChange(
+                "participantId",
+                entry?.circle
+                  .participant_id ?? "",
+              );
+            }}
+            className="w-full rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+          >
+            <option value="">
+              Choose a Circle
+            </option>
+
+            {circles.map((entry) => (
+              <option
+                key={entry.circle.id}
+                value={entry.circle.id}
+              >
+                {entry.circle.name} —{" "}
+                {entry.participant
+                  .preferred_name ||
+                  entry.participant
+                    .full_name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+            Circle note
+          </span>
+
+          <textarea
+            value={form.note}
+            onChange={(event) =>
+              onFieldChange(
+                "note",
+                event.target.value,
+              )
+            }
+            rows={5}
+            placeholder="Why might this service be useful to the Circle?"
+            className="w-full resize-y rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+          />
+        </label>
+      </div>
+
+      {circles.length === 0 ? (
+        <p className="mt-4 rounded-2xl bg-[#f7efe4] p-4 text-sm leading-6 text-[#6f5947]">
+          No accessible Circles were found.
+          Create or join a Circle before
+          saving this service.
+        </p>
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={
+            working ||
+            !form.circleId ||
+            !form.participantId
+          }
+          className="rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-60"
+        >
+          Save privately to Circle
+        </button>
+
+        {saved &&
+        !saved.archived_at ? (
+          <button
+            type="button"
+            onClick={() =>
+              onRemove(saved.id)
+            }
+            disabled={working}
+            className="rounded-full border border-[#c89d8c] px-5 py-3 font-medium text-[#7a4435]"
+          >
+            Remove from Circle
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={working}
+          className="rounded-full border border-[#d6c6b1] px-5 py-3 font-medium text-[#60432f]"
+        >
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ProviderResponseComposer({
+  enquiry,
+  form,
+  working,
+  onFieldChange,
+  onSend,
+  onCancel,
+}: {
+  enquiry:
+    CommunityServiceEnquiry;
+  form:
+    CommunityServiceResponseForm;
+  working: boolean;
+  onFieldChange: <
+    Key extends
+      keyof CommunityServiceResponseForm,
+  >(
+    key: Key,
+    value:
+      CommunityServiceResponseForm[Key],
+  ) => void;
+  onSend: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <section className="rounded-[28px] border border-[#dfd2c1] bg-white p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+        Provider response
+      </p>
+
+      <h2 className="mt-3 font-serif text-3xl text-[#4f3728]">
+        {enquiry.subject}
+      </h2>
+
+      <p className="mt-4 whitespace-pre-wrap rounded-[20px] bg-[#f7efe4] p-4 leading-7 text-[#60432f]">
+        {enquiry.message}
+      </p>
+
+      {enquiry.consent_to_share_contact ? (
+        <div className="mt-4 rounded-[20px] border border-[#dfd2c1] p-4 text-sm leading-6 text-[#60432f]">
+          <p className="font-semibold">
+            Shared contact details
+          </p>
+
+          {enquiry.contact_name ? (
+            <p className="mt-2">
+              {enquiry.contact_name}
+            </p>
+          ) : null}
+
+          {enquiry.contact_email ? (
+            <p>{enquiry.contact_email}</p>
+          ) : null}
+
+          {enquiry.contact_phone ? (
+            <p>{enquiry.contact_phone}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <label className="mt-5 block">
+        <span className="mb-1 block text-sm font-medium text-[#6f5947]">
+          Response
+        </span>
+
+        <textarea
+          value={form.response}
+          onChange={(event) =>
+            onFieldChange(
+              "response",
+              event.target.value,
+            )
+          }
+          rows={6}
+          className="w-full resize-y rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
+        />
+      </label>
+
+      <label className="mt-4 flex items-center gap-3 rounded-2xl border border-[#d6c6b1] p-4">
+        <input
+          type="checkbox"
+          checked={
+            form.closeAfterResponse
+          }
+          onChange={(event) =>
+            onFieldChange(
+              "closeAfterResponse",
+              event.target.checked,
+            )
+          }
+        />
+
+        <span className="text-sm font-medium text-[#60432f]">
+          Close this enquiry after
+          responding
+        </span>
+      </label>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={working}
+          className="rounded-full bg-[#60432f] px-5 py-3 font-medium text-white disabled:opacity-60"
+        >
+          Send response
+        </button>
+
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={working}
+          className="rounded-full border border-[#d6c6b1] px-5 py-3 font-medium text-[#60432f]"
+        >
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function EnquirySummary({
+  enquiry,
+  received,
+  working,
+  onRespond,
+  onWithdraw,
+}: {
+  enquiry:
+    CommunityServiceEnquiry;
+  received: boolean;
+  working: boolean;
+  onRespond?: () => void;
+  onWithdraw?: () => void;
+}) {
+  const listing =
+    enquiry.community_service_listings;
+
+  return (
+    <article className="rounded-[22px] border border-[#dfd2c1] bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8b745d]">
+            {listing?.service_name ??
+              "Service enquiry"}
+          </p>
+
+          <h3 className="mt-2 font-serif text-xl text-[#4f3728]">
+            {enquiry.subject}
+          </h3>
+        </div>
+
+        <span className="rounded-full bg-[#f7efe4] px-3 py-1 text-xs font-semibold capitalize text-[#6f5947]">
+          {enquiry.enquiry_status}
+        </span>
+      </div>
+
+      <p className="mt-4 whitespace-pre-wrap leading-7 text-[#6b5d50]">
+        {enquiry.message}
+      </p>
+
+      {enquiry.provider_response ? (
+        <div className="mt-4 rounded-[18px] bg-[#edf1e9] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#5f7359]">
+            Provider response
+          </p>
+
+          <p className="mt-2 whitespace-pre-wrap leading-7 text-[#4f624b]">
+            {enquiry.provider_response}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {received &&
+        ![
+          "closed",
+          "withdrawn",
+        ].includes(
+          enquiry.enquiry_status,
+        ) &&
+        onRespond ? (
+          <button
+            type="button"
+            onClick={onRespond}
+            disabled={working}
+            className="rounded-full bg-[#60432f] px-4 py-2 text-sm font-medium text-white"
+          >
+            Respond
+          </button>
+        ) : null}
+
+        {!received &&
+        ![
+          "closed",
+          "withdrawn",
+        ].includes(
+          enquiry.enquiry_status,
+        ) &&
+        onWithdraw ? (
+          <button
+            type="button"
+            onClick={onWithdraw}
+            disabled={working}
+            className="rounded-full border border-[#c89d8c] px-4 py-2 text-sm font-medium text-[#7a4435]"
+          >
+            Withdraw
+          </button>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
@@ -1004,6 +1638,16 @@ export default function CommunityServicesDirectory({
       signedIn,
     });
 
+  const [
+    activeAction,
+    setActiveAction,
+  ] = useState<
+    | "details"
+    | "enquiry"
+    | "circle"
+    | "response"
+  >("details");
+
   const availableModes =
     useMemo(() => {
       const modes:
@@ -1398,11 +2042,14 @@ export default function CommunityServicesDirectory({
                         listing.moderation_status ===
                           "approved"
                       }
-                      onSelect={() =>
+                      onSelect={() => {
                         directory.selectListing(
                           listing,
-                        )
-                      }
+                        );
+                        setActiveAction(
+                          "details",
+                        );
+                      }}
                       onToggleSaved={() => {
                         void directory.toggleSavedListing(
                           listing.id,
@@ -1612,16 +2259,130 @@ export default function CommunityServicesDirectory({
 
             {!showListingEditor &&
             !showModerationEditor &&
-            directory.selectedListing ? (
-              <ListingDetails
-                listing={
-                  directory.selectedListing
+            activeAction ===
+              "enquiry" &&
+            directory.enquiryForm
+              .listingId ? (
+              <EnquiryComposer
+                form={
+                  directory.enquiryForm
+                }
+                working={Boolean(
+                  directory.workingId,
+                )}
+                onFieldChange={
+                  directory.setEnquiryFormField
+                }
+                onSend={() => {
+                  void directory.sendServiceEnquiry();
+                }}
+                onCancel={() =>
+                  setActiveAction(
+                    "details",
+                  )
                 }
               />
             ) : null}
 
             {!showListingEditor &&
             !showModerationEditor &&
+            activeAction === "circle" &&
+            directory.circleSaveForm
+              .listingId ? (
+              <CircleSaveComposer
+                form={
+                  directory.circleSaveForm
+                }
+                circles={
+                  directory.circleDirectory
+                }
+                working={Boolean(
+                  directory.workingId,
+                )}
+                saved={
+                  directory.lastCircleSave
+                }
+                onFieldChange={
+                  directory.setCircleSaveFormField
+                }
+                onSave={() => {
+                  void directory.saveServiceToCircle();
+                }}
+                onRemove={(saveId) => {
+                  void directory.removeServiceFromCircle(
+                    saveId,
+                  );
+                }}
+                onCancel={() =>
+                  setActiveAction(
+                    "details",
+                  )
+                }
+              />
+            ) : null}
+
+            {!showListingEditor &&
+            !showModerationEditor &&
+            activeAction ===
+              "response" &&
+            directory.selectedEnquiry ? (
+              <ProviderResponseComposer
+                enquiry={
+                  directory.selectedEnquiry
+                }
+                form={
+                  directory.responseForm
+                }
+                working={Boolean(
+                  directory.workingId,
+                )}
+                onFieldChange={
+                  directory.setResponseFormField
+                }
+                onSend={() => {
+                  void directory.sendProviderResponse();
+                }}
+                onCancel={() =>
+                  setActiveAction(
+                    "details",
+                  )
+                }
+              />
+            ) : null}
+
+            {!showListingEditor &&
+            !showModerationEditor &&
+            activeAction ===
+              "details" &&
+            directory.selectedListing ? (
+              <ListingDetails
+                listing={
+                  directory.selectedListing
+                }
+                signedIn={signedIn}
+                onEnquire={() => {
+                  directory.startServiceEnquiry(
+                    directory.selectedListing!,
+                  );
+                  setActiveAction(
+                    "enquiry",
+                  );
+                }}
+                onSaveToCircle={() => {
+                  directory.startCircleSave(
+                    directory.selectedListing!,
+                  );
+                  setActiveAction(
+                    "circle",
+                  );
+                }}
+              />
+            ) : null}
+
+            {!showListingEditor &&
+            !showModerationEditor &&
+            activeAction ===
+              "details" &&
             !directory.selectedListing ? (
               <section className="rounded-[28px] border border-dashed border-[#cdbba4] bg-[#fffaf1] p-8 text-center text-[#756151]">
                 Select a service to view
@@ -1631,6 +2392,118 @@ export default function CommunityServicesDirectory({
           </div>
         </div>
       </div>
+
+      {signedIn ? (
+        <section className="mx-auto mt-8 grid max-w-7xl gap-6 lg:grid-cols-2">
+          <div className="rounded-[28px] border border-[#d7c6b0] bg-[rgba(255,250,241,0.96)] p-5 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+                  Private
+                </p>
+
+                <h2 className="mt-2 font-serif text-3xl text-[#4f3728]">
+                  My enquiries
+                </h2>
+              </div>
+
+              <span className="rounded-full bg-[#f7efe4] px-3 py-1 text-sm text-[#6f5947]">
+                {
+                  directory.counts
+                    .sentEnquiries
+                }
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {directory.myEnquiries.length ===
+              0 ? (
+                <p className="rounded-[20px] border border-dashed border-[#cdbba4] p-5 text-[#756151]">
+                  You have not sent any
+                  service enquiries.
+                </p>
+              ) : (
+                directory.myEnquiries.map(
+                  (enquiry) => (
+                    <EnquirySummary
+                      key={enquiry.id}
+                      enquiry={enquiry}
+                      received={false}
+                      working={Boolean(
+                        directory.workingId,
+                      )}
+                      onWithdraw={() => {
+                        void directory.withdrawEnquiry(
+                          enquiry.id,
+                        );
+                      }}
+                    />
+                  ),
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-[#d7c6b0] bg-[rgba(255,250,241,0.96)] p-5 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8b745d]">
+                  Provider tools
+                </p>
+
+                <h2 className="mt-2 font-serif text-3xl text-[#4f3728]">
+                  Enquiry inbox
+                </h2>
+              </div>
+
+              <span className="rounded-full bg-[#f7efe4] px-3 py-1 text-sm text-[#6f5947]">
+                {
+                  directory.counts
+                    .openReceivedEnquiries
+                }{" "}
+                open
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {directory.receivedEnquiries
+                .length === 0 ? (
+                <p className="rounded-[20px] border border-dashed border-[#cdbba4] p-5 text-[#756151]">
+                  No enquiries have been
+                  received for your service
+                  listings.
+                </p>
+              ) : (
+                directory.receivedEnquiries.map(
+                  (enquiry) => (
+                    <EnquirySummary
+                      key={enquiry.id}
+                      enquiry={enquiry}
+                      received
+                      working={Boolean(
+                        directory.workingId,
+                      )}
+                      onRespond={() => {
+                        directory.startProviderResponse(
+                          enquiry,
+                        );
+                        setActiveAction(
+                          "response",
+                        );
+                        window.scrollTo({
+                          top: 0,
+                          behavior:
+                            "smooth",
+                        });
+                      }}
+                    />
+                  ),
+                )
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
