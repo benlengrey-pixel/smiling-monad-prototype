@@ -4,12 +4,14 @@ import type {
 } from "next";
 
 import GlobalCompanionDock from "@/components/companion/GlobalCompanionDock";
+import GlobalNavigation from "@/components/navigation/GlobalNavigation";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "The Smiling Monad",
-  description: "Smiling Monad Space",
+  description:
+    "Smiling Monad Space",
 };
 
 export const viewport: Viewport = {
@@ -28,6 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
+        <GlobalNavigation />
         <GlobalCompanionDock />
       </body>
     </html>
