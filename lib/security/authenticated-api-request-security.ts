@@ -10,19 +10,25 @@ import {
   enforceApiRateLimit
     as enforceBaseApiRateLimit,
   privateApiJson,
-  readSecureJsonBody,
+  readSecureJsonBody
+    as readBaseSecureJsonBody,
 } from "./api-request-security";
+
+import {
+  isApiAuthenticationError,
+  requireAuthenticatedApiUser,
+} from "./api-user-auth";
 
 import {
   isVerifiedApiUserError,
   requireVerifiedApiUserId,
+  VerifiedApiUserError,
 } from "./verified-api-user";
 
 export {
   ApiRequestSecurityError,
   assertTrustedRequestOrigin,
   privateApiJson,
-  readSecureJsonBody,
 };
 
 type AuthenticatedRateLimitOptions = {
@@ -30,6 +36,11 @@ type AuthenticatedRateLimitOptions = {
   limit: number;
   windowMs: number;
   identity?: string;
+};
+
+type SecureJsonOptions = {
+  maximumBytes?: number;
+  requireSameOrigin?: boolean;
 };
 
 export function apiSecurityErrorResponse(
@@ -42,6 +53,23 @@ export function apiSecurityErrorResponse(
 
   if (baseResponse) {
     return baseResponse;
+  }
+
+  if (
+    isApiAuthenticationError(
+      error,
+    )
+  ) {
+    return privateApiJson(
+      {
+        error:
+          error.message,
+
+        code:
+          error.code,
+      },
+      error.status,
+    );
   }
 
   if (
@@ -88,5 +116,34 @@ export function enforceApiRateLimit(
       ...options,
       identity,
     },
+  );
+}
+
+export async function readSecureJsonBody<
+  Value,
+>(
+  request: Request,
+  options: SecureJsonOptions = {},
+): Promise<Value> {
+  const authenticated =
+    await requireAuthenticatedApiUser(
+      request,
+    );
+
+  const verifiedUserId =
+    requireVerifiedApiUserId(
+      request,
+    );
+
+  if (
+    authenticated.user.id !==
+    verifiedUserId
+  ) {
+    throw new VerifiedApiUserError();
+  }
+
+  return readBaseSecureJsonBody<Value>(
+    request,
+    options,
   );
 }
