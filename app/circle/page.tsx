@@ -27,31 +27,11 @@ import {
 } from "@/lib/circle/secure-circle-directory-client";
 
 import {
-  advanceSecureCircleGoal,
-  archiveSecureCircleGoal,
-  createSecureCircleGoal,
-  readSecureCircleGoals,
-  type SecureCircleGoal,
-} from "@/lib/circle/secure-goals-client";
-
-import {
-  archiveSecureCircleDocument,
-  createSecureDocumentDownloadUrl,
-  readSecureCircleDocuments,
-  type SecureCircleDocument,
-} from "@/lib/circle/secure-documents-client";
-
-import {
   readSecureCircleMessages,
   sendSecureCircleMessage,
   subscribeToSecureCircleMessages,
   type SecureCircleMessage,
 } from "@/lib/circle/secure-circle-messages-client";
-
-import {
-  readSecureCircleAuditHistory,
-  type SecureAuditEvent,
-} from "@/lib/circle/secure-audit-client";
 
 import {
   addAuditActorNames,
@@ -77,6 +57,7 @@ import {
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import useCircleOperations from "@/hooks/circle/useCircleOperations";
+import useCircleRecords from "@/hooks/circle/useCircleRecords";
 
 import {
   assignMandatoryCircleTraining,
@@ -377,30 +358,6 @@ export default function CirclePage() {
       emptyCircle,
     );
 
-  const [goals, setGoals] =
-    useState<SecureCircleGoal[]>([]);
-
-  const [goalsLoading, setGoalsLoading] =
-    useState(true);
-
-  const [goalWorkingId, setGoalWorkingId] =
-    useState("");
-
-  const [goalMessage, setGoalMessage] =
-    useState("");
-
-  const [documents, setDocuments] =
-    useState<SecureCircleDocument[]>([]);
-
-  const [documentsLoading, setDocumentsLoading] =
-    useState(false);
-
-  const [documentWorkingId, setDocumentWorkingId] =
-    useState("");
-
-  const [documentMessage, setDocumentMessage] =
-    useState("");
-
   const [circleMessages, setCircleMessages] =
     useState<SecureCircleMessage[]>([]);
 
@@ -414,15 +371,6 @@ export default function CirclePage() {
     useState("");
 
   const [circleMessageNotice, setCircleMessageNotice] =
-    useState("");
-
-  const [auditEvents, setAuditEvents] =
-    useState<SecureAuditEvent[]>([]);
-
-  const [auditLoading, setAuditLoading] =
-    useState(false);
-
-  const [auditMessage, setAuditMessage] =
     useState("");
 
   const [consentSummary, setConsentSummary] =
@@ -542,6 +490,54 @@ export default function CirclePage() {
     useState<ActivePanel | null>(
       null,
     );
+
+  const {
+    goals: {
+      records: goals,
+      loading: goalsLoading,
+      workingId: goalWorkingId,
+      message: goalMessage,
+      activeCount: activeGoals,
+      form: {
+        title: goalTitle,
+        owner: goalOwner,
+      },
+      setTitle: setGoalTitle,
+      setOwner: setGoalOwner,
+      add: addGoal,
+      advance: advanceGoal,
+      remove: removeGoal,
+    },
+
+    documents: {
+      records: documents,
+      loading: documentsLoading,
+      workingId: documentWorkingId,
+      message: documentMessage,
+      needingReviewCount:
+        documentsNeedingReview,
+      refresh: refreshDocuments,
+      open: openDocument,
+      remove: removeDocument,
+    },
+
+    audit: {
+      events: auditEvents,
+      loading: auditLoading,
+      message: auditMessage,
+    },
+  } = useCircleRecords({
+    circleId:
+      workspace?.circle.id ?? "",
+    participantId:
+      workspace?.participant.id ?? "",
+    activePanel,
+    defaultGoalOwner:
+      profile.preferredName ||
+      profile.personName ||
+      "Whole circle",
+    enabled: Boolean(workspace),
+  });
 
   const [
     panelNavigationReady,
@@ -672,12 +668,6 @@ export default function CirclePage() {
     setTrainingMessage,
   ] = useState("");
 
-  const [goalTitle, setGoalTitle] =
-    useState("");
-
-  const [goalOwner, setGoalOwner] =
-    useState("");
-
   useEffect(() => {
     const state =
       readSmilingMonadState();
@@ -752,15 +742,6 @@ export default function CirclePage() {
           return;
         }
 
-        const secureGoals =
-          await readSecureCircleGoals(
-            secureWorkspace.circle.id,
-          );
-
-        if (!active) {
-          return;
-        }
-
         const secureConsentSummary =
           await readSecureConsentSummary(
             secureWorkspace.participant.id,
@@ -775,8 +756,6 @@ export default function CirclePage() {
         setConsentSummary(
           secureConsentSummary,
         );
-        setGoals(secureGoals);
-        setGoalsLoading(false);
         setProfileState({
           personName:
             secureWorkspace.participant
@@ -812,7 +791,6 @@ export default function CirclePage() {
           setDirectoryMessage(message);
         }
 
-        setGoalsLoading(false);
       } finally {
         if (active) {
           setDirectoryLoading(false);
@@ -869,55 +847,6 @@ export default function CirclePage() {
       )}`,
     );
   }
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadDocuments() {
-      if (
-        activePanel !== "documents" ||
-        !workspace
-      ) {
-        return;
-      }
-
-      setDocumentsLoading(true);
-      setDocumentMessage("");
-
-      try {
-        const secureDocuments =
-          await readSecureCircleDocuments(
-            workspace.circle.id,
-          );
-
-        if (!active) {
-          return;
-        }
-
-        setDocuments(secureDocuments);
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        setDocumentMessage(
-          error instanceof Error
-            ? error.message
-            : "Two-step security is required.",
-        );
-      } finally {
-        if (active) {
-          setDocumentsLoading(false);
-        }
-      }
-    }
-
-    void loadDocuments();
-
-    return () => {
-      active = false;
-    };
-  }, [activePanel, workspace]);
 
   useEffect(() => {
     let active = true;
@@ -999,55 +928,6 @@ export default function CirclePage() {
   }, [activePanel, workspace]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadAuditHistory() {
-      if (
-        activePanel !== "audit" ||
-        !workspace
-      ) {
-        return;
-      }
-
-      setAuditLoading(true);
-      setAuditMessage("");
-
-      try {
-        const events =
-          await readSecureCircleAuditHistory(
-            workspace.circle.id,
-          );
-
-        if (!active) {
-          return;
-        }
-
-        setAuditEvents(events);
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        setAuditMessage(
-          error instanceof Error
-            ? error.message
-            : "The secure audit history could not be loaded.",
-        );
-      } finally {
-        if (active) {
-          setAuditLoading(false);
-        }
-      }
-    }
-
-    void loadAuditHistory();
-
-    return () => {
-      active = false;
-    };
-  }, [activePanel, workspace]);
-
-  useEffect(() => {
     const refreshTraining = () => {
       setActiveTrainingModule(
         getActiveCircleModule(
@@ -1071,27 +951,6 @@ export default function CirclePage() {
     );
   }, []);
 
-  const activeGoals = useMemo(
-    () =>
-      goals.filter(
-        (goal) =>
-          goal.goal_status !== "achieved" &&
-          goal.goal_status !== "archived",
-      ).length,
-    [goals],
-  );
-
-  const documentsNeedingReview =
-    useMemo(
-      () =>
-        documents.filter(
-          (document) =>
-            document.document_status ===
-            "review_needed",
-        ).length,
-      [documents],
-    );
-
   const displayAuditEvents = useMemo(
     () =>
       addAuditActorNames(
@@ -1105,109 +964,6 @@ export default function CirclePage() {
       currentUserId,
     ],
   );
-
-  async function addGoal() {
-    const title = goalTitle.trim();
-
-    if (!workspace || !title) {
-      return;
-    }
-
-    setGoalWorkingId("new");
-    setGoalMessage("");
-
-    try {
-      const createdGoal =
-        await createSecureCircleGoal({
-          circleId: workspace.circle.id,
-          participantId:
-            workspace.participant.id,
-          title,
-          ownerName:
-            goalOwner.trim() ||
-            profile.preferredName ||
-            profile.personName ||
-            "Whole circle",
-        });
-
-      setGoals((current) => [
-        ...current,
-        createdGoal,
-      ]);
-
-      setGoalTitle("");
-      setGoalOwner("");
-      setGoalMessage(
-        "Goal saved securely.",
-      );
-    } catch (error) {
-      setGoalMessage(
-        error instanceof Error
-          ? error.message
-          : "Two-step security is required.",
-      );
-    } finally {
-      setGoalWorkingId("");
-    }
-  }
-
-  async function openDocument(
-    secureDocument: SecureCircleDocument,
-  ) {
-    if (documentWorkingId) {
-      return;
-    }
-
-    setDocumentWorkingId(
-      secureDocument.id,
-    );
-    setDocumentMessage("");
-
-    try {
-      const signedUrl =
-        await createSecureDocumentDownloadUrl(
-          secureDocument,
-        );
-
-      window.location.assign(
-        signedUrl,
-      );
-    } catch (error) {
-      setDocumentMessage(
-        error instanceof Error
-          ? error.message
-          : "Two-step security is required.",
-      );
-    } finally {
-      setDocumentWorkingId("");
-    }
-  }
-
-  async function refreshDocuments() {
-    if (!workspace || documentsLoading) {
-      return;
-    }
-
-    setDocumentsLoading(true);
-    setDocumentMessage("");
-
-    try {
-      const secureDocuments =
-        await readSecureCircleDocuments(
-          workspace.circle.id,
-        );
-
-      setDocuments(secureDocuments);
-    } catch (error) {
-      setDocumentMessage(
-        error instanceof Error
-          ? error.message
-          : "Two-step security is required.",
-      );
-    } finally {
-      setDocumentsLoading(false);
-    }
-  }
 
   async function sendCircleMessage() {
     const cleanMessage =
@@ -1252,107 +1008,6 @@ export default function CirclePage() {
       );
     } finally {
       setCircleMessageWorking(false);
-    }
-  }
-
-  async function removeGoal(
-    goalId: string,
-  ) {
-    setGoalWorkingId(goalId);
-    setGoalMessage("");
-
-    try {
-      await archiveSecureCircleGoal(
-        goalId,
-      );
-
-      setGoals((current) =>
-        current.filter(
-          (goal) => goal.id !== goalId,
-        ),
-      );
-
-      setGoalMessage(
-        "Goal archived securely.",
-      );
-    } catch (error) {
-      setGoalMessage(
-        error instanceof Error
-          ? error.message
-          : "The goal could not be archived.",
-      );
-    } finally {
-      setGoalWorkingId("");
-    }
-  }
-
-  async function removeDocument(
-    documentId: string,
-  ) {
-    if (documentWorkingId) {
-      return;
-    }
-
-    setDocumentWorkingId(documentId);
-    setDocumentMessage("");
-
-    try {
-      await archiveSecureCircleDocument(
-        documentId,
-      );
-
-      setDocuments((current) =>
-        current.filter(
-          (document) =>
-            document.id !== documentId,
-        ),
-      );
-
-      setDocumentMessage(
-        "Document archived securely.",
-      );
-    } catch (error) {
-      setDocumentMessage(
-        error instanceof Error
-          ? error.message
-          : "Two-step security is required.",
-      );
-    } finally {
-      setDocumentWorkingId("");
-    }
-  }
-
-  async function advanceGoal(
-    goal: SecureCircleGoal,
-  ) {
-    setGoalWorkingId(goal.id);
-    setGoalMessage("");
-
-    try {
-      const updatedGoal =
-        await advanceSecureCircleGoal(
-          goal,
-        );
-
-      setGoals((current) =>
-        current.map((item) =>
-          item.id === updatedGoal.id
-            ? updatedGoal
-            : item,
-        ),
-      );
-
-      setGoalMessage(
-        "Goal status updated securely.",
-      );
-    } catch (error) {
-      setGoalMessage(
-        error instanceof Error
-          ? error.message
-          : "The goal status could not be updated.",
-      );
-    } finally {
-      setGoalWorkingId("");
     }
   }
 
