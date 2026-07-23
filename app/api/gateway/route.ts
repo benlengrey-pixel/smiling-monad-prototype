@@ -1,5 +1,11 @@
-import { NextResponse } from "next/server";
 import OpenAI from "openai";
+
+import {
+  apiSecurityErrorResponse,
+  enforceApiRateLimit,
+  privateApiJson,
+  readSecureJsonBody,
+} from "@/lib/security/api-request-security";
 
 type ConversationMessage = {
   role: "user" | "assistant";
@@ -90,9 +96,74 @@ type CompanionDecision = {
   actions: CompanionToolAction[];
 };
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const runtime = "nodejs";
+
+export const dynamic =
+  "force-dynamic";
+
+export const maxDuration = 60;
+
+const MAX_USER_REQUEST_CHARACTERS =
+  12_000;
+
+const MAX_MEMORY_CHARACTERS =
+  24_000;
+
+const MAX_STATE_ITEMS = 60;
+
+const MAX_STATE_TEXT_CHARACTERS =
+  20_000;
+
+const MAX_CONVERSATION_CHARACTERS =
+  8_000;
+
+const MAX_DECISION_ACTIONS = 24;
+
+const COMPANION_TOOL_NAMES =
+  new Set<CompanionToolName>([
+    "desk.add",
+    "desk.open",
+    "desk.close",
+    "desk.remove",
+    "workspace.open",
+    "workspace.close",
+    "workspace.clear",
+    "document.create",
+    "document.update",
+    "document.complete",
+    "document.archive",
+    "task.create",
+    "task.complete",
+    "task.remove",
+    "circle.member.add",
+    "circle.goal.add",
+    "circle.document.add",
+    "circle.meeting.add",
+    "circle.responsibility.add",
+    "community.post.add",
+    "connections.profile.add",
+    "connections.work.add",
+    "school.lesson.add",
+    "shop.item.add",
+    "app.navigate",
+    "app.open",
+    "none",
+  ]);
+
+function getOpenAIClient(): OpenAI {
+  const apiKey =
+    process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "The Companion service is unavailable.",
+    );
+  }
+
+  return new OpenAI({
+    apiKey,
+  });
+}
 
 const companionDecisionSchema = {
   type: "object",
@@ -990,31 +1061,170 @@ question and perform no actions until the answer is supplied.
 `.trim();
 }
 
+function safeText(
+  value: unknown,
+  maximumCharacters: number,
+): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .slice(0, maximumCharacters);
+}
+
+function isRecord(
+  value: unknown,
+): value is Record<
+  string,
+  unknown
+> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
 function normaliseState(
   state: Partial<CompanionState> | undefined,
 ): CompanionState {
-  return {
-    deskObjects: Array.isArray(
+  const deskObjects =
+    Array.isArray(
       state?.deskObjects,
     )
       ? state.deskObjects
-      : [],
-    documents: Array.isArray(
+          .filter(isRecord)
+          .map((object) => ({
+            id: safeText(
+              object.id,
+              160,
+            ),
+            kind: safeText(
+              object.kind,
+              120,
+            ),
+            title: safeText(
+              object.title,
+              300,
+            ),
+            status:
+              object.status ===
+                "active" ||
+              object.status ===
+                "complete" ||
+              object.status ===
+                "archived"
+                ? object.status
+                : undefined,
+            documentId:
+              typeof object.documentId ===
+              "string"
+                ? safeText(
+                    object.documentId,
+                    160,
+                  )
+                : null,
+          }))
+          .filter(
+            (object) =>
+              Boolean(object.id) &&
+              Boolean(object.title),
+          )
+          .slice(0, MAX_STATE_ITEMS)
+      : [];
+
+  const documents =
+    Array.isArray(
       state?.documents,
     )
       ? state.documents
-      : [],
-    temporaryTasks: Array.isArray(
+          .filter(isRecord)
+          .map((document) => ({
+            id: safeText(
+              document.id,
+              160,
+            ),
+            title: safeText(
+              document.title,
+              300,
+            ),
+            content: safeText(
+              document.content,
+              MAX_STATE_TEXT_CHARACTERS,
+            ),
+            status:
+              document.status ===
+                "draft" ||
+              document.status ===
+                "complete" ||
+              document.status ===
+                "archived"
+                ? document.status
+                : undefined,
+          }))
+          .filter(
+            (document) =>
+              Boolean(document.id) &&
+              Boolean(document.title),
+          )
+          .slice(0, MAX_STATE_ITEMS)
+      : [];
+
+  const temporaryTasks =
+    Array.isArray(
       state?.temporaryTasks,
     )
       ? state.temporaryTasks
-      : [],
+          .filter(isRecord)
+          .map((task) => ({
+            id: safeText(
+              task.id,
+              160,
+            ),
+            title: safeText(
+              task.title,
+              300,
+            ),
+            status:
+              task.status ===
+              "complete"
+                ? "complete" as const
+                : "active" as const,
+          }))
+          .filter(
+            (task) =>
+              Boolean(task.id) &&
+              Boolean(task.title),
+          )
+          .slice(0, MAX_STATE_ITEMS)
+      : [];
+
+  return {
+    deskObjects,
+    documents,
+    temporaryTasks,
     activeDeskObjectId:
-      state?.activeDeskObjectId ?? null,
+      typeof state
+        ?.activeDeskObjectId ===
+      "string"
+        ? safeText(
+            state.activeDeskObjectId,
+            160,
+          )
+        : null,
     activeDocumentId:
-      state?.activeDocumentId ?? null,
+      typeof state
+        ?.activeDocumentId ===
+      "string"
+        ? safeText(
+            state.activeDocumentId,
+            160,
+          )
+        : null,
     workspaceOpen:
-      state?.workspaceOpen ?? false,
+      state?.workspaceOpen === true,
   };
 }
 
@@ -1029,48 +1239,94 @@ function normaliseConversation(
 
   return conversation
     .filter(
-      (
-        message,
-      ): message is ConversationMessage =>
-        (message?.role === "user" ||
-          message?.role === "assistant") &&
-        typeof message.content === "string" &&
-        Boolean(message.content.trim()),
+      (message) =>
+        isRecord(message) &&
+        (message.role === "user" ||
+          message.role ===
+            "assistant") &&
+        typeof message.content ===
+          "string" &&
+        Boolean(
+          message.content.trim(),
+        ),
     )
     .map((message) => ({
-      role: message.role,
-      content: message.content.trim(),
+      role:
+        message.role ===
+        "assistant"
+          ? "assistant" as const
+          : "user" as const,
+      content: safeText(
+        message.content,
+        MAX_CONVERSATION_CHARACTERS,
+      ),
     }))
     .slice(-20);
+}
+
+function isStringOrNull(
+  value: unknown,
+): value is string | null {
+  return (
+    typeof value === "string" ||
+    value === null
+  );
 }
 
 function isCompanionDecision(
   value: unknown,
 ): value is CompanionDecision {
+  if (!isRecord(value)) {
+    return false;
+  }
+
   if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value)
+    typeof value.message !==
+      "string" ||
+    typeof value.reasoningSummary !==
+      "string" ||
+    typeof value.needsClarification !==
+      "boolean" ||
+    !isStringOrNull(
+      value.clarificationQuestion,
+    ) ||
+    typeof value.requiresConfirmation !==
+      "boolean" ||
+    !Array.isArray(value.actions) ||
+    value.actions.length >
+      MAX_DECISION_ACTIONS
   ) {
     return false;
   }
 
-  const decision =
-    value as Partial<CompanionDecision>;
+  return value.actions.every(
+    (action) => {
+      if (!isRecord(action)) {
+        return false;
+      }
 
-  return (
-    typeof decision.message === "string" &&
-    typeof decision.reasoningSummary ===
-      "string" &&
-    typeof decision.needsClarification ===
-      "boolean" &&
-    (typeof decision.clarificationQuestion ===
-      "string" ||
-      decision.clarificationQuestion ===
-        null) &&
-    typeof decision.requiresConfirmation ===
-      "boolean" &&
-    Array.isArray(decision.actions)
+      return (
+        typeof action.tool ===
+          "string" &&
+        COMPANION_TOOL_NAMES.has(
+          action.tool as CompanionToolName,
+        ) &&
+        isStringOrNull(
+          action.targetId,
+        ) &&
+        isStringOrNull(
+          action.title,
+        ) &&
+        isStringOrNull(
+          action.kind,
+        ) &&
+        isStringOrNull(
+          action.content,
+        ) &&
+        typeof action.reason ===
+          "string"
+      );
+    },
   );
 }
 
@@ -1078,33 +1334,50 @@ export async function POST(
   request: Request,
 ) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        {
-          error:
-            "OPENAI_API_KEY is not configured.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
+    enforceApiRateLimit(
+      request,
+      {
+        namespace:
+          "companion-gateway",
+        limit: 30,
+        windowMs: 60_000,
+      },
+    );
 
     const body =
-      (await request.json()) as GatewayRequest;
+      await readSecureJsonBody<GatewayRequest>(
+        request,
+        {
+          maximumBytes:
+            256 * 1024,
+          requireSameOrigin:
+            true,
+        },
+      );
 
     const userRequest =
-      body.request?.trim();
+      safeText(
+        body.request,
+        MAX_USER_REQUEST_CHARACTERS,
+      );
 
     if (!userRequest) {
-      return NextResponse.json(
+      return privateApiJson(
         {
           error:
             "A request is required.",
         },
+        400,
+      );
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return privateApiJson(
         {
-          status: 400,
+          error:
+            "The Companion service is temporarily unavailable.",
         },
+        503,
       );
     }
 
@@ -1118,8 +1391,10 @@ export async function POST(
 
     const gatewayContext = {
       userRequest,
-      memory:
-        body.memory?.trim() || "",
+      memory: safeText(
+        body.memory,
+        MAX_MEMORY_CHARACTERS,
+      ),
       currentState: state,
       recentConversation:
         conversation,
@@ -1158,6 +1433,9 @@ export async function POST(
       },
     };
 
+    const openai =
+      getOpenAIClient();
+
     const response =
       await openai.responses.create({
         model:
@@ -1193,8 +1471,16 @@ export async function POST(
       );
     }
 
-    const parsedDecision =
-      JSON.parse(rawOutput) as unknown;
+    let parsedDecision: unknown;
+
+    try {
+      parsedDecision =
+        JSON.parse(rawOutput);
+    } catch {
+      throw new Error(
+        "The AI gateway returned invalid JSON.",
+      );
+    }
 
     if (
       !isCompanionDecision(
@@ -1206,26 +1492,31 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({
+    return privateApiJson({
       decision: parsedDecision,
       stateReceived: state,
     });
   } catch (error) {
+    const securityResponse =
+      apiSecurityErrorResponse(
+        error,
+      );
+
+    if (securityResponse) {
+      return securityResponse;
+    }
+
     console.error(
       "Smiling Monad gateway error:",
       error,
     );
 
-    return NextResponse.json(
+    return privateApiJson(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "The Companion gateway could not make a decision.",
+          "The Companion gateway could not make a decision. Please try again.",
       },
-      {
-        status: 500,
-      },
+      500,
     );
   }
 }
