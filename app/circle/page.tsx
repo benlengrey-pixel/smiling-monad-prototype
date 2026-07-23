@@ -69,11 +69,14 @@ import {
 } from "@/lib/circle/secure-audit-actors";
 
 import AuditPanel from "@/components/circle/panels/AuditPanel";
+import BudgetPanel from "@/components/circle/panels/BudgetPanel";
 import ConversationPanel from "@/components/circle/panels/ConversationPanel";
 import DocumentsPanel from "@/components/circle/panels/DocumentsPanel";
 import GoalsPanel from "@/components/circle/panels/GoalsPanel";
 import MeetingsPanel from "@/components/circle/panels/MeetingsPanel";
+import MembersPanel from "@/components/circle/panels/MembersPanel";
 import ResponsibilitiesPanel from "@/components/circle/panels/ResponsibilitiesPanel";
+import TrainingPanel from "@/components/circle/panels/TrainingPanel";
 
 import {
   readSecureConsentSummary,
@@ -85,7 +88,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 import {
   assignMandatoryCircleTraining,
-  canMemberJoinCircle,
   getActiveCircleModule,
   readCircleTrainingRequirements,
   subscribeToCircleTraining,
@@ -2287,147 +2289,30 @@ export default function CirclePage() {
             )}
 
             {activePanel === "members" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  People and relationships
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Circle members
-                </h1>
-
-                <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <input
-                    value={memberName}
-                    onChange={(event) =>
-                      setMemberName(event.target.value)
-                    }
-                    placeholder="Name"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    type="email"
-                    value={memberEmail}
-                    onChange={(event) =>
-                      setMemberEmail(event.target.value)
-                    }
-                    placeholder="Email"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <select
-                    value={memberRole}
-                    onChange={(event) =>
-                      setMemberRole(
-                        event.target.value as SecureMemberRole,
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  >
-                    <option value="circle_member">Circle member</option>
-                    <option value="family">Family</option>
-                    <option value="support_worker">Support worker</option>
-                    <option value="support_coordinator">Support coordinator</option>
-                    <option value="professional">Professional</option>
-                    <option value="nominee">Nominee</option>
-                    <option value="circle_manager">Circle manager</option>
-                  </select>
-
-                  <input
-                    value={memberRelationship}
-                    onChange={(event) =>
-                      setMemberRelationship(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        void addMember();
-                      }
-                    }}
-                    placeholder="Relationship"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addMember();
-                  }}
-                  disabled={
-                    operationWorkingId === "member-new" ||
-                    !memberName.trim() ||
-                    !memberEmail.trim()
-                  }
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  {operationWorkingId === "member-new"
-                    ? "Saving invitation…"
-                    : "Invite circle member"}
-                </button>
-
-                {operationMessage && (
-                  <p className="mt-3 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                    {operationMessage}
-                  </p>
-                )}
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {operationsLoading ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151] sm:col-span-2">
-                      Loading secure Circle members…
-                    </div>
-                  ) : members.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151] sm:col-span-2">
-                      No circle members have been
-                      added yet.
-                    </div>
-                  ) : (
-                    members.map((member) => (
-                      <article
-                        key={member.id}
-                        className="rounded-[20px] border border-[#dfd2c1] bg-white p-5"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#60432f] font-serif text-lg text-white">
-                            {member.display_name
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void removeMember(
-                                member.id,
-                              )
-                            }
-                            className="text-sm text-[#98765e]"
-                          >
-                            Remove
-                          </button>
-                        </div>
-
-                        <p className="mt-3 font-serif text-xl">
-                          {member.display_name}
-                        </p>
-
-                        <p className="mt-1 text-sm text-[#756151]">
-                          {member.role}
-                        </p>
-
-                        <p className="mt-2 text-sm text-[#8a786a]">
-                          {
-                            member.relationship
-                          }
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </>
+              <MembersPanel
+                members={members}
+                loading={operationsLoading}
+                workingId={operationWorkingId}
+                message={operationMessage}
+                name={memberName}
+                email={memberEmail}
+                role={memberRole}
+                relationship={
+                  memberRelationship
+                }
+                onNameChange={setMemberName}
+                onEmailChange={setMemberEmail}
+                onRoleChange={setMemberRole}
+                onRelationshipChange={
+                  setMemberRelationship
+                }
+                onAddMember={() => {
+                  void addMember();
+                }}
+                onRemoveMember={(memberId) => {
+                  void removeMember(memberId);
+                }}
+              />
             )}
 
             {activePanel ===
@@ -2544,541 +2429,85 @@ export default function CirclePage() {
             )}
 
             {activePanel === "budget" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Funding and shared oversight
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Budget and funding
-                </h1>
-
-                <p className="mt-3 max-w-3xl leading-7 text-[#6b5d50]">
-                  Record broad funding allocations,
-                  spending and responsibility so the
-                  Circle can see what is available and
-                  what may need review. This is a
-                  coordination tool, not formal financial
-                  advice or plan-manager accounting.
-                </p>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
-                    <p className="text-sm text-[#6c594a]">
-                      Allocated
-                    </p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      ${totalBudgetAllocated.toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
-                    <p className="text-sm text-[#6c594a]">
-                      Spent
-                    </p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      ${totalBudgetSpent.toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="rounded-[18px] border border-[#decfba] bg-[#f4eadc] p-5">
-                    <p className="text-sm text-[#6c594a]">
-                      Remaining
-                    </p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      ${Math.max(
-                        0,
-                        totalBudgetAllocated -
-                          totalBudgetSpent,
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <input
-                    value={budgetTitle}
-                    onChange={(event) =>
-                      setBudgetTitle(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Budget or funding area"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <select
-                    value={budgetCategory}
-                    onChange={(event) =>
-                      setBudgetCategory(
-                        event.target
-                          .value as SecureCircleBudgetItem["category"],
-                      )
-                    }
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  >
-                    <option value="core">Core</option>
-                    <option value="capacity_building">
-                      Capacity Building
-                    </option>
-                    <option value="capital">
-                      Capital
-                    </option>
-                    <option value="Other">
-                      Other
-                    </option>
-                  </select>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={budgetAllocated}
-                    onChange={(event) =>
-                      setBudgetAllocated(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Allocated amount"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={budgetSpent}
-                    onChange={(event) =>
-                      setBudgetSpent(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Spent so far"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                  />
-
-                  <input
-                    value={budgetOwner}
-                    onChange={(event) =>
-                      setBudgetOwner(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter"
-                      ) {
-                        addBudgetItem();
-                      }
-                    }}
-                    placeholder="Responsible person"
-                    className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b] md:col-span-2"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addBudgetItem();
-                  }}
-                  className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-                >
-                  Add budget item
-                </button>
-
-                <div className="mt-6 space-y-3">
-                  {budgets.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No budget items have been
-                      recorded yet.
-                    </div>
-                  ) : (
-                    budgets.map((item) => {
-                      const remaining =
-                        item.allocated -
-                        item.spent;
-
-                      const percentage =
-                        item.allocated > 0
-                          ? Math.min(
-                              100,
-                              Math.round(
-                                (item.spent /
-                                  item.allocated) *
-                                  100,
-                              ),
-                            )
-                          : 0;
-
-                      return (
-                        <article
-                          key={item.id}
-                          className="rounded-[20px] border border-[#dfd2c1] bg-white p-5"
-                        >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <p className="font-serif text-xl">
-                                {item.title}
-                              </p>
-
-                              <p className="mt-1 text-sm text-[#756151]">
-                                {item.category} · Responsible:{" "}
-                                {item.owner_name}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  advanceBudgetStatus(
-                                    item,
-                                  )
-                                }
-                                className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm text-[#533d2d]"
-                              >
-                                {item.budget_status === "review_needed"
-                                  ? "Review needed"
-                                  : item.budget_status === "closed"
-                                    ? "Closed"
-                                    : "Active"}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void removeBudgetItem(
-                                    item.id,
-                                  )
-                                }
-                                className="px-2 py-2 text-sm text-[#98765e]"
-                              >
-                                Archive
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#eee2d2]">
-                            <div
-                              className="h-full rounded-full bg-[#71523b]"
-                              style={{
-                                width: `${percentage}%`,
-                              }}
-                            />
-                          </div>
-
-                          <div className="mt-3 grid gap-2 text-sm text-[#6b5d50] sm:grid-cols-3">
-                            <p>
-                              Allocated:{" "}
-                              <strong>
-                                ${item.allocated.toLocaleString()}
-                              </strong>
-                            </p>
-
-                            <p>
-                              Spent:{" "}
-                              <strong>
-                                ${item.spent.toLocaleString()}
-                              </strong>
-                            </p>
-
-                            <p>
-                              Remaining:{" "}
-                              <strong>
-                                ${remaining.toLocaleString()}
-                              </strong>
-                            </p>
-                          </div>
-                        </article>
-                      );
-                    })
-                  )}
-                </div>
-              </>
+              <BudgetPanel
+                budgets={budgets}
+                totalAllocated={
+                  totalBudgetAllocated
+                }
+                totalSpent={totalBudgetSpent}
+                title={budgetTitle}
+                category={budgetCategory}
+                allocated={budgetAllocated}
+                spent={budgetSpent}
+                owner={budgetOwner}
+                onTitleChange={setBudgetTitle}
+                onCategoryChange={
+                  setBudgetCategory
+                }
+                onAllocatedChange={
+                  setBudgetAllocated
+                }
+                onSpentChange={setBudgetSpent}
+                onOwnerChange={setBudgetOwner}
+                onAddBudgetItem={() => {
+                  void addBudgetItem();
+                }}
+                onAdvanceBudgetStatus={(
+                  item,
+                ) => {
+                  void advanceBudgetStatus(
+                    item,
+                  );
+                }}
+                onArchiveBudgetItem={(
+                  itemId,
+                ) => {
+                  void removeBudgetItem(
+                    itemId,
+                  );
+                }}
+              />
             )}
 
             {activePanel === "training" && (
-              <>
-                <p className="pr-12 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
-                  Participant-controlled trust
-                </p>
-
-                <h1 className="mt-3 font-serif text-3xl">
-                  Circle training
-                </h1>
-
-                <p className="mt-3 max-w-3xl leading-7 text-[#6b5d50]">
-                  The participant can ask workers to
-                  complete the main Smiling Monad
-                  training and can also require every
-                  worker, provider or professional to
-                  complete a personalised module before
-                  joining this Circle.
-                </p>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Link
-                    href={`/circle/my-training?circleId=primary-circle&participantId=participant&participantName=${encodeURIComponent(
-                      personDisplayName,
-                    )}`}
-                    className="rounded-[20px] border border-[#decfba] bg-[#f4eadc] p-5 transition hover:bg-[#ede0cd]"
-                  >
-                    <p className="font-serif text-xl">
-                      My mandatory module
-                    </p>
-
-                    <p className="mt-2 text-sm leading-6 text-[#6c594a]">
-                      Create or manage the training
-                      that everyone must complete before
-                      entering this Circle.
-                    </p>
-                  </Link>
-
-                  <Link
-                    href={`/circle/training-invitations?circleId=primary-circle&participantId=participant&participantName=${encodeURIComponent(
-                      personDisplayName,
-                    )}`}
-                    className="rounded-[20px] border border-[#decfba] bg-[#f4eadc] p-5 transition hover:bg-[#ede0cd]"
-                  >
-                    <p className="font-serif text-xl">
-                      Invite a worker
-                    </p>
-
-                    <p className="mt-2 text-sm leading-6 text-[#6c594a]">
-                      Ask a worker to complete the main
-                      Smiling Monad training pathway.
-                    </p>
-                  </Link>
-
-                  <Link
-                    href="/circle/training-review?circleId=primary-circle"
-                    className="rounded-[20px] border border-[#decfba] bg-[#f4eadc] p-5 transition hover:bg-[#ede0cd]"
-                  >
-                    <p className="font-serif text-xl">
-                      Review responses
-                    </p>
-
-                    <p className="mt-2 text-sm leading-6 text-[#6c594a]">
-                      Approve understanding or request
-                      changes before Circle access is
-                      granted.
-                    </p>
-                  </Link>
-
-                  <div className="rounded-[20px] border border-[#decfba] bg-[#f4eadc] p-5">
-                    <p className="text-3xl font-semibold">
-                      {completedTrainingRequirements}
-                    </p>
-
-                    <p className="mt-2 text-sm text-[#6c594a]">
-                      Members who completed mandatory
-                      Circle training
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-[#efe3d3] p-5 sm:p-6">
-                  <p className="font-serif text-2xl">
-                    Active mandatory module
-                  </p>
-
-                  {activeTrainingModule ? (
-                    <>
-                      <p className="mt-3 text-lg font-medium">
-                        {activeTrainingModule.title}
-                      </p>
-
-                      <p className="mt-2 leading-7 text-[#6a5b4e]">
-                        {activeTrainingModule.purpose}
-                      </p>
-
-                      <p className="mt-3 text-sm text-[#756151]">
-                        Version{" "}
-                        {activeTrainingModule.version} ·
-                        Participant approval{" "}
-                        {activeTrainingModule.participantApprovalRequired
-                          ? "required"
-                          : "not required"}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-3 leading-7 text-[#6a5b4e]">
-                      No mandatory participant-specific
-                      module is active yet. Create one
-                      before assigning training to
-                      Circle members.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-7 rounded-[22px] border border-[#d8c7b1] bg-white p-5 sm:p-6">
-                  <p className="font-serif text-2xl">
-                    Assign mandatory training
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-[#756151]">
-                    Choose an existing Circle member,
-                    enter their email and identify their
-                    role. They will remain training
-                    pending until the module is complete
-                    and approved.
-                  </p>
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-3">
-                    <select
-                      value={trainingMemberId}
-                      onChange={(event) =>
-                        setTrainingMemberId(
-                          event.target.value,
-                        )
-                      }
-                      className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                    >
-                      <option value="">
-                        Choose Circle member
-                      </option>
-
-                      {members.map((member) => (
-                        <option
-                          key={member.id}
-                          value={member.id}
-                        >
-                          {member.display_name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="email"
-                      value={trainingMemberEmail}
-                      onChange={(event) =>
-                        setTrainingMemberEmail(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="Member email"
-                      className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                    />
-
-                    <select
-                      value={trainingAudience}
-                      onChange={(event) =>
-                        setTrainingAudience(
-                          event.target
-                            .value as CircleTrainingAudience,
-                        )
-                      }
-                      className="rounded-2xl border border-[#d6c6b1] bg-white px-4 py-3 outline-none focus:border-[#71523b]"
-                    >
-                      <option value="worker">
-                        Support worker
-                      </option>
-                      <option value="provider">
-                        Provider
-                      </option>
-                      <option value="support-coordinator">
-                        Support coordinator
-                      </option>
-                      <option value="therapist">
-                        Therapist
-                      </option>
-                      <option value="family-member">
-                        Family member
-                      </option>
-                      <option value="other-circle-member">
-                        Other Circle member
-                      </option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={assignTrainingToMember}
-                    className="mt-3 w-full rounded-full bg-[#60432f] px-6 py-3 font-medium text-white transition hover:bg-[#4f3728]"
-                  >
-                    Assign mandatory module
-                  </button>
-
-                  {trainingMessage ? (
-                    <p className="mt-4 rounded-[16px] border border-[#d9cab6] bg-[#efe4d4] px-4 py-3 text-sm leading-6 text-[#6d5e50]">
-                      {trainingMessage}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="mt-7 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-serif text-2xl">
-                      Member training status
-                    </p>
-
-                    <p className="text-sm text-[#756151]">
-                      {pendingTrainingRequirements} pending
-                    </p>
-                  </div>
-
-                  {trainingRequirements.length === 0 ? (
-                    <div className="rounded-[18px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-5 text-[#756151]">
-                      No mandatory Circle training has
-                      been assigned yet.
-                    </div>
-                  ) : (
-                    trainingRequirements.map(
-                      (requirement) => (
-                        <article
-                          key={requirement.id}
-                          className="rounded-[20px] border border-[#dfd2c1] bg-white p-5"
-                        >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                              <p className="font-serif text-xl">
-                                {
-                                  requirement.memberDisplayName
-                                }
-                              </p>
-
-                              <p className="mt-1 text-sm capitalize text-[#756151]">
-                                {requirement.audience.replaceAll(
-                                  "-",
-                                  " ",
-                                )}
-                              </p>
-
-                              <p className="mt-2 text-sm text-[#8a786a]">
-                                {canMemberJoinCircle(
-                                  "primary-circle",
-                                  requirement.memberId,
-                                )
-                                  ? "Circle access ready"
-                                  : "Circle access blocked until training is complete"}
-                              </p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-[#efe3d2] px-4 py-2 text-sm capitalize text-[#533d2d]">
-                                {requirement.status.replaceAll(
-                                  "-",
-                                  " ",
-                                )}
-                              </span>
-
-                              <Link
-                                href={`/circle/training/${requirement.id}?requirementId=${encodeURIComponent(
-                                  requirement.id,
-                                )}`}
-                                className="rounded-full border border-[#d6c6b1] bg-white px-4 py-2 text-sm text-[#533d2d]"
-                              >
-                                Open module
-                              </Link>
-                            </div>
-                          </div>
-                        </article>
-                      ),
-                    )
-                  )}
-                </div>
-              </>
+              <TrainingPanel
+                personDisplayName={
+                  personDisplayName
+                }
+                members={members}
+                activeModule={
+                  activeTrainingModule
+                }
+                requirements={
+                  trainingRequirements
+                }
+                completedCount={
+                  completedTrainingRequirements
+                }
+                pendingCount={
+                  pendingTrainingRequirements
+                }
+                memberId={trainingMemberId}
+                memberEmail={
+                  trainingMemberEmail
+                }
+                audience={trainingAudience}
+                message={trainingMessage}
+                onMemberIdChange={
+                  setTrainingMemberId
+                }
+                onMemberEmailChange={
+                  setTrainingMemberEmail
+                }
+                onAudienceChange={
+                  setTrainingAudience
+                }
+                onAssignTraining={
+                  assignTrainingToMember
+                }
+              />
             )}
+
             {activePanel === "audit" && (
               <AuditPanel
                 events={displayAuditEvents}
