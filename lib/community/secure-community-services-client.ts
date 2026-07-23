@@ -76,6 +76,18 @@ export type CommunityServiceReviewDecision =
   | "rejected"
   | "suspended";
 
+export type CommunityServicePreferredContactMethod =
+  | "platform"
+  | "email"
+  | "phone";
+
+export type CommunityServiceEnquiryStatus =
+  | "submitted"
+  | "read"
+  | "responded"
+  | "closed"
+  | "withdrawn";
+
 export type CommunityServiceListing = {
   id: string;
   owner_user_id: string;
@@ -128,6 +140,78 @@ export type CommunityServiceListingReview = {
     CommunityServiceVerificationStatus | null;
   review_due_at: string | null;
   created_at: string;
+};
+
+export type CommunityServiceEnquiry = {
+  id: string;
+  listing_id: string;
+  sender_user_id: string;
+  subject: string;
+  message: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  preferred_contact_method:
+    CommunityServicePreferredContactMethod;
+  consent_to_share_contact: boolean;
+  enquiry_status:
+    CommunityServiceEnquiryStatus;
+  provider_response: string;
+  responded_by: string | null;
+  responded_at: string | null;
+  closed_at: string | null;
+  withdrawn_at: string | null;
+  created_at: string;
+  updated_at: string;
+  community_service_listings?:
+    | Pick<
+        CommunityServiceListing,
+        | "id"
+        | "service_name"
+        | "organisation_name"
+        | "owner_user_id"
+      >
+    | null;
+};
+
+export type CommunityServiceCircleSave = {
+  id: string;
+  listing_id: string;
+  circle_id: string;
+  participant_id: string;
+  shared_by: string;
+  note: string;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  community_service_listings?:
+    | CommunityServiceListing
+    | null;
+};
+
+export type CommunityServiceEnquiryInput = {
+  listingId: string;
+  subject: string;
+  message: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  preferredContactMethod?:
+    CommunityServicePreferredContactMethod;
+  consentToShareContact?: boolean;
+};
+
+export type CommunityServiceEnquiryResponseInput = {
+  enquiryId: string;
+  response: string;
+  close?: boolean;
+};
+
+export type CommunityServiceCircleSaveInput = {
+  listingId: string;
+  circleId: string;
+  participantId: string;
+  note?: string;
 };
 
 export type CommunityServiceListingInput = {
@@ -1057,4 +1141,337 @@ export async function reviewCommunityServiceListing(
   }
 
   return data as unknown as CommunityServiceListing;
+}
+
+
+export async function createCommunityServiceEnquiry(
+  input:
+    CommunityServiceEnquiryInput,
+): Promise<CommunityServiceEnquiry> {
+  const supabase = getClient();
+  const user = await requireUser(
+    supabase,
+  );
+
+  const preferredContactMethod =
+    input.preferredContactMethod ??
+    "platform";
+
+  const consentToShareContact =
+    input.consentToShareContact ===
+    true;
+
+  if (
+    preferredContactMethod !==
+      "platform" &&
+    !consentToShareContact
+  ) {
+    throw new Error(
+      "Consent is required before contact details can be shared.",
+    );
+  }
+
+  const { data, error } =
+    await supabase
+      .from(
+        "community_service_enquiries",
+      )
+      .insert({
+        listing_id:
+          requiredText(
+            input.listingId,
+            "Service listing",
+          ),
+
+        sender_user_id:
+          user.id,
+
+        subject:
+          requiredText(
+            input.subject,
+            "Enquiry subject",
+          ),
+
+        message:
+          requiredText(
+            input.message,
+            "Enquiry message",
+          ),
+
+        contact_name:
+          input.contactName?.trim() ??
+          "",
+
+        contact_email:
+          input.contactEmail?.trim() ??
+          "",
+
+        contact_phone:
+          input.contactPhone?.trim() ??
+          "",
+
+        preferred_contact_method:
+          preferredContactMethod,
+
+        consent_to_share_contact:
+          consentToShareContact,
+      })
+      .select("*")
+      .single();
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "The service enquiry could not be sent.",
+    );
+  }
+
+  return data as unknown as CommunityServiceEnquiry;
+}
+
+export async function readMyCommunityServiceEnquiries():
+  Promise<CommunityServiceEnquiry[]> {
+  const supabase = getClient();
+  const user = await requireUser(
+    supabase,
+  );
+
+  const { data, error } =
+    await supabase
+      .from(
+        "community_service_enquiries",
+      )
+      .select(
+        "*, community_service_listings(id, service_name, organisation_name, owner_user_id)",
+      )
+      .eq(
+        "sender_user_id",
+        user.id,
+      )
+      .order("created_at", {
+        ascending: false,
+      });
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "Your service enquiries could not be loaded.",
+    );
+  }
+
+  return (
+    data ?? []
+  ) as unknown as CommunityServiceEnquiry[];
+}
+
+export async function readReceivedCommunityServiceEnquiries():
+  Promise<CommunityServiceEnquiry[]> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase
+      .from(
+        "community_service_enquiries",
+      )
+      .select(
+        "*, community_service_listings!inner(id, service_name, organisation_name, owner_user_id)",
+      )
+      .order("created_at", {
+        ascending: false,
+      });
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "Received service enquiries could not be loaded.",
+    );
+  }
+
+  return (
+    data ?? []
+  ) as unknown as CommunityServiceEnquiry[];
+}
+
+export async function respondToCommunityServiceEnquiry(
+  input:
+    CommunityServiceEnquiryResponseInput,
+): Promise<CommunityServiceEnquiry> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_respond_to_community_service_enquiry",
+      {
+        p_enquiry_id:
+          requiredText(
+            input.enquiryId,
+            "Service enquiry",
+          ),
+
+        p_response:
+          requiredText(
+            input.response,
+            "Provider response",
+          ),
+
+        p_close:
+          input.close === true,
+      },
+    );
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "The provider response could not be sent.",
+    );
+  }
+
+  return data as unknown as CommunityServiceEnquiry;
+}
+
+export async function withdrawCommunityServiceEnquiry(
+  enquiryId: string,
+): Promise<CommunityServiceEnquiry> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_withdraw_community_service_enquiry",
+      {
+        p_enquiry_id:
+          requiredText(
+            enquiryId,
+            "Service enquiry",
+          ),
+      },
+    );
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "The service enquiry could not be withdrawn.",
+    );
+  }
+
+  return data as unknown as CommunityServiceEnquiry;
+}
+
+export async function readCommunityServiceCircleSaves(
+  circleId: string,
+): Promise<CommunityServiceCircleSave[]> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase
+      .from(
+        "community_service_circle_saves",
+      )
+      .select(
+        "*, community_service_listings(*)",
+      )
+      .eq(
+        "circle_id",
+        requiredText(
+          circleId,
+          "Circle",
+        ),
+      )
+      .is("archived_at", null)
+      .order("created_at", {
+        ascending: false,
+      });
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "Circle services could not be loaded.",
+    );
+  }
+
+  return (
+    data ?? []
+  ) as unknown as CommunityServiceCircleSave[];
+}
+
+export async function saveCommunityServiceToCircle(
+  input:
+    CommunityServiceCircleSaveInput,
+): Promise<CommunityServiceCircleSave> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_save_community_service_to_circle",
+      {
+        p_listing_id:
+          requiredText(
+            input.listingId,
+            "Service listing",
+          ),
+
+        p_circle_id:
+          requiredText(
+            input.circleId,
+            "Circle",
+          ),
+
+        p_participant_id:
+          requiredText(
+            input.participantId,
+            "Participant",
+          ),
+
+        p_note:
+          input.note?.trim() ??
+          "",
+      },
+    );
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "The service could not be saved to the Circle.",
+    );
+  }
+
+  return data as unknown as CommunityServiceCircleSave;
+}
+
+export async function removeCommunityServiceFromCircle(
+  saveId: string,
+): Promise<CommunityServiceCircleSave> {
+  const supabase = getClient();
+
+  await requireUser(supabase);
+
+  const { data, error } =
+    await supabase.rpc(
+      "sm_remove_community_service_from_circle",
+      {
+        p_save_id:
+          requiredText(
+            saveId,
+            "Saved Circle service",
+          ),
+      },
+    );
+
+  if (error) {
+    throw friendlyDirectoryError(
+      error,
+      "The service could not be removed from the Circle.",
+    );
+  }
+
+  return data as unknown as CommunityServiceCircleSave;
 }
