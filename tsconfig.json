@@ -29,6 +29,9 @@
       "@/lib/community/secure-community-services-client": [
         "./lib/community/community-services-client.ts"
       ],
+      "@/lib/security/api-request-security": [
+        "./lib/security/authenticated-api-request-security.ts"
+      ],
       "@/*": [
         "./*"
       ]
