@@ -14,7 +14,7 @@ function cleanEnvironmentValue(
     value
       ?.trim()
       .replace(
-        /^["']|["']$/g,
+        /^[\"']|[\"']$/g,
         "",
       )
       .trim() ?? ""
@@ -69,26 +69,43 @@ function readSupabaseUrl(): string {
   );
 }
 
-function readSupabasePublishableKey():
+function readSupabasePublicKey():
   string {
-  const value =
+  const publishableKey =
     cleanEnvironmentValue(
       process.env
         .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
 
+  const legacyAnonKey =
+    cleanEnvironmentValue(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    );
+
+  const value =
+    publishableKey ||
+    legacyAnonKey;
+
+  /*
+   * Supabase supports both:
+   * - newer sb_publishable_ keys
+   * - older JWT-based anon keys
+   *
+   * Do not force users to rotate a
+   * working key simply because its
+   * format is older.
+   */
   if (
-    value.startsWith(
-      "sb_publishable_",
-    ) &&
-    value.length >= 30 &&
-    value.length <= 512
+    value.length >= 20 &&
+    value.length <= 4096 &&
+    !/\s/.test(value)
   ) {
     return value;
   }
 
   throw new Error(
-    "Supabase is not configured correctly. Check NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+    "Supabase is not configured correctly. Check NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.",
   );
 }
 
@@ -101,7 +118,7 @@ export function getSupabaseBrowserClient():
   browserClient =
     createClient(
       readSupabaseUrl(),
-      readSupabasePublishableKey(),
+      readSupabasePublicKey(),
       {
         auth: {
           persistSession: true,
