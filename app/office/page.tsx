@@ -39,6 +39,12 @@ import {
   subscribeToCompanionSpeechStatus,
 } from "@/lib/companion/speech-client";
 import {
+  startKimiLiveSession,
+  type KimiAppToolResult,
+  type KimiLiveSession,
+  type KimiLiveSessionStatus,
+} from "@/lib/companion/realtime-client";
+import {
   executeCompanionActions,
   getCompanionActionKey,
   type CompanionPermission,
@@ -48,10 +54,6 @@ import {
   type DeskObject,
   type WorkspaceDocument,
 } from "@/lib/companion/tool-executor";
-import {
-  isCompanionVoiceAvailable,
-  startCompanionVoiceRecognition,
-} from "@/lib/companion/voice-client";
 import {
   useLiveAvatarSession,
 } from "@/lib/access/use-live-avatar-session";
@@ -403,6 +405,14 @@ export default function OfficePage() {
   const stateRestoredRef =
     useRef(false);
 
+  const liveKimiSessionRef =
+    useRef<KimiLiveSession | null>(
+      null,
+    );
+
+  const liveKimiStartingRef =
+    useRef(false);
+
   const [request, setRequest] =
     useState("");
 
@@ -491,9 +501,36 @@ export default function OfficePage() {
     setIsApprovedAdministrator,
   ] = useState(false);
 
+  const companionStateRef =
+    useRef(companionState);
+
+  const userProfileRef =
+    useRef(userProfile);
+
   const liveAvatarSession =
     useLiveAvatarSession();
 
+  useEffect(() => {
+    companionStateRef.current =
+      companionState;
+  }, [companionState]);
+
+  useEffect(() => {
+    userProfileRef.current =
+      userProfile;
+  }, [userProfile]);
+
+  useEffect(() => {
+    return () => {
+      const liveSession =
+        liveKimiSessionRef.current;
+
+      liveKimiSessionRef.current =
+        null;
+
+      liveSession?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -1037,8 +1074,20 @@ export default function OfficePage() {
   }
 
   function chooseText() {
+    const liveSession =
+      liveKimiSessionRef.current;
+
+    liveKimiSessionRef.current =
+      null;
+
+    liveKimiStartingRef.current =
+      false;
+
+    liveSession?.disconnect();
+
     setInteractionMode("text");
     setVoiceMessage("");
+    setListening(false);
     setAvatarStatus("idle");
     setConversationExpanded(true);
 
@@ -1062,53 +1111,386 @@ export default function OfficePage() {
     );
   }
 
-  function startVoice() {
-    stopCompanionSpeech();
+  async function runLiveAppTool(
+    appRequest: string,
+  ): Promise<KimiAppToolResult> {
+    const currentRequest =
+      appRequest.trim();
 
-    setInteractionMode("voice");
-    setConversationExpanded(true);
-    setVoiceMessage("");
+    if (!currentRequest) {
+      return {
+        success: false,
+        message:
+          "No application action was provided.",
+      };
+    }
 
-    if (!isCompanionVoiceAvailable()) {
-      setAvatarStatus("error");
+    const currentState =
+      companionStateRef.current;
 
+    setPendingConfirmationActions([]);
+    setConfirmationMessage("");
+    setWorking(true);
+    setAvatarStatus("thinking");
+    setVoiceMessage(
+      "Kimi is using the Space…",
+    );
+
+    try {
+      const rememberedConversation =
+        readConversationMemory();
+
+      const conversationForGateway =
+        getConversationForGateway(
+          rememberedConversation,
+          currentRequest,
+        );
+
+      const circleMemory =
+        createCircleMemoryPrompt(
+          readCircleCentreMemory(),
+        );
+
+      const profileMemory =
+        createUserProfileMemoryPrompt(
+          userProfileRef.current,
+        );
+
+      const result =
+        await runCompanionTurn({
+          request:
+            currentRequest,
+
+          memory: [
+            profileMemory,
+            "",
+            circleMemory,
+          ].join("\n"),
+
+          conversation:
+            conversationForGateway,
+
+          state:
+            currentState,
+        });
+
+      const nextState =
+        result.execution.state;
+
+      companionStateRef.current =
+        nextState;
+
+      setCompanionState(
+        nextState,
+      );
+
+      applyDeskControlActions(
+        result.execution.completedActions,
+        nextState,
+      );
+
+      const pendingActions =
+        result.execution
+          .pendingConfirmationActions ?? [];
+
+      if (
+        pendingActions.length >
+        0
+      ) {
+        const confirmation =
+          getCompanionReply(
+            result,
+          );
+
+        setPendingConfirmationActions(
+          pendingActions,
+        );
+
+        setConfirmationMessage(
+          confirmation,
+        );
+
+        setConversationExpanded(
+          true,
+        );
+      }
+
+      const deskChanged =
+        JSON.stringify(
+          nextState.deskObjects,
+        ) !==
+        JSON.stringify(
+          currentState.deskObjects,
+        );
+
+      const documentChanged =
+        JSON.stringify(
+          nextState.documents,
+        ) !==
+        JSON.stringify(
+          currentState.documents,
+        );
+
+      if (
+        deskChanged ||
+        documentChanged
+      ) {
+        setFolderPreviewOpen(
+          false,
+        );
+
+        setUseOptionsOpen(
+          false,
+        );
+      }
+
+      if (
+        result.execution
+          .navigation?.href
+      ) {
+        router.push(
+          result.execution
+            .navigation.href,
+        );
+      }
+
+      const failedActions =
+        result.execution
+          .failedActions;
+
+      const companionReply =
+        getCompanionReply(
+          result,
+        );
+
+      return {
+        success:
+          failedActions.length ===
+          0,
+
+        message:
+          companionReply,
+
+        data: {
+          completedActions:
+            result.execution
+              .completedActions
+              .map(
+                (action) =>
+                  action.tool,
+              ),
+
+          pendingConfirmationCount:
+            pendingActions.length,
+
+          failedActionCount:
+            failedActions.length,
+        },
+      };
+    } catch (
+      caughtError
+    ) {
+      return {
+        success: false,
+        message:
+          caughtError instanceof
+          Error
+            ? caughtError.message
+            : "The Space could not complete that action.",
+      };
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function applyLiveVoiceStatus(
+    status:
+      KimiLiveSessionStatus,
+  ) {
+    if (
+      status ===
+      "connecting"
+    ) {
+      setListening(false);
+      setAvatarStatus("thinking");
       setVoiceMessage(
-        "Voice is not available in this browser. Use the keyboard button.",
+        "Connecting to Kimi…",
       );
       return;
     }
 
-    setListening(true);
-    setAvatarStatus("listening");
-    setVoiceMessage("Listening…");
+    if (status === "ready") {
+      setListening(false);
+      setAvatarStatus("idle");
+      setVoiceMessage(
+        "Kimi is here. Speak naturally.",
+      );
+      return;
+    }
 
-    startCompanionVoiceRecognition({
-      onTranscript: (transcript) => {
-        setVoiceMessage(
-          `You said: ${transcript}`,
+    if (
+      status ===
+      "listening"
+    ) {
+      setListening(true);
+      setAvatarStatus("listening");
+      setVoiceMessage("Listening…");
+      setConversationExpanded(true);
+      return;
+    }
+
+    if (
+      status ===
+      "thinking"
+    ) {
+      setListening(false);
+      setAvatarStatus("thinking");
+      setVoiceMessage(
+        "Kimi is responding…",
+      );
+      return;
+    }
+
+    if (
+      status ===
+      "speaking"
+    ) {
+      setListening(false);
+      setAvatarStatus("speaking");
+      setVoiceMessage(
+        "Kimi is speaking…",
+      );
+      return;
+    }
+
+    if (status === "error") {
+      setListening(false);
+      setAvatarStatus("error");
+      return;
+    }
+
+    if (status === "closed") {
+      liveKimiSessionRef.current =
+        null;
+
+      liveKimiStartingRef.current =
+        false;
+
+      setListening(false);
+      setAvatarStatus("idle");
+      setVoiceMessage(
+        "Live voice ended. Press the microphone to reconnect.",
+      );
+    }
+  }
+
+  async function startVoice() {
+    stopCompanionSpeech();
+
+    setInteractionMode("voice");
+    setConversationExpanded(true);
+
+    const currentSession =
+      liveKimiSessionRef.current;
+
+    if (currentSession) {
+      const shouldMute =
+        !currentSession
+          .isMicrophoneMuted();
+
+      currentSession
+        .setMicrophoneMuted(
+          shouldMute,
         );
 
-        void handleRequest(transcript);
-      },
+      setListening(false);
+      setAvatarStatus("idle");
+      setVoiceMessage(
+        shouldMute
+          ? "Microphone paused. Press it again to resume."
+          : "Kimi is here. Speak naturally.",
+      );
 
-      onError: () => {
-        setListening(false);
-        setAvatarStatus("error");
+      return;
+    }
 
-        setVoiceMessage(
-          "I could not hear that. Press the microphone and try again.",
-        );
-      },
+    if (
+      liveKimiStartingRef.current ||
+      working
+    ) {
+      return;
+    }
 
-      onEnd: () => {
-        setListening(false);
-        setAvatarStatus((currentStatus) =>
-          currentStatus === "listening"
-            ? "idle"
-            : currentStatus,
-        );
-      },
-    });
+    liveKimiStartingRef.current =
+      true;
+
+    applyLiveVoiceStatus(
+      "connecting",
+    );
+
+    try {
+      const liveSession =
+        await startKimiLiveSession({
+          onStatusChange:
+            applyLiveVoiceStatus,
+
+          onUserTranscriptChange:
+            (
+              completeTranscript,
+            ) => {
+              setVoiceMessage(
+                completeTranscript ||
+                  "Listening…",
+              );
+            },
+
+          onUserTranscriptComplete:
+            (
+              transcript,
+            ) => {
+              addMessage(
+                "Ben",
+                transcript,
+              );
+            },
+
+          onKimiTranscriptComplete:
+            (
+              transcript,
+            ) => {
+              addMessage(
+                "Kimi",
+                transcript,
+              );
+            },
+
+          onAppToolCall:
+            runLiveAppTool,
+
+          onError:
+            (
+              message,
+            ) => {
+              setVoiceMessage(
+                message,
+              );
+
+              addMessage(
+                "Kimi",
+                message,
+              );
+            },
+        });
+
+      liveKimiSessionRef.current =
+        liveSession;
+
+      liveKimiStartingRef.current =
+        false;
+    } catch {
+      liveKimiStartingRef.current =
+        false;
+    }
   }
 
   function openPendingTask() {
