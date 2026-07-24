@@ -8,6 +8,10 @@ import {
 } from "@/lib/companion/fast-interaction";
 
 import {
+  streamCompanionConversation,
+} from "@/lib/companion/streaming-conversation-client";
+
+import {
   executeCompanionActions,
   type CompanionDecision,
   type CompanionExecutionContext,
@@ -42,6 +46,19 @@ export type CompanionGatewayResult = {
   decision: CompanionDecision;
   execution: ToolExecutionResult;
 };
+
+type CompanionStreamEventDetail = {
+  status:
+    | "started"
+    | "streaming"
+    | "completed"
+    | "cleared";
+
+  message: string;
+};
+
+const COMPANION_STREAM_EVENT =
+  "smiling-monad-companion-stream";
 
 const OFFICE_COMPANION_PERMISSIONS:
   CompanionPermission[] = [
@@ -123,6 +140,28 @@ function isCompanionDecision(
   );
 }
 
+function dispatchStreamEvent(
+  detail: CompanionStreamEventDetail,
+): void {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<
+      CompanionStreamEventDetail
+    >(
+      COMPANION_STREAM_EVENT,
+      {
+        detail,
+      },
+    ),
+  );
+}
+
 async function readErrorMessage(
   response: Response,
 ): Promise<string> {
@@ -168,6 +207,27 @@ function hasActiveCompanionWork(
         task.status === "active",
     ),
   );
+}
+
+function readInteractionMode(
+  input: CompanionGatewayRequest,
+): ReturnType<
+  typeof chooseCompanionInteractionMode
+> {
+  return chooseCompanionInteractionMode({
+    request:
+      input.request.trim(),
+
+    state: {
+      hasActiveWork:
+        hasActiveCompanionWork(
+          input.state,
+        ),
+
+      workspaceOpen:
+        input.state.workspaceOpen,
+    },
+  });
 }
 
 async function handleAuthenticationFailure(
@@ -354,6 +414,114 @@ async function requestFullCompanionDecision({
   return decision;
 }
 
+function createConversationDecision(
+  message: string,
+): CompanionDecision {
+  return {
+    message,
+
+    reasoningSummary:
+      "Kimi responded through the natural streaming conversation path.",
+
+    needsClarification:
+      false,
+
+    clarificationQuestion:
+      null,
+
+    requiresConfirmation:
+      false,
+
+    actions: [
+      {
+        tool:
+          "none",
+
+        targetId:
+          null,
+
+        title:
+          null,
+
+        kind:
+          null,
+
+        content:
+          null,
+
+        reason:
+          "No application action was required.",
+      },
+    ],
+  };
+}
+
+function createNoActionExecution(
+  state: CompanionState,
+): ToolExecutionResult {
+  return {
+    state,
+
+    completedActions:
+      [],
+
+    pendingConfirmationActions:
+      [],
+
+    failedActions:
+      [],
+
+    navigation:
+      null,
+  };
+}
+
+function executeCompanionDecision({
+  input,
+  decision,
+}: {
+  input: CompanionGatewayRequest;
+  decision: CompanionDecision;
+}): CompanionGatewayResult {
+  if (
+    decision.needsClarification
+  ) {
+    return {
+      decision,
+
+      execution:
+        createNoActionExecution(
+          input.state,
+        ),
+    };
+  }
+
+  const executionContext:
+    CompanionExecutionContext = {
+      permissions:
+        OFFICE_COMPANION_PERMISSIONS,
+
+      confirmedActionKeys:
+        input.confirmedActionKeys ??
+        [],
+
+      navigate:
+        () => undefined,
+    };
+
+  const execution =
+    executeCompanionActions(
+      input.state,
+      decision.actions,
+      executionContext,
+    );
+
+  return {
+    decision,
+    execution,
+  };
+}
+
 export async function requestCompanionDecision(
   input: CompanionGatewayRequest,
   signal?: AbortSignal,
@@ -371,20 +539,9 @@ export async function requestCompanionDecision(
     await readCompanionAccessToken();
 
   const interactionMode =
-    chooseCompanionInteractionMode({
-      request:
-        requestText,
-
-      state: {
-        hasActiveWork:
-          hasActiveCompanionWork(
-            input.state,
-          ),
-
-        workspaceOpen:
-          input.state.workspaceOpen,
-      },
-    });
+    readInteractionMode(
+      input,
+    );
 
   if (
     interactionMode ===
@@ -413,61 +570,114 @@ export async function runCompanionTurn(
   input: CompanionGatewayRequest,
   signal?: AbortSignal,
 ): Promise<CompanionGatewayResult> {
+  const requestText =
+    input.request.trim();
+
+  if (!requestText) {
+    throw new Error(
+      "A message is required before Kimi can make a decision.",
+    );
+  }
+
+  const interactionMode =
+    readInteractionMode(
+      input,
+    );
+
+  if (
+    interactionMode ===
+    "conversation"
+  ) {
+    dispatchStreamEvent({
+      status:
+        "started",
+
+      message:
+        "",
+    });
+
+    try {
+      const streamedResult =
+        await streamCompanionConversation({
+          input,
+
+          onText: (
+            completeMessage,
+          ) => {
+            dispatchStreamEvent({
+              status:
+                "streaming",
+
+              message:
+                completeMessage,
+            });
+          },
+
+          signal,
+        });
+
+      if (
+        streamedResult.completed
+      ) {
+        const message =
+          streamedResult.message.trim();
+
+        if (!message) {
+          throw new Error(
+            "Kimi returned an empty response.",
+          );
+        }
+
+        dispatchStreamEvent({
+          status:
+            "completed",
+
+          message,
+        });
+
+        return {
+          decision:
+            createConversationDecision(
+              message,
+            ),
+
+          execution:
+            createNoActionExecution(
+              input.state,
+            ),
+        };
+      }
+
+      dispatchStreamEvent({
+        status:
+          "cleared",
+
+        message:
+          "",
+      });
+    } catch (error) {
+      dispatchStreamEvent({
+        status:
+          "cleared",
+
+        message:
+          "",
+      });
+
+      throw error;
+    }
+  }
+
   const decision =
     await requestCompanionDecision(
       input,
       signal,
     );
 
-  if (
-    decision.needsClarification
-  ) {
-    return {
-      decision,
-
-      execution: {
-        state:
-          input.state,
-
-        completedActions:
-          [],
-
-        pendingConfirmationActions:
-          [],
-
-        failedActions:
-          [],
-
-        navigation:
-          null,
-      },
-    };
-  }
-
-  const executionContext:
-    CompanionExecutionContext = {
-      permissions:
-        OFFICE_COMPANION_PERMISSIONS,
-
-      confirmedActionKeys:
-        input.confirmedActionKeys ??
-        [],
-
-      navigate:
-        () => undefined,
-    };
-
-  const execution =
-    executeCompanionActions(
-      input.state,
-      decision.actions,
-      executionContext,
-    );
-
-  return {
+  return executeCompanionDecision({
+    input,
     decision,
-    execution,
-  };
+  });
 }
 
 export function getCompanionReply(
