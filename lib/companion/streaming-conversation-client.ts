@@ -8,7 +8,7 @@ import type {
   CompanionGatewayRequest,
 } from "@/lib/companion/gateway-client";
 
-type StreamingConversationResult =
+export type StreamingConversationResult =
   | {
       completed: true;
       requiresAction: false;
@@ -62,31 +62,36 @@ async function readErrorMessage(
   return `Kimi returned ${response.status}.`;
 }
 
-function createRequestBody({
-  request,
-  memory,
-  conversation,
-  state,
-}: CompanionGatewayRequest) {
+function createRequestBody(
+  input: CompanionGatewayRequest,
+): {
+  request: string;
+  memory: string;
+  conversation:
+    CompanionConversationMessage[];
+  state: {
+    hasActiveWork: boolean;
+    workspaceOpen: boolean;
+  };
+} {
   return {
     request:
-      request.trim(),
+      input.request.trim(),
 
     memory:
-      memory?.trim() ?? "",
+      input.memory?.trim() ?? "",
 
     conversation:
-      conversation ??
-      ([] as CompanionConversationMessage[]),
+      input.conversation ?? [],
 
     state: {
       hasActiveWork:
         hasActiveCompanionWork(
-          state,
+          input.state,
         ),
 
       workspaceOpen:
-        state.workspaceOpen,
+        input.state.workspaceOpen,
     },
   };
 }
@@ -97,10 +102,12 @@ export async function streamCompanionConversation({
   signal,
 }: {
   input: CompanionGatewayRequest;
+
   onText: (
     completeMessage: string,
     newText: string,
   ) => void;
+
   signal?: AbortSignal;
 }): Promise<StreamingConversationResult> {
   const requestText =
@@ -164,10 +171,13 @@ export async function streamCompanionConversation({
       clearCompanionAccessTokenCache();
     }
 
-    throw new Error(
+    const errorMessage =
       await readErrorMessage(
         response,
-      ),
+      );
+
+    throw new Error(
+      errorMessage,
     );
   }
 
@@ -187,7 +197,10 @@ export async function streamCompanionConversation({
     "";
 
   try {
-    while (true) {
+    let reading =
+      true;
+
+    while (reading) {
       const {
         done,
         value,
@@ -195,14 +208,22 @@ export async function streamCompanionConversation({
         await reader.read();
 
       if (done) {
-        break;
+        reading =
+          false;
+
+        continue;
+      }
+
+      if (!value) {
+        continue;
       }
 
       const newText =
         decoder.decode(
           value,
           {
-            stream: true,
+            stream:
+              true,
           },
         );
 
@@ -225,23 +246,14 @@ export async function streamCompanionConversation({
       );
     }
 
-   _STREAMED_MESSAGE_CHARACTERS,
-        );
-
-      onText(
-        completeMessage,
-        newText,
-      );
-    }
-
-    const finalText =
+    const remainingText =
       decoder.decode();
 
-    if (finalText) {
+    if (remainingText) {
       completeMessage =
         (
           completeMessage +
-          finalText
+          remainingText
         ).slice(
           0,
           MAX_STREAMED_MESSAGE_CHARACTERS,
@@ -249,7 +261,7 @@ export async function streamCompanionConversation({
 
       onText(
         completeMessage,
-        finalText,
+        remainingText,
       );
     }
   } finally {
