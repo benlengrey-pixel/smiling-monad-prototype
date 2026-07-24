@@ -13,6 +13,41 @@ import type {
   ToolExecutionResult,
 } from "@/lib/companion/tool-executor";
 
+export const COMPANION_STREAM_EVENT =
+  "smiling-monad-companion-stream";
+
+export type CompanionStreamEventDetail = {
+  status:
+    | "started"
+    | "streaming"
+    | "completed"
+    | "cleared";
+
+  message: string;
+};
+
+function dispatchStreamEvent(
+  detail: CompanionStreamEventDetail,
+): void {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<
+      CompanionStreamEventDetail
+    >(
+      COMPANION_STREAM_EVENT,
+      {
+        detail,
+      },
+    ),
+  );
+}
+
 function createConversationDecision(
   message: string,
 ): CompanionDecision {
@@ -76,6 +111,17 @@ function createConversationExecution(
   };
 }
 
+export function clearCompanionStream():
+  void {
+  dispatchStreamEvent({
+    status:
+      "cleared",
+
+    message:
+      "",
+  });
+}
+
 export async function runCompanionTurnWithStreaming({
   input,
   onStreamText,
@@ -92,50 +138,81 @@ export async function runCompanionTurnWithStreaming({
   signal?:
     AbortSignal;
 }): Promise<CompanionGatewayResult> {
-  const streamedResult =
-    await streamCompanionConversation({
-      input,
+  dispatchStreamEvent({
+    status:
+      "started",
 
-      onText: (
-        completeMessage,
-        newText,
-      ) => {
-        onStreamText?.(
+    message:
+      "",
+  });
+
+  try {
+    const streamedResult =
+      await streamCompanionConversation({
+        input,
+
+        onText: (
           completeMessage,
           newText,
-        );
-      },
+        ) => {
+          dispatchStreamEvent({
+            status:
+              "streaming",
 
-      signal,
+            message:
+              completeMessage,
+          });
+
+          onStreamText?.(
+            completeMessage,
+            newText,
+          );
+        },
+
+        signal,
+      });
+
+    if (
+      streamedResult.requiresAction
+    ) {
+      clearCompanionStream();
+
+      return runCompanionTurn(
+        input,
+        signal,
+      );
+    }
+
+    const message =
+      streamedResult.message.trim();
+
+    if (!message) {
+      throw new Error(
+        "Kimi returned an empty response.",
+      );
+    }
+
+    dispatchStreamEvent({
+      status:
+        "completed",
+
+      message,
     });
 
-  if (
-    streamedResult.requiresAction
-  ) {
-    return runCompanionTurn(
-      input,
-      signal,
-    );
+    return {
+      decision:
+        createConversationDecision(
+          message,
+        ),
+
+      execution:
+        createConversationExecution(
+          input,
+        ),
+    };
+  } catch (error) {
+    clearCompanionStream();
+
+    throw error;
   }
-
-  const message =
-    streamedResult.message.trim();
-
-  if (!message) {
-    throw new Error(
-      "Kimi returned an empty response.",
-    );
-  }
-
-  return {
-    decision:
-      createConversationDecision(
-        message,
-      ),
-
-    execution:
-      createConversationExecution(
-        input,
-      ),
-  };
 }
