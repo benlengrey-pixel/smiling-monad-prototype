@@ -200,7 +200,9 @@ function isCompanionGatewayRequest(
     request.method !== "OPTIONS" &&
     (
       pathname === "/api/gateway" ||
-      pathname === "/api/gateway/"
+      pathname.startsWith(
+        "/api/gateway/",
+      )
     )
   );
 }

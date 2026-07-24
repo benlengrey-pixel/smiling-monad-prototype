@@ -61,11 +61,129 @@ function cleanEnvironmentValue(
   );
 }
 
+function readProjectReference(
+  value: string,
+): string {
+  try {
+    const hostname =
+      new URL(value).hostname;
+
+    return (
+      hostname.split(".")[0]
+        ?.trim() || "unknown"
+    );
+  } catch {
+    return "unknown";
+  }
+}
+
+function readTokenIssuer(
+  accessToken: string,
+): string {
+  try {
+    const encodedPayload =
+      accessToken.split(".")[1];
+
+    if (!encodedPayload) {
+      return "";
+    }
+
+    const base64 =
+      encodedPayload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(
+          Math.ceil(
+            encodedPayload.length / 4,
+          ) * 4,
+          "=",
+        );
+
+    const binary =
+      globalThis.atob(base64);
+
+    const bytes =
+      Uint8Array.from(
+        binary,
+        (character) =>
+          character.charCodeAt(0),
+      );
+
+    const payload =
+      JSON.parse(
+        new TextDecoder().decode(
+          bytes,
+        ),
+      ) as {
+        iss?: unknown;
+      };
+
+    return typeof payload.iss ===
+      "string"
+      ? payload.iss.trim()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function reportVerificationFailure({
+  accessToken,
+  error,
+}: {
+  accessToken: string;
+  error: Error | null;
+}): void {
+  if (
+    process.env.NODE_ENV !==
+    "development"
+  ) {
+    return;
+  }
+
+  const configuredUrl =
+    cleanEnvironmentValue(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL,
+    );
+
+  const tokenIssuer =
+    readTokenIssuer(
+      accessToken,
+    );
+
+  const configuredProject =
+    readProjectReference(
+      configuredUrl,
+    );
+
+  const tokenProject =
+    readProjectReference(
+      tokenIssuer,
+    );
+
+  console.error(
+    "Supabase session verification failed:",
+    {
+      configuredProject,
+      tokenProject,
+      projectsMatch:
+        configuredProject !==
+          "unknown" &&
+        configuredProject ===
+          tokenProject,
+      reason:
+        error?.message ??
+        "No verified claims were returned.",
+    },
+  );
+}
+
 function readSupabaseConfiguration(): {
   url: string;
   publishableKey: string;
 } {
-  const url =
+  const rawUrl =
     cleanEnvironmentValue(
       process.env
         .NEXT_PUBLIC_SUPABASE_URL,
@@ -77,19 +195,28 @@ function readSupabaseConfiguration(): {
         .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
 
-  let validUrl = false;
+  let url = "";
 
   try {
-    const parsed = new URL(url);
+    const parsed =
+      new URL(rawUrl);
 
-    validUrl =
-      parsed.protocol === "https:";
+    if (
+      parsed.protocol === "https:" &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.search &&
+      !parsed.hash
+    ) {
+      url =
+        parsed.origin;
+    }
   } catch {
-    validUrl = false;
+    url = "";
   }
 
   if (
-    !validUrl ||
+    !url ||
     !publishableKey.startsWith(
       "sb_publishable_",
     )
@@ -187,6 +314,57 @@ function readBearerToken(
   return accessToken;
 }
 
+function claimsToUser(
+  claims: {
+    sub: string;
+    aud: string | string[];
+    iat: number;
+    role: string;
+    email?: string;
+    phone?: string;
+    app_metadata?: User["app_metadata"];
+    user_metadata?: User["user_metadata"];
+    is_anonymous?: boolean;
+  },
+): User {
+  const audience =
+    Array.isArray(claims.aud)
+      ? claims.aud[0] ??
+        "authenticated"
+      : claims.aud;
+
+  return {
+    id:
+      claims.sub,
+
+    app_metadata:
+      claims.app_metadata ?? {},
+
+    user_metadata:
+      claims.user_metadata ?? {},
+
+    aud:
+      audience,
+
+    created_at:
+      new Date(
+        claims.iat * 1000,
+      ).toISOString(),
+
+    email:
+      claims.email,
+
+    phone:
+      claims.phone,
+
+    role:
+      claims.role,
+
+    is_anonymous:
+      claims.is_anonymous,
+  };
+}
+
 export function isApiAuthenticationError(
   error: unknown,
 ): error is ApiAuthenticationError {
@@ -206,19 +384,27 @@ export async function requireAuthenticatedApiUser(
     createAuthenticationClient();
 
   const {
-    data: {
-      user,
-    },
+    data,
     error,
   } =
-    await supabase.auth.getUser(
+    await supabase.auth.getClaims(
       accessToken,
     );
 
+  const subject =
+    data?.claims.sub
+      ?.trim() ?? "";
+
   if (
     error ||
-    !user
+    !data ||
+    !subject
   ) {
+    reportVerificationFailure({
+      accessToken,
+      error,
+    });
+
     throw new ApiAuthenticationError({
       message:
         "Your session has expired. Please sign in again.",
@@ -229,8 +415,14 @@ export async function requireAuthenticatedApiUser(
   }
 
   return {
-    user,
+    user:
+      claimsToUser({
+        ...data.claims,
+        sub: subject,
+      }),
+
     accessToken,
+
     authenticationMethod:
       "bearer",
   };
