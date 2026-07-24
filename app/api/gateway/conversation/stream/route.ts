@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 
 import {
+  buildKimiBehaviourInstructions,
+} from "@/lib/companion/kimi-behaviour";
+
+import {
   buildFastConversationInput,
   chooseCompanionInteractionMode,
   type FastConversationMessage,
@@ -17,7 +21,7 @@ import {
   enforceApiRateLimit,
   privateApiJson,
   readSecureJsonBody,
-} from "../../../../../lib/security/api-request-security";
+} from "@/lib/security/api-request-security";
 
 type StreamingConversationRequest = {
   request: string;
@@ -75,45 +79,24 @@ function readFastModelName():
 
 function buildStreamingInstructions():
   string {
-  return `
-You are Kimi, the intelligent Companion inside the Smiling Monad Space.
+  return [
+    buildKimiBehaviourInstructions(
+      "conversation",
+    ),
+    `
+STREAMING CONVERSATION BOUNDARY
 
-Respond directly to the user.
+This route is for conversation only.
 
-Be natural, warm, calm and intelligent.
+Application actions, document changes, messages, bookings, navigation and
+other tool use are handled by the full Companion gateway.
 
-Do not sound like an application, workflow, form, support bot or technical
-assistant.
+Never claim that one of those actions happened in this conversation response.
 
-Do not mention tools, routing, schemas, internal state or application logic.
-
-Do not turn ordinary conversation into a task.
-
-Listen to what the user is actually saying and respond to that meaning.
-
-Use relevant memory and recent conversation only when it genuinely helps.
-
-Do not repeat information the user already knows.
-
-Do not begin with generic phrases such as:
-- "I understand";
-- "Thank you for sharing";
-- "It sounds like";
-- "How can I assist you?"
-
-Begin with the substance of the response.
-
-Keep the response brief when a brief response is enough.
-
-Use more detail only when the user asks for it or the subject genuinely needs
-it.
-
-Never claim that an application action, document change, message, booking,
-navigation or external action has happened.
-
-Requests requiring application actions are handled by the full Companion
-gateway instead.
-`.trim();
+Most replies should be no more than 60 words.
+Use more only when the user asks for detail or the subject genuinely needs it.
+`.trim(),
+  ].join("\n\n");
 }
 
 export async function POST(
@@ -221,7 +204,7 @@ export async function POST(
             ),
 
           max_output_tokens:
-            450,
+            240,
 
           stream:
             true,

@@ -8,7 +8,11 @@ import {
 } from "react";
 
 import {
+  listMySecureCircles,
+} from "@/lib/circle/secure-circle-directory-client";
+import {
   acceptSecureCircleInvitation,
+  declineSecureCircleInvitation,
   readMySecureCircleInvitations,
   type SecureCircleInvitation,
 } from "@/lib/circle/secure-invitations-client";
@@ -19,6 +23,15 @@ type AccessStatus =
   | "approved"
   | "suspended"
   | "unknown";
+
+type InvitationAction =
+  | "accept"
+  | "decline";
+
+type WorkingInvitation = {
+  id: string;
+  action: InvitationAction;
+} | null;
 
 function describeRole(
   role: SecureCircleInvitation["role"],
@@ -31,6 +44,34 @@ function describeRole(
         word.slice(1),
     )
     .join(" ");
+}
+
+function describeUnknownError(
+  error: unknown,
+  fallback: string,
+): string {
+  return error instanceof Error
+    ? error.message
+    : fallback;
+}
+
+function alreadyBelongsToCircle(
+  message: string,
+): boolean {
+  const normalised =
+    message.toLowerCase();
+
+  return (
+    normalised.includes(
+      "already belongs",
+    ) ||
+    normalised.includes(
+      "already a member",
+    ) ||
+    normalised.includes(
+      "already active",
+    )
+  );
 }
 
 export default function AccessPendingPage() {
@@ -46,8 +87,12 @@ export default function AccessPendingPage() {
   const [loading, setLoading] =
     useState(true);
 
-  const [workingId, setWorkingId] =
-    useState("");
+  const [
+    workingInvitation,
+    setWorkingInvitation,
+  ] = useState<WorkingInvitation>(
+    null,
+  );
 
   const [message, setMessage] =
     useState("");
@@ -107,16 +152,50 @@ export default function AccessPendingPage() {
         const secureInvitations =
           await readMySecureCircleInvitations();
 
+        let activeCircleIds =
+          new Set<string>();
+
+        try {
+          const directoryEntries =
+            await listMySecureCircles();
+
+          activeCircleIds =
+            new Set(
+              directoryEntries
+                .filter(
+                  (entry) =>
+                    entry.membership
+                      .membership_status ===
+                    "active",
+                )
+                .map(
+                  (entry) =>
+                    entry.circle.id,
+                ),
+            );
+        } catch {
+          // Invitation access remains usable while
+          // the Circle directory is unavailable.
+        }
+
         setInvitations(
-          secureInvitations,
+          secureInvitations.filter(
+            (invitation) =>
+              invitation.membership_status ===
+                "invited" &&
+              !activeCircleIds.has(
+                invitation.circle_id,
+              ),
+          ),
         );
       } catch (error) {
         setStatus("unknown");
 
         setMessage(
-          error instanceof Error
-            ? error.message
-            : "Access could not be checked.",
+          describeUnknownError(
+            error,
+            "Access could not be checked.",
+          ),
         );
       } finally {
         setLoading(false);
@@ -129,20 +208,30 @@ export default function AccessPendingPage() {
     void loadAccess();
   }, [loadAccess]);
 
-  async function acceptInvitation(
+  async function respondToInvitation(
     invitationId: string,
+    action: InvitationAction,
   ) {
-    if (workingId) {
+    if (workingInvitation) {
       return;
     }
 
-    setWorkingId(invitationId);
+    setWorkingInvitation({
+      id: invitationId,
+      action,
+    });
     setMessage("");
 
     try {
-      await acceptSecureCircleInvitation(
-        invitationId,
-      );
+      if (action === "accept") {
+        await acceptSecureCircleInvitation(
+          invitationId,
+        );
+      } else {
+        await declineSecureCircleInvitation(
+          invitationId,
+        );
+      }
 
       setInvitations((current) =>
         current.filter(
@@ -153,16 +242,41 @@ export default function AccessPendingPage() {
       );
 
       setMessage(
-        "Circle invitation accepted. You are now connected to this Circle of Support.",
+        action === "accept"
+          ? "Invitation accepted. The Circle is now available in the Circle Centre."
+          : "Invitation declined.",
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The Circle invitation could not be accepted.",
-      );
+      const errorMessage =
+        describeUnknownError(
+          error,
+          action === "accept"
+            ? "The Circle invitation could not be accepted."
+            : "The Circle invitation could not be declined.",
+        );
+
+      if (
+        action === "accept" &&
+        alreadyBelongsToCircle(
+          errorMessage,
+        )
+      ) {
+        setInvitations((current) =>
+          current.filter(
+            (invitation) =>
+              invitation.id !==
+              invitationId,
+          ),
+        );
+
+        setMessage(
+          "You already belong to this Circle. It is available in the Circle Centre.",
+        );
+      } else {
+        setMessage(errorMessage);
+      }
     } finally {
-      setWorkingId("");
+      setWorkingInvitation(null);
     }
   }
 
@@ -181,6 +295,13 @@ export default function AccessPendingPage() {
       </main>
     );
   }
+
+  const showInvitations =
+    status !== "suspended" &&
+    (
+      invitations.length > 0 ||
+      status !== "approved"
+    );
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f4efe5] px-5 py-10 text-[#2c2a26]">
@@ -202,8 +323,8 @@ export default function AccessPendingPage() {
             {status === "suspended"
               ? "Your access has been temporarily paused. Contact the Smiling Monad administrator for assistance."
               : status === "approved"
-                ? "Your Smiling Monad account is ready."
-                : "You can accept Circle invitations while your account is awaiting approval."}
+                ? "Your account is ready. Enter the Space to open your Office."
+                : "Your account is awaiting approval. You can still respond to a Circle invitation below."}
           </p>
 
           {email ? (
@@ -213,71 +334,109 @@ export default function AccessPendingPage() {
           ) : null}
         </header>
 
-        <section className="mt-7">
-          <h2 className="text-xl font-semibold">
-            Circle invitations
-          </h2>
+        {showInvitations ? (
+          <section className="mt-7">
+            <h2 className="text-xl font-semibold">
+              Circle invitations
+            </h2>
 
-          <p className="mt-2 text-sm leading-6 text-black/55">
-            Invitations sent to this email
-            address will appear here.
-          </p>
+            <p className="mt-2 text-sm leading-6 text-black/55">
+              Only invitations that still need
+              your response appear here.
+            </p>
 
-          <div className="mt-4 space-y-3">
-            {invitations.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-black/15 bg-white/60 p-5 text-sm leading-6 text-black/55">
-                No Circle invitations were
-                found for this account.
-              </div>
-            ) : (
-              invitations.map(
-                (invitation) => (
-                  <article
-                    key={invitation.id}
-                    className="rounded-3xl border border-black/10 bg-white p-5"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-lg font-semibold">
-                          {invitation.display_name ||
-                            "Circle invitation"}
-                        </p>
+            <div className="mt-4 space-y-3">
+              {invitations.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-black/15 bg-white/60 p-5 text-sm leading-6 text-black/55">
+                  No Circle invitations are
+                  waiting for this account.
+                </div>
+              ) : (
+                invitations.map(
+                  (invitation) => {
+                    const accepting =
+                      workingInvitation?.id ===
+                        invitation.id &&
+                      workingInvitation.action ===
+                        "accept";
 
-                        <p className="mt-1 text-sm text-black/55">
-                          {describeRole(
-                            invitation.role,
-                          )}
+                    const declining =
+                      workingInvitation?.id ===
+                        invitation.id &&
+                      workingInvitation.action ===
+                        "decline";
 
-                          {invitation.relationship
-                            ? ` · ${invitation.relationship}`
-                            : ""}
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void acceptInvitation(
-                            invitation.id,
-                          );
-                        }}
-                        disabled={Boolean(
-                          workingId,
-                        )}
-                        className="rounded-full bg-[#60432f] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    return (
+                      <article
+                        key={invitation.id}
+                        className="rounded-3xl border border-black/10 bg-white p-5"
                       >
-                        {workingId ===
-                        invitation.id
-                          ? "Accepting…"
-                          : "Accept invitation"}
-                      </button>
-                    </div>
-                  </article>
-                ),
-              )
-            )}
-          </div>
-        </section>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-lg font-semibold">
+                              {invitation.circle
+                                ?.name ||
+                                invitation.display_name ||
+                                "Circle invitation"}
+                            </p>
+
+                            <p className="mt-1 text-sm text-black/55">
+                              {describeRole(
+                                invitation.role,
+                              )}
+
+                              {invitation.relationship
+                                ? ` · ${invitation.relationship}`
+                                : ""}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void respondToInvitation(
+                                  invitation.id,
+                                  "accept",
+                                );
+                              }}
+                              disabled={Boolean(
+                                workingInvitation,
+                              )}
+                              className="rounded-full bg-[#60432f] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {accepting
+                                ? "Accepting…"
+                                : "Accept"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void respondToInvitation(
+                                  invitation.id,
+                                  "decline",
+                                );
+                              }}
+                              disabled={Boolean(
+                                workingInvitation,
+                              )}
+                              className="rounded-full border border-[#60432f]/25 bg-white px-5 py-3 text-sm font-semibold text-[#60432f] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {declining
+                                ? "Declining…"
+                                : "Decline"}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  },
+                )
+              )}
+            </div>
+          </section>
+        ) : null}
 
         {message ? (
           <p className="mt-6 rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm leading-6">
@@ -291,7 +450,7 @@ export default function AccessPendingPage() {
               href="/office"
               className="rounded-full bg-[#2c2a26] px-5 py-3 text-center text-sm font-semibold text-white"
             >
-              Enter the Space
+              Enter the Space — Office
             </Link>
           ) : (
             <button
@@ -301,7 +460,7 @@ export default function AccessPendingPage() {
               }}
               className="rounded-full bg-[#2c2a26] px-5 py-3 text-sm font-semibold text-white"
             >
-              Check again
+              Check access again
             </button>
           )}
 

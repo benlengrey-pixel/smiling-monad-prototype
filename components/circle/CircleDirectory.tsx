@@ -99,6 +99,25 @@ function invitationRoleLabel(
     .join(" ");
 }
 
+function alreadyBelongsToCircle(
+  message: string,
+): boolean {
+  const normalised =
+    message.toLowerCase();
+
+  return (
+    normalised.includes(
+      "already belongs",
+    ) ||
+    normalised.includes(
+      "already a member",
+    ) ||
+    normalised.includes(
+      "already active",
+    )
+  );
+}
+
 function CircleCard({
   entry,
   opening,
@@ -153,7 +172,7 @@ function CircleCard({
         >
           {opening
             ? "Opening…"
-            : "Open Circle"}
+            : "Enter Circle"}
         </button>
       </div>
     </article>
@@ -222,6 +241,19 @@ export default function CircleDirectory({
     invitationMessage,
     setInvitationMessage,
   ] = useState("");
+
+  const visibleInvitations =
+    invitations.filter(
+      (invitation) =>
+        !entries.some(
+          (entry) =>
+            entry.circle.id ===
+              invitation.circle_id &&
+            entry.membership
+              .membership_status ===
+              "active",
+        ),
+    );
 
   async function loadInvitations() {
     setInvitationsLoading(true);
@@ -365,11 +397,33 @@ export default function CircleDirectory({
         "Invitation declined.",
       );
     } catch (error) {
-      setInvitationMessage(
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "The Circle invitation could not be updated.",
-      );
+          : "The Circle invitation could not be updated.";
+
+      if (
+        response === "accept" &&
+        alreadyBelongsToCircle(
+          errorMessage,
+        )
+      ) {
+        setInvitations((current) =>
+          current.filter(
+            (invitation) =>
+              invitation.id !==
+              invitationId,
+          ),
+        );
+
+        setInvitationMessage(
+          "You already belong to this Circle. Choose it from My Circles below.",
+        );
+      } else {
+        setInvitationMessage(
+          errorMessage,
+        );
+      }
     } finally {
       setInvitationWorkingId("");
     }
@@ -377,23 +431,35 @@ export default function CircleDirectory({
 
   return (
     <section className="mx-auto w-full max-w-5xl rounded-[28px] border border-[#d9c7ad] bg-[rgba(255,250,241,0.98)] p-5 shadow-[0_30px_70px_rgba(25,18,12,0.32)] sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#decfba] pb-4">
+        <Link
+          href="/office"
+          className="inline-flex items-center rounded-full border border-[#bfa98d] bg-white px-4 py-2 text-sm font-semibold text-[#533d2d] transition hover:bg-[#fffaf3]"
+        >
+          ← Back to Office
+        </Link>
+
+        <p className="text-sm font-medium text-[#8b745d]">
+          Office&nbsp;&nbsp;›&nbsp;&nbsp;Circle
+          Centre
+        </p>
+      </div>
+
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b745d]">
         Circle of Support Centre
       </p>
 
       <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="font-serif text-3xl leading-tight text-[#3f2d20] sm:text-4xl">
-            My Circles
+            Choose a Circle
           </h1>
 
           <p className="mt-3 max-w-3xl leading-7 text-[#68584a]">
-            Open your own Circle, choose a
-            participant Circle where you have
-            active access, accept an invitation,
-            or create a new Circle for a person
-            who has asked or authorised you to
-            establish one.
+            Select a Circle below to enter its
+            private room. Invitations appear
+            only when they still need your
+            response.
           </p>
         </div>
 
@@ -419,7 +485,7 @@ export default function CircleDirectory({
           >
             {participantCircleOpen
               ? "Close new Circle form"
-              : "Create participant Circle"}
+              : "Create a Circle for someone"}
           </button>
 
           {ownedCircles.length === 0 ? (
@@ -447,7 +513,7 @@ export default function CircleDirectory({
               }
               className="rounded-full border border-[#bfa98d] bg-[#efe3d2] px-6 py-3 font-medium text-[#533d2d] transition hover:bg-[#e6d6c0] disabled:cursor-not-allowed disabled:opacity-55"
             >
-              Open my own Circle
+              Enter my own Circle
             </button>
           )}
         </div>
@@ -745,6 +811,9 @@ export default function CircleDirectory({
         </form>
       ) : null}
 
+      {invitationsLoading ||
+      visibleInvitations.length > 0 ||
+      invitationMessage ? (
       <section className="mt-8 rounded-[24px] border border-[#d9c7ad] bg-[#efe4d4] p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -788,13 +857,14 @@ export default function CircleDirectory({
               Checking for Circle
               invitations…
             </div>
-          ) : invitations.length === 0 ? (
+          ) : visibleInvitations.length ===
+            0 ? (
             <div className="rounded-[18px] border border-dashed border-[#c7b49d] bg-white/65 p-5 text-[#756151]">
               No pending Circle invitations were
               found for this account.
             </div>
           ) : (
-            invitations.map(
+            visibleInvitations.map(
               (invitation) => (
                 <article
                   key={invitation.id}
@@ -863,14 +933,8 @@ export default function CircleDirectory({
           )}
         </div>
 
-        <Link
-          href="/access-pending"
-          className="mt-4 inline-flex text-sm font-semibold text-[#765943] underline decoration-[#765943]/35 underline-offset-4"
-        >
-          Open full invitation and account
-          access page
-        </Link>
       </section>
+      ) : null}
 
       {loading ? (
         <div className="mt-7 rounded-[20px] border border-dashed border-[#cdbba4] bg-[#f7efe4] p-6 text-[#756151]">

@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 
 import {
+  buildKimiBehaviourInstructions,
+} from "@/lib/companion/kimi-behaviour";
+
+import {
   apiSecurityErrorResponse,
   enforceApiRateLimit,
   privateApiJson,
@@ -282,7 +286,13 @@ const companionDecisionSchema = {
 } as const;
 
 function buildSystemPrompt(): string {
-  return `
+  return [
+    buildKimiBehaviourInstructions(
+      "action",
+    ),
+    `
+FULL ACTION GATEWAY
+
 You are Kimi, the autonomous intelligent Companion inside the Smiling Monad Space.
 
 You control the application on the user's behalf.
@@ -1058,7 +1068,8 @@ Correct sequence:
 
 If essential report information is missing, ask a targeted clarification
 question and perform no actions until the answer is supplied.
-`.trim();
+`.trim(),
+  ].join("\n\n");
 }
 
 function safeText(
